@@ -26,6 +26,7 @@ export class GatewayManager {
     private readonly logs: LogStore,
     private readonly spawnGateway: SpawnGateway = defaultSpawnGateway,
     private readonly clock: () => string = () => new Date().toISOString(),
+    private readonly forceKillTimeoutMs: number = STOP_FORCE_TIMEOUT_MS,
   ) {}
 
   async start(): Promise<GatewayStatus> {
@@ -76,14 +77,17 @@ export class GatewayManager {
         void this.logs.append('gateway', `Force stopping hermes gateway pid=${child.pid ?? 'unknown'}`);
         child.kill('SIGKILL');
       }
-    }, STOP_FORCE_TIMEOUT_MS);
+    }, this.forceKillTimeoutMs);
     this.stopTimer.unref();
 
     return this.status();
   }
 
   async restart(): Promise<GatewayStatus> {
+    const stoppingChild = this.child;
+
     await this.stop();
+    await this.waitForChildExit(stoppingChild);
 
     return this.start();
   }
@@ -159,6 +163,18 @@ export class GatewayManager {
       clearTimeout(this.stopTimer);
       this.stopTimer = null;
     }
+  }
+
+  private waitForChildExit(child: ChildProcessWithoutNullStreams | null): Promise<void> {
+    if (child === null || this.child !== child) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      child.once('exit', () => {
+        resolve();
+      });
+    });
   }
 
   private formatCause(cause: unknown): string {

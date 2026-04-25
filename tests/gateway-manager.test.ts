@@ -93,4 +93,39 @@ describe('GatewayManager', () => {
       lastError: null,
     });
   });
+
+  it('waits for asynchronous child exit before restart spawns another gateway', async () => {
+    const firstChild = createFakeChild(1234);
+    const secondChild = createFakeChild(5678);
+    const spawnGateway: SpawnGateway = vi.fn()
+      .mockReturnValueOnce(firstChild)
+      .mockReturnValueOnce(secondChild);
+    const manager = createManager(spawnGateway);
+
+    await manager.start();
+
+    const restart = manager.restart().then(
+      (status) => ({ ok: true as const, status }),
+      (cause: unknown) => ({ ok: false as const, cause }),
+    );
+    await vi.waitFor(() => {
+      expect(firstChild.kill).toHaveBeenCalledWith('SIGTERM');
+    });
+
+    expect(spawnGateway).toHaveBeenCalledTimes(1);
+
+    firstChild.emit('exit', 0, null);
+
+    const result = await restart;
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: {
+        state: 'running',
+        pid: 5678,
+      },
+    });
+    expect(spawnGateway).toHaveBeenCalledTimes(2);
+    expect(spawnGateway).toHaveBeenLastCalledWith('hermes', ['gateway'], { cwd: '/workspace/project' });
+  });
 });
