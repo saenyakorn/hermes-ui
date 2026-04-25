@@ -1,6 +1,13 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, open, writeFile } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(utc);
+
+const LOG_TAIL_CHUNK_SIZE = 64 * 1024;
+const LINE_BREAK_PATTERN = /\r\n|\n|\r/;
 
 export type LogChannel = 'gateway' | 'stdout' | 'stderr' | 'health' | 'warning';
 export type Clock = () => string;
@@ -22,28 +29,48 @@ export class LogStore {
 
   async append(channel: LogChannel, message: string): Promise<void> {
     const timestamp = this.clock();
-    const line = this.formatLine(timestamp, channel, message);
+    const lines = this.splitMessage(message).map((line) => this.formatLine(timestamp, channel, line));
+
+    if (lines.length === 0) {
+      this.warning = null;
+      return;
+    }
 
     try {
       await mkdir(this.logsDir, { recursive: true });
-      await writeFile(this.getLogFilePath(timestamp), `${line}\n`, { flag: 'a' });
+      await writeFile(this.getLogFilePath(timestamp), `${lines.join('\n')}\n`, { flag: 'a' });
       this.warning = null;
-      this.emit(line);
     } catch (cause: unknown) {
       this.warning = this.formatWarning(cause);
       this.emit(this.formatLine(this.clock(), 'warning', this.warning));
+      return;
+    }
+
+    for (const line of lines) {
+      this.emit(line);
     }
   }
 
   async tail(limit: number): Promise<LogTailResult> {
     const timestamp = this.clock();
+    const normalizedLimit = Math.max(0, limit);
+
+    if (normalizedLimit === 0) {
+      return {
+        lines: [],
+        warning: this.warning,
+      };
+    }
+
+    let fileHandle: FileHandle | null = null;
 
     try {
-      const content = await readFile(this.getLogFilePath(timestamp), 'utf8');
-      const lines = content.split('\n').filter((line) => line.length > 0);
+      fileHandle = await open(this.getLogFilePath(timestamp), 'r');
+      const stats = await fileHandle.stat();
+      const lines = await this.readTailLines(fileHandle, stats.size, normalizedLimit);
 
       return {
-        lines: lines.slice(-Math.max(0, limit)),
+        lines,
         warning: this.warning,
       };
     } catch (cause: unknown) {
@@ -53,6 +80,8 @@ export class LogStore {
         lines: [],
         warning,
       };
+    } finally {
+      await fileHandle?.close();
     }
   }
 
@@ -69,11 +98,42 @@ export class LogStore {
   }
 
   private getLogFilePath(timestamp: string): string {
-    return path.join(this.logsDir, `${dayjs(timestamp).format('YYYY-MM-DD')}.log`);
+    return path.join(this.logsDir, `${dayjs(timestamp).utc().format('YYYY-MM-DD')}.log`);
   }
 
   private formatLine(timestamp: string, channel: LogChannel, message: string): string {
     return `[${timestamp}] [${channel}] ${message}`;
+  }
+
+  private splitMessage(message: string): string[] {
+    return message.split(LINE_BREAK_PATTERN).filter((line) => line.length > 0);
+  }
+
+  private splitLogContent(content: string): string[] {
+    return content.split(LINE_BREAK_PATTERN).filter((line) => line.length > 0);
+  }
+
+  private async readTailLines(fileHandle: FileHandle, fileSize: number, limit: number): Promise<string[]> {
+    let position = fileSize;
+    let content = '';
+    let lines: string[] = [];
+
+    while (position > 0 && lines.length <= limit) {
+      const readSize = Math.min(LOG_TAIL_CHUNK_SIZE, position);
+      position -= readSize;
+
+      const buffer = Buffer.allocUnsafe(readSize);
+      const result = await fileHandle.read(buffer, 0, readSize, position);
+
+      if (result.bytesRead === 0) {
+        break;
+      }
+
+      content = `${buffer.subarray(0, result.bytesRead).toString('utf8')}${content}`;
+      lines = this.splitLogContent(content);
+    }
+
+    return lines.slice(-limit);
   }
 
   private formatWarning(cause: unknown): string {
@@ -86,7 +146,11 @@ export class LogStore {
 
   private emit(line: string): void {
     for (const listener of this.listeners) {
-      listener(line);
+      try {
+        listener(line);
+      } catch {
+        // Listener failures must not affect log persistence or other listeners.
+      }
     }
   }
 }
