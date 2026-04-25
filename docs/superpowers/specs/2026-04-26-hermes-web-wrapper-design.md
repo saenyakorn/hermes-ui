@@ -4,12 +4,12 @@ Date: 2026-04-26
 
 ## Goal
 
-Build a web app wrapper for Hermes Agent that lets an authenticated operator manage the Hermes gateway process and use an interactive Hermes CLI session from the browser.
+Build a web app wrapper for Hermes Agent that lets an authenticated operator manage the Hermes gateway process and use an interactive shell session from the browser.
 
 The first implementation should include:
 
 - Gateway controller for start, stop, restart, status, and health checks.
-- Interactive terminal connected to a separate `hermes` CLI process.
+- Interactive terminal connected to a separate `bash` shell process.
 - Persistent gateway logs under `data/logs/`.
 - A dark Framer-inspired dashboard that follows `DESIGN.md`.
 
@@ -38,7 +38,7 @@ Hono routes render the dashboard and API responses. UI components live under `sr
 Core modules:
 
 - `gateway-manager.ts`: owns the single managed `hermes gateway` process.
-- `terminal-manager.ts`: owns per-socket interactive `hermes` PTY sessions.
+- `terminal-manager.ts`: owns per-socket interactive `bash` PTY sessions.
 - `log-store.ts`: appends and tails gateway log files.
 - `auth.ts`: enforces Basic Auth for HTTP, static assets, SSE, and Socket.io.
 - `env.ts`: validates environment variables with zod.
@@ -125,7 +125,7 @@ The interactive terminal is separate from the gateway controller.
 Command:
 
 ```bash
-hermes
+bash
 ```
 
 Working directory:
@@ -136,12 +136,12 @@ data/
 
 Behavior:
 
-- Each browser terminal session spawns a `node-pty` process running `hermes`.
+- Each browser terminal session spawns a `node-pty` process running `bash`.
 - The terminal does not attach to the managed `hermes gateway` process.
 - The gateway process and terminal process may run at the same time.
 - Multiple browser tabs may each create their own PTY session.
 - Socket disconnect kills that socket's PTY after a short grace period.
-- Missing `hermes` binary prints a clear terminal error and exits the PTY session.
+- Missing `bash` binary prints a clear terminal error and exits the PTY session.
 
 Socket.io events:
 
@@ -219,7 +219,7 @@ First screen is the product UI, not a marketing page.
 Layout:
 
 - Left panel: gateway status, health, actions, process details, and recent gateway log tail.
-- Right panel: interactive terminal running `hermes`.
+- Right panel: interactive terminal running `bash`.
 
 Left panel content:
 
@@ -252,7 +252,8 @@ Expected errors should produce clear operator-facing messages and structured pin
 Cases:
 
 - Invalid env: fail boot with zod validation output.
-- Missing `hermes`: action returns error; terminal prints error.
+- Missing `hermes`: gateway action returns error.
+- Missing `bash`: terminal prints error.
 - Duplicate gateway start: reject with current process state.
 - Stop while stopped: return current state.
 - Health timeout: mark `unreachable`.
