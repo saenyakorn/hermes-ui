@@ -1,7 +1,8 @@
 import pino from 'pino';
+import type { AppLogLevel } from '../types';
 
-export function createLogger() {
-  return pino({ level: process.env.LOG_LEVEL ?? 'info' });
+export function createLogger(logLevel: AppLogLevel) {
+  return pino({ level: logLevel });
 }
 
 export type AppLogger = ReturnType<typeof createLogger>;

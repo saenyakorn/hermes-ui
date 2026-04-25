@@ -11,9 +11,19 @@ export type GatewayHealthState =
   | 'unreachable'
   | 'unknown';
 
+export type AppLogLevel =
+  | 'trace'
+  | 'debug'
+  | 'info'
+  | 'warn'
+  | 'error'
+  | 'fatal'
+  | 'silent';
+
 export type AppEnv = {
   adminUsername: string;
   adminPassword: string;
+  logLevel: AppLogLevel;
   port: number;
 };
 
