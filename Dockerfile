@@ -1,15 +1,22 @@
-FROM node:20-slim
-
-# Install hermes CLI (mocking for now as we don't have the binary, 
-# but in real scenario this would install the actual hermes tool)
-# For now, let's create a mock hermes script in /usr/local/bin
-RUN echo '#!/bin/bash\necho "Hermes Mock Gateway Started"\nsleep infinity' > /usr/local/bin/hermes \
-    && chmod +x /usr/local/bin/hermes
-
+FROM node:20-slim AS deps
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci
+
+FROM deps AS build
 COPY . .
+RUN npm run build
+RUN npm prune --omit=dev
+
+FROM node:20-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
 ENV PORT=3000
 EXPOSE 3000
-CMD ["node", "server/index.js"]
+CMD ["node", "dist/index.js"]
