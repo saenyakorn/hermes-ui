@@ -1,0 +1,96 @@
+import { EventEmitter } from 'node:events';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { PassThrough } from 'node:stream';
+import type { ChildProcessWithoutNullStreams } from 'node:child_process';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GatewayManager, type SpawnGateway } from '../src/server/services/gateway-manager';
+import { LogStore } from '../src/server/services/log-store';
+
+type FakeChildProcess = ChildProcessWithoutNullStreams & {
+  readonly kill: ReturnType<typeof vi.fn<(signal?: NodeJS.Signals | number) => boolean>>;
+};
+
+let tmpDir = '';
+
+beforeEach(async () => {
+  tmpDir = await mkdtemp(path.join(os.tmpdir(), 'hermes-gateway-manager-'));
+});
+
+afterEach(async () => {
+  await rm(tmpDir, { recursive: true, force: true });
+  vi.useRealTimers();
+});
+
+function createFakeChild(pid: number): FakeChildProcess {
+  const kill = vi.fn(() => true);
+
+  return Object.assign(new EventEmitter(), {
+    pid,
+    stdin: new PassThrough(),
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    kill,
+  }) as unknown as FakeChildProcess;
+}
+
+function createManager(spawnGateway: SpawnGateway): GatewayManager {
+  return new GatewayManager(
+    '/workspace/project',
+    new LogStore(tmpDir, () => '2026-04-26T10:30:00.000Z'),
+    spawnGateway,
+    () => '2026-04-26T10:30:00.000Z',
+  );
+}
+
+describe('GatewayManager', () => {
+  it('starts hermes gateway once in the configured cwd', async () => {
+    const child = createFakeChild(1234);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway);
+
+    const status = await manager.start();
+
+    expect(spawnGateway).toHaveBeenCalledTimes(1);
+    expect(spawnGateway).toHaveBeenCalledWith('hermes', ['gateway'], { cwd: '/workspace/project' });
+    expect(status).toMatchObject({
+      state: 'running',
+      health: 'unknown',
+      pid: 1234,
+      cwd: '/workspace/project',
+      startedAt: '2026-04-26T10:30:00.000Z',
+      exitCode: null,
+      lastError: null,
+    });
+  });
+
+  it('rejects duplicate start while gateway is running', async () => {
+    const child = createFakeChild(1234);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway);
+
+    await manager.start();
+
+    await expect(manager.start()).rejects.toThrow('Gateway already running');
+    expect(spawnGateway).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns stopped when stopping an already stopped gateway', async () => {
+    const spawnGateway: SpawnGateway = vi.fn(() => createFakeChild(1234));
+    const manager = createManager(spawnGateway);
+
+    const status = await manager.stop();
+
+    expect(spawnGateway).not.toHaveBeenCalled();
+    expect(status).toMatchObject({
+      state: 'stopped',
+      health: 'unknown',
+      pid: null,
+      cwd: '/workspace/project',
+      startedAt: null,
+      exitCode: null,
+      lastError: null,
+    });
+  });
+});
