@@ -231,16 +231,16 @@ Framer's elevation system is inverted from traditional light-theme designs. Inst
 - Elevation Ring: Blue Glow (`rgba(0, 153, 255, 0.15)`)
 
 ### Example Component Prompts
-- "Create a hero section on pure black background with 110px GT Walsheim heading in white, letter-spacing -5.5px, line-height 0.85, and a pill-shaped white CTA button (100px radius) with black text"
-- "Design a feature card on black background with a 1px Framer Blue ring shadow border (rgba(0,153,255,0.15)), 12px border-radius, white heading in Inter at 22px weight 700, and muted silver (a6a6a6) body text"
-- "Build a navigation bar with black background, white Inter text links at 15px, and a frosted pill button (rgba(255,255,255,0.1) background, 40px radius) as the CTA"
+- "Create a hero section on pure black background with 110px Google Sans heading in white, letter-spacing -5.5px, line-height 0.85, and a pill-shaped white CTA button (100px radius) with black text"
+- "Design a feature card on black background with a 1px Framer Blue ring shadow border (rgba(0,153,255,0.15)), 12px border-radius, white heading in Google Sans at 22px weight 700, and muted silver (a6a6a6) body text"
+- "Build a navigation bar with black background, white Google Sans text links at 15px, and a frosted pill button (rgba(255,255,255,0.1) background, 40px radius) as the CTA"
 - "Create a product showcase section with a full-width screenshot embedded on black, 10px border-radius, subtle multi-layer shadow (white 0.5px top highlight + rgba(0,0,0,0.25) 30px ambient)"
-- "Design a pricing card using pure black surface, Framer Blue (#0099ff) accent for the selected plan border, white text hierarchy (24px Inter bold heading, 14px regular body), and a solid white pill CTA button"
+- "Design a pricing card using pure black surface, Framer Blue (#0099ff) accent for the selected plan border, white text hierarchy (24px Google Sans bold heading, 14px regular body), and a solid white pill CTA button"
 
 ### Iteration Guide
 When refining existing screens generated with this design system:
 1. Focus on ONE component at a time — the dark canvas makes each element precious
-2. Always verify letter-spacing on GT Walsheim headings — the extreme negative tracking is non-negotiable
+2. Always verify letter-spacing on Google Sans headings — the extreme negative tracking is non-negotiable
 3. Check that Framer Blue appears ONLY on interactive elements — never as decorative background or text color for non-links
 4. Ensure all buttons are pill-shaped — any squared corner immediately breaks the Framer aesthetic
 5. Test frosted glass surfaces by checking they have exactly `rgba(255, 255, 255, 0.1)` — too opaque looks like a bug, too transparent disappears
