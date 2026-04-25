@@ -4,18 +4,18 @@
 
 Framer's website is a cinematic, tool-obsessed dark canvas that radiates the confidence of a design tool built by designers who worship craft. The entire experience is drenched in pure black — not a warm charcoal or a cozy dark gray, but an absolute void (`#000000`) that makes every element, every screenshot, every typographic flourish feel like it's floating in deep space. This is a website that treats its own product UI as the hero art, embedding full-fidelity screenshots and interactive demos directly into the narrative flow.
 
-The typography is the signature move: GT Walsheim with aggressively tight letter-spacing (as extreme as -5.5px on 110px display text) creates headlines that feel compressed, kinetic, almost spring-loaded — like words under pressure that might expand at any moment. The transition to Inter for body text is seamless, with extensive OpenType feature usage (`cv01`, `cv05`, `cv09`, `cv11`, `ss03`, `ss07`) that gives even small text a refined, custom feel. Framer Blue (`#0099ff`) is deployed sparingly but decisively — as link color, border accents, and subtle ring shadows — creating a cold, electric throughline against the warm-less black.
+The typography is the signature move: Google Sans with aggressively tight letter-spacing (as extreme as -5.5px on 110px display text) creates headlines that feel compressed, kinetic, almost spring-loaded — like words under pressure that might expand at any moment. The transition into Google Sans for body text is seamless, with clean geometric forms that keep even small text refined and product-focused. Framer Blue (`#0099ff`) is deployed sparingly but decisively — as link color, border accents, and subtle ring shadows — creating a cold, electric throughline against the warm-less black.
 
 The overall effect is a nightclub for web designers: dark, precise, seductive, and unapologetically product-forward. Every section exists to showcase what the tool can do, with the website itself serving as proof of concept.
 
 **Key Characteristics:**
 - Pure black (`#000000`) void canvas — absolute dark, not warm or gray-tinted
-- GT Walsheim display font with extreme negative letter-spacing (-5.5px at 110px)
+- Google Sans display font with extreme negative letter-spacing (-5.5px at 110px)
 - Framer Blue (`#0099ff`) as the sole accent color — cold, electric, precise
 - Pill-shaped buttons (40px–100px radius) — no sharp corners on interactive elements
 - Product screenshots as hero art — the tool IS the marketing
 - Frosted glass button variants using `rgba(255, 255, 255, 0.1)` on dark surfaces
-- Extensive OpenType feature usage across Inter for refined micro-typography
+- Google Sans across display, body, and UI for refined micro-typography
 
 ## 2. Color Palette & Roles
 
@@ -50,8 +50,8 @@ The overall effect is a nightclub for web designers: dark, precise, seductive, a
 ## 3. Typography Rules
 
 ### Font Family
-- **Display**: `GT Walsheim Framer Medium` / `GT Walsheim Medium` — custom geometric sans-serif, weight 500. Fallbacks: `GT Walsheim Framer Medium Placeholder`, system sans-serif
-- **Body/UI**: `Inter Variable` / `Inter` — variable sans-serif with extensive OpenType features. Fallbacks: `Inter Placeholder`, `-apple-system`, `system-ui`
+- **Display**: `Google Sans` — geometric sans-serif, weight 500. Fallbacks: `Product Sans`, `-apple-system`, `BlinkMacSystemFont`, `system-ui`, sans-serif
+- **Body/UI**: `Google Sans` — clean product sans-serif for navigation, forms, cards, and long-form body text. Fallbacks: `Product Sans`, `-apple-system`, `BlinkMacSystemFont`, `system-ui`, sans-serif
 - **Accent**: `Mona Sans` — GitHub's open-source font, used for select elements at ultra-light weight (100)
 - **Monospace**: `Azeret Mono` — companion mono for code and technical labels
 - **Rounded**: `Open Runde` — small rounded companion font for micro-labels
@@ -60,29 +60,29 @@ The overall effect is a nightclub for web designers: dark, precise, seductive, a
 
 | Role | Font | Size | Weight | Line Height | Letter Spacing | Notes |
 |------|------|------|--------|-------------|----------------|-------|
-| Display Hero | GT Walsheim Framer Medium | 110px | 500 | 0.85 | -5.5px | Extreme negative tracking, compressed impact |
-| Section Display | GT Walsheim Medium | 85px | 500 | 0.95 | -4.25px | OpenType: ss02, tnum |
-| Section Heading | GT Walsheim Medium | 62px | 500 | 1.00 | -3.1px | OpenType: ss02 |
-| Feature Heading | GT Walsheim Medium | 32px | 500 | 1.13 | -1px | Tightest of the smaller headings |
+| Display Hero | Google Sans | 110px | 500 | 0.85 | -5.5px | Extreme negative tracking, compressed impact |
+| Section Display | Google Sans | 85px | 500 | 0.95 | -4.25px | Tight geometric display |
+| Section Heading | Google Sans | 62px | 500 | 1.00 | -3.1px | Compressed section emphasis |
+| Feature Heading | Google Sans | 32px | 500 | 1.13 | -1px | Tightest of the smaller headings |
 | Accent Display | Mona Sans | 61.5px | 100 | 1.00 | -3.1px | Ultra-light weight, ethereal |
-| Card Title | Inter Variable | 24px | 400 | 1.30 | -0.01px | OpenType: cv01, cv05, cv09, cv11, ss03, ss07 |
-| Feature Title | Inter | 22px | 700 | 1.20 | -0.8px | OpenType: cv05 |
-| Sub-heading | Inter | 20px | 600 | 1.20 | -0.8px | OpenType: cv01, cv09 |
-| Body Large | Inter Variable | 18px | 400 | 1.30 | -0.01px | OpenType: cv01, cv05, cv09, cv11, ss03, ss07 |
-| Body | Inter Variable | 15px | 400 | 1.30 | -0.01px | OpenType: cv11 |
-| Nav/UI | Inter Variable | 15px | 400 | 1.00 | -0.15px | OpenType: cv06, cv11, dlig, ss03 |
-| Body Readable | Inter Framer Regular | 14px | 400 | 1.60 | normal | Long-form body text |
-| Caption | Inter Variable | 14px | 400 | 1.40 | normal | OpenType: cv01, cv06, cv09, cv11, ss03, ss07 |
-| Label | Inter | 13px | 500 | 1.60 | normal | OpenType: cv06, cv11, ss03 |
-| Small Caption | Inter Variable | 12px | 400 | 1.40 | normal | OpenType: cv01, cv06, cv09, cv11, ss03, ss07 |
+| Card Title | Google Sans | 24px | 400 | 1.30 | -0.01px | Refined card heading |
+| Feature Title | Google Sans | 22px | 700 | 1.20 | -0.8px | Strong feature label |
+| Sub-heading | Google Sans | 20px | 600 | 1.20 | -0.8px | Compact supporting heading |
+| Body Large | Google Sans | 18px | 400 | 1.30 | -0.01px | Product-focused body copy |
+| Body | Google Sans | 15px | 400 | 1.30 | -0.01px | Default body text |
+| Nav/UI | Google Sans | 15px | 400 | 1.00 | -0.15px | Navigation and compact UI |
+| Body Readable | Google Sans | 14px | 400 | 1.60 | normal | Long-form body text |
+| Caption | Google Sans | 14px | 400 | 1.40 | normal | Secondary supporting text |
+| Label | Google Sans | 13px | 500 | 1.60 | normal | Form labels and metadata |
+| Small Caption | Google Sans | 12px | 400 | 1.40 | normal | Dense supporting text |
 | Micro Code | Azeret Mono | 10.4px | 400 | 1.60 | normal | OpenType: cv06, cv11, ss03 |
 | Badge | Open Runde | 9px | 600 | 1.11 | normal | OpenType: cv01, cv09 |
-| Micro Uppercase | Inter Variable | 7px | 400 | 1.00 | 0.21px | uppercase transform |
+| Micro Uppercase | Google Sans | 7px | 400 | 1.00 | 0.21px | uppercase transform |
 
 ### Principles
-- **Compression as personality**: GT Walsheim's extreme negative letter-spacing (-5.5px at 110px) is the defining typographic gesture — headlines feel spring-loaded, urgent, almost breathless
-- **OpenType maximalism**: Inter is deployed with 6+ OpenType features simultaneously (`cv01`, `cv05`, `cv09`, `cv11`, `ss03`, `ss07`), creating a subtly custom feel even at body sizes
-- **Weight restraint on display**: All GT Walsheim usage is weight 500 (medium) — never bold, never regular. This creates a confident-but-not-aggressive display tone
+- **Compression as personality**: Google Sans with extreme negative letter-spacing (-5.5px at 110px) is the defining typographic gesture — headlines feel spring-loaded, urgent, almost breathless
+- **Google Sans consistency**: Google Sans is deployed across display, body, and UI text, creating a cohesive product-system feel from hero copy down to small labels
+- **Weight restraint on display**: Display Google Sans usage is weight 500 (medium) — never bold, never regular. This creates a confident-but-not-aggressive display tone
 - **Ultra-tight line heights**: Display text at 0.85 line-height means letters nearly overlap vertically — intentional density that rewards reading at arm's length
 
 ## 4. Component Stylings
@@ -107,7 +107,7 @@ The overall effect is a nightclub for web designers: dark, precise, seductive, a
 
 ### Navigation
 - **Dark floating nav bar**: Black background with frosted glass effect, white text links
-- **Nav links**: Inter at 15px, weight 400, white text with subtle hover opacity change
+- **Nav links**: Google Sans at 15px, weight 400, white text with subtle hover opacity change
 - **CTA button**: Pill-shaped, white or frosted, positioned at right end of nav
 - **Mobile**: Collapses to hamburger menu, maintains dark theme
 - **Sticky behavior**: Nav remains fixed at top on scroll
@@ -173,18 +173,18 @@ Framer's elevation system is inverted from traditional light-theme designs. Inst
 
 ### Do
 - Use pure black (`#000000`) as the primary background — not dark gray, not charcoal
-- Apply extreme negative letter-spacing on GT Walsheim display text (-3px to -5.5px)
+- Apply extreme negative letter-spacing on Google Sans display text (-3px to -5.5px)
 - Keep all buttons pill-shaped (40px+ radius) — never use squared or slightly-rounded buttons
 - Use Framer Blue (`#0099ff`) exclusively for interactive accents — links, borders, focus states
 - Deploy `rgba(255, 255, 255, 0.1)` for frosted glass surfaces on dark backgrounds
-- Maintain GT Walsheim at weight 500 only — the medium weight IS the brand
-- Use extensive OpenType features on Inter text (cv01, cv05, cv09, cv11, ss03, ss07)
+- Maintain display Google Sans at weight 500 only — the medium weight IS the brand
+- Use Google Sans consistently for display, body, navigation, captions, and labels
 - Let product screenshots be the visual centerpiece — the tool markets itself
 - Apply blue ring shadows (`rgba(0, 153, 255, 0.15) 0px 0px 0px 1px`) for card containment
 
 ### Don't
 - Use warm dark backgrounds (no `#1a1a1a`, `#2d2d2d`, or brownish blacks)
-- Apply bold (700+) weight to GT Walsheim display text — medium 500 only
+- Apply bold (700+) weight to Google Sans display text — medium 500 only
 - Introduce additional accent colors beyond Framer Blue — this is a one-accent-color system
 - Use large border-radius on non-interactive elements (cards use 10px–15px, only buttons get 40px+)
 - Add decorative imagery, illustrations, or icons — the product IS the illustration

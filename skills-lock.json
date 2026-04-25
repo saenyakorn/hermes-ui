@@ -7,17 +7,17 @@
       "computedHash": "8df9b47092524833138b58682d03f2e153a242e550d1693657afdbee0cc9cdb0"
     },
     "caveman": {
-      "source": "juliusbrussee/caveman",
+      "source": "JuliusBrussee/caveman",
       "sourceType": "github",
       "computedHash": "a818cdc41dcfaa50dd891c5cb5e5705968338de02e7e37949ca56e8c30ad4176"
     },
     "caveman-commit": {
-      "source": "juliusbrussee/caveman",
+      "source": "JuliusBrussee/caveman",
       "sourceType": "github",
       "computedHash": "76994afc39b68f4dbe098df76262b68d9928a23ee0f6aaebb11ba0e0f55bfa13"
     },
     "caveman-help": {
-      "source": "juliusbrussee/caveman",
+      "source": "JuliusBrussee/caveman",
       "sourceType": "github",
       "computedHash": "3cd5f7d3f88c8ef7b16a6555dc61f5a11b14151386697609ab6887ab8b5f059d"
     },
