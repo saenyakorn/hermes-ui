@@ -20,6 +20,7 @@ export class GatewayManager {
   private exitCode: number | null = null;
   private lastError: string | null = null;
   private stopTimer: NodeJS.Timeout | null = null;
+  private controlledShutdownChild: ChildProcessWithoutNullStreams | null = null;
 
   constructor(
     private readonly cwd: string,
@@ -68,6 +69,7 @@ export class GatewayManager {
     const child = this.child;
 
     this.state = 'stopping';
+    this.controlledShutdownChild = child;
     await this.logs.append('gateway', `Stopping hermes gateway pid=${child.pid ?? 'unknown'}`);
     child.kill('SIGTERM');
 
@@ -136,14 +138,18 @@ export class GatewayManager {
       }
 
       this.clearStopTimer();
+      const controlledShutdown = this.controlledShutdownChild === child;
+      this.controlledShutdownChild = null;
       this.child = null;
       this.exitCode = code;
-      this.state = code === 0 ? 'stopped' : 'crashed';
+      this.state = controlledShutdown || code === 0 ? 'stopped' : 'crashed';
 
-      if (code !== 0) {
+      if (this.state === 'crashed') {
         this.lastError = signal === null
           ? `Gateway exited with code ${code ?? 'unknown'}`
           : `Gateway exited with signal ${signal}`;
+      } else {
+        this.lastError = null;
       }
 
       void this.logs.append('gateway', `Gateway exited code=${code ?? 'null'} signal=${signal ?? 'null'}`);

@@ -128,4 +128,39 @@ describe('GatewayManager', () => {
     expect(spawnGateway).toHaveBeenCalledTimes(2);
     expect(spawnGateway).toHaveBeenLastCalledWith('hermes', ['gateway'], { cwd: '/workspace/project' });
   });
+
+  it('marks SIGTERM from controlled stop as stopped', async () => {
+    const child = createFakeChild(1234);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway);
+
+    await manager.start();
+    await manager.stop();
+
+    child.emit('exit', null, 'SIGTERM');
+
+    expect(manager.status()).toMatchObject({
+      state: 'stopped',
+      pid: null,
+      exitCode: null,
+      lastError: null,
+    });
+  });
+
+  it('marks unexpected SIGTERM as crashed', async () => {
+    const child = createFakeChild(1234);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway);
+
+    await manager.start();
+
+    child.emit('exit', null, 'SIGTERM');
+
+    expect(manager.status()).toMatchObject({
+      state: 'crashed',
+      pid: null,
+      exitCode: null,
+      lastError: 'Gateway exited with signal SIGTERM',
+    });
+  });
 });
