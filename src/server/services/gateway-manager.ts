@@ -45,6 +45,9 @@ export class GatewayManager {
 
       this.child = child;
       this.bindChild(child);
+      if (child.pid === undefined) {
+        await this.waitForSpawn(child);
+      }
       this.state = 'running';
       await this.logs.append('gateway', `Started hermes gateway pid=${child.pid ?? 'unknown'}`);
 
@@ -129,6 +132,13 @@ export class GatewayManager {
 
     child.on('error', (cause: Error) => {
       this.lastError = cause.message;
+      if (this.child === child) {
+        this.clearStopTimer();
+        this.controlledShutdownChild = null;
+        this.child = null;
+        this.startedAt = null;
+        this.state = 'crashed';
+      }
       void this.logs.append('gateway', `Gateway process error: ${cause.message}`);
     });
 
@@ -181,6 +191,13 @@ export class GatewayManager {
       child.once('exit', () => {
         resolve();
       });
+    });
+  }
+
+  private waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {
+    return new Promise((resolve, reject) => {
+      child.once('spawn', resolve);
+      child.once('error', reject);
     });
   }
 

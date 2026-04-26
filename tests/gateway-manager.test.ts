@@ -23,7 +23,7 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-function createFakeChild(pid: number): FakeChildProcess {
+function createFakeChild(pid: number | undefined): FakeChildProcess {
   const kill = vi.fn(() => true);
 
   return Object.assign(new EventEmitter(), {
@@ -163,6 +163,23 @@ describe('GatewayManager', () => {
       pid: null,
       exitCode: null,
       lastError: 'Gateway exited with signal SIGTERM',
+    });
+  });
+
+  it('rejects and clears process state when spawn emits an error', async () => {
+    const child = createFakeChild(undefined);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway);
+    const start = manager.start();
+
+    child.emit('error', new Error('spawn hermes ENOENT'));
+
+    await expect(start).rejects.toThrow('spawn hermes ENOENT');
+    expect(manager.status()).toMatchObject({
+      state: 'crashed',
+      pid: null,
+      startedAt: null,
+      lastError: 'spawn hermes ENOENT',
     });
   });
 });
