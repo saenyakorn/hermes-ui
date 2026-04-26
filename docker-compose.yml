@@ -9,4 +9,4 @@ services:
       - ADMIN_PASSWORD=hermes_secret
       - PORT=3000
     volumes:
-      - ./data:/data
+      - ./data:/app/data
