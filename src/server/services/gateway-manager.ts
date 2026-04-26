@@ -149,6 +149,7 @@ export class GatewayManager {
           ? `Gateway exited with code ${code ?? 'unknown'}`
           : `Gateway exited with signal ${signal}`;
       } else {
+        this.startedAt = null;
         this.lastError = null;
       }
 

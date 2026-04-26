@@ -142,6 +142,8 @@ describe('GatewayManager', () => {
     expect(manager.status()).toMatchObject({
       state: 'stopped',
       pid: null,
+      startedAt: null,
+      uptimeMs: null,
       exitCode: null,
       lastError: null,
     });
