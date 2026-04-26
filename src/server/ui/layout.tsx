@@ -12,6 +12,7 @@ export function Layout({ title, children }: { title: string; children: ReactNode
       </head>
       <body>
         {children}
+        <script type="module" src="/assets/workspace.js" />
         <script type="module" src="/assets/main.js" />
         <script type="module" src="/assets/terminal.js" />
       </body>

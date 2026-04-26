@@ -84,7 +84,7 @@ function createStatusRow(label: string, value: string): HTMLDivElement {
   const row = document.createElement("div");
   const text = document.createTextNode(`${label}: `);
   const valueElement = document.createElement("span");
-  valueElement.className = "text-white";
+  valueElement.className = "text-text";
   valueElement.textContent = value;
   row.append(text, valueElement);
   return row;
@@ -287,6 +287,18 @@ async function initializeConfigEditor(): Promise<void> {
       scrollBeyondLastLine: false,
     });
     configEditor = editorInstance;
+
+    const layoutEditorIfVisible = (): void => {
+      if (container.offsetWidth < 2 || container.offsetHeight < 2) {
+        return;
+      }
+      editorInstance.layout();
+    };
+    const resizeObserver = new ResizeObserver(() => {
+      layoutEditorIfVisible();
+    });
+    resizeObserver.observe(container);
+    layoutEditorIfVisible();
 
     editorInstance.onDidChangeModelContent(() => {
       if (!configLoaded) {

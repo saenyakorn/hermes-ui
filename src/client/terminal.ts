@@ -1,6 +1,23 @@
 import { FitAddon } from "@xterm/addon-fit";
+import type { Socket } from "socket.io-client";
 import { io } from "socket.io-client";
 import { Terminal } from "xterm";
+
+function resizeTerminal(
+  host: HTMLElement,
+  terminal: Terminal,
+  fit: FitAddon,
+  socket: Socket,
+): void {
+  if (host.offsetWidth < 2 || host.offsetHeight < 2) {
+    return;
+  }
+
+  fit.fit();
+  if (socket.connected) {
+    socket.emit("terminal:resize", { cols: terminal.cols, rows: terminal.rows });
+  }
+}
 
 const terminalElement = document.querySelector<HTMLElement>("#terminal");
 
@@ -19,11 +36,12 @@ if (terminalElement) {
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(terminalElement);
-  fit.fit();
 
   const socket = io({
     transports: ["websocket"],
   });
+
+  resizeTerminal(terminalElement, terminal, fit, socket);
 
   terminal.onData((input) => {
     socket.emit("terminal:input", input);
@@ -32,7 +50,7 @@ if (terminalElement) {
   socket.on("connect", () => {
     terminal.writeln("\r\n[connected]\r\n");
     socket.emit("terminal:start");
-    socket.emit("terminal:resize", { cols: terminal.cols, rows: terminal.rows });
+    resizeTerminal(terminalElement, terminal, fit, socket);
   });
 
   socket.on("terminal:output", (data: string) => {
@@ -44,9 +62,13 @@ if (terminalElement) {
   });
 
   window.addEventListener("resize", () => {
-    fit.fit();
-    socket.emit("terminal:resize", { cols: terminal.cols, rows: terminal.rows });
+    resizeTerminal(terminalElement, terminal, fit, socket);
   });
+
+  const observer = new ResizeObserver(() => {
+    resizeTerminal(terminalElement, terminal, fit, socket);
+  });
+  observer.observe(terminalElement);
 
   document.querySelector<HTMLButtonElement>("#terminal-clear")?.addEventListener("click", () => {
     terminal.clear();
