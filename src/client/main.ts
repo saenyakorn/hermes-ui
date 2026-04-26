@@ -8,12 +8,14 @@ import type {
   ConfigReadResult,
   ConfigSaveResponse,
   ConfigValidationIssue,
+  EnvMutationResponse,
+  EnvReadResult,
   GatewayStatus,
   LogTail,
 } from "../server/types";
 
 type GatewayAction = "start" | "stop" | "restart";
-type TabKey = "logs" | "shell" | "config";
+type TabKey = "control" | "logs" | "shell" | "config" | "env";
 
 const queryClient = new QueryClient();
 const gatewayQueryKey = ["gateway-status"] as const;
@@ -23,6 +25,8 @@ let savedConfigContent: string | null = null;
 let configLoaded = false;
 let isSaving = false;
 let shellTerminal: Terminal | null = null;
+let envLoaded = false;
+let envBusy = false;
 const rpcClient = hc<AppType>(window.location.origin);
 
 function main(): void {
@@ -35,6 +39,7 @@ function main(): void {
   void setupLogs();
   void setupConfigEditor();
   void setupTerminal();
+  void setupEnvEditor();
 }
 
 function parseInitialStatus(): GatewayStatus {
@@ -78,12 +83,24 @@ function wireTabs(): void {
     if (tab === "config") {
       configEditor?.layout();
     }
+    if (tab === "env") {
+      const keyInput = document.getElementById("env-key-input");
+      if (keyInput instanceof HTMLInputElement) {
+        keyInput.focus();
+      }
+    }
   };
 
   for (const trigger of Array.from(triggers)) {
     trigger.addEventListener("click", () => {
       const key = trigger.dataset.tabTrigger;
-      if (key === "logs" || key === "shell" || key === "config") {
+      if (
+        key === "control" ||
+        key === "logs" ||
+        key === "shell" ||
+        key === "config" ||
+        key === "env"
+      ) {
         setActiveTab(key);
       }
     });
@@ -453,6 +470,198 @@ async function setupTerminal(): Promise<void> {
   resize();
 }
 
+function setEnvStatus(message: string): void {
+  const status = document.getElementById("env-status");
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+function renderEnvMeta(env: EnvReadResult): void {
+  const path = document.getElementById("env-path");
+  const updatedAt = document.getElementById("env-updated-at");
+  if (path) {
+    path.textContent = env.path;
+  }
+  if (updatedAt) {
+    updatedAt.textContent = env.updatedAt ? `Updated ${env.updatedAt}` : "Not saved yet";
+  }
+}
+
+function renderEnvList(entries: EnvReadResult["entries"]): void {
+  const list = document.getElementById("env-list");
+  if (!(list instanceof HTMLSelectElement)) {
+    return;
+  }
+  const selectedKey = list.value;
+  list.innerHTML = "";
+  for (const entry of entries) {
+    const option = document.createElement("option");
+    option.value = entry.key;
+    option.textContent = `${entry.key}=${entry.maskedValue}`;
+    list.append(option);
+  }
+  if (selectedKey && entries.some((entry) => entry.key === selectedKey)) {
+    list.value = selectedKey;
+  }
+}
+
+function updateEnvButtons(): void {
+  const save = document.getElementById("env-save");
+  const remove = document.getElementById("env-remove");
+  if (save instanceof HTMLButtonElement) {
+    save.disabled = !envLoaded || envBusy;
+  }
+  if (remove instanceof HTMLButtonElement) {
+    remove.disabled = !envLoaded || envBusy;
+  }
+}
+
+function getEnvInput(): { key: string; value: string } | null {
+  const keyInput = document.getElementById("env-key-input");
+  const valueInput = document.getElementById("env-value-input");
+  if (!(keyInput instanceof HTMLInputElement) || !(valueInput instanceof HTMLInputElement)) {
+    return null;
+  }
+  const key = keyInput.value.trim().toUpperCase();
+  const value = valueInput.value;
+  return { key, value };
+}
+
+function setEnvBusy(busy: boolean): void {
+  envBusy = busy;
+  updateEnvButtons();
+}
+
+function wireEnvButtons(): void {
+  const reload = document.getElementById("env-reload");
+  const save = document.getElementById("env-save");
+  const remove = document.getElementById("env-remove");
+  const list = document.getElementById("env-list");
+  const keyInput = document.getElementById("env-key-input");
+  const valueInput = document.getElementById("env-value-input");
+
+  if (reload instanceof HTMLButtonElement) {
+    reload.addEventListener("click", () => {
+      void loadEnvVars();
+    });
+  }
+  if (save instanceof HTMLButtonElement) {
+    save.addEventListener("click", () => {
+      void upsertEnvVar();
+    });
+  }
+  if (remove instanceof HTMLButtonElement) {
+    remove.addEventListener("click", () => {
+      void removeEnvVar();
+    });
+  }
+  if (
+    list instanceof HTMLSelectElement &&
+    keyInput instanceof HTMLInputElement &&
+    valueInput instanceof HTMLInputElement
+  ) {
+    list.addEventListener("change", () => {
+      keyInput.value = list.value;
+      valueInput.value = "";
+    });
+  }
+}
+
+async function setupEnvEditor(): Promise<void> {
+  wireEnvButtons();
+  await loadEnvVars();
+}
+
+async function loadEnvVars(): Promise<void> {
+  envLoaded = false;
+  setEnvStatus("Loading env vars...");
+  updateEnvButtons();
+  try {
+    const env = await getEnvRead();
+    renderEnvMeta(env);
+    renderEnvList(env.entries);
+    envLoaded = true;
+    setEnvStatus("Select key to update. Values are masked.");
+  } catch (cause: unknown) {
+    setEnvStatus(`Failed to load env vars: ${getErrorMessage(cause)}`);
+  } finally {
+    updateEnvButtons();
+  }
+}
+
+async function upsertEnvVar(): Promise<void> {
+  if (!envLoaded || envBusy) {
+    return;
+  }
+  const input = getEnvInput();
+  if (!input) {
+    return;
+  }
+  if (!input.key || !input.value) {
+    setEnvStatus("Key and value required.");
+    return;
+  }
+  if (!/^[A-Z_][A-Z0-9_]*$/.test(input.key)) {
+    setEnvStatus("Invalid key. Use A-Z, 0-9, and underscore.");
+    return;
+  }
+  setEnvBusy(true);
+  setEnvStatus("Saving env var and restarting gateway...");
+  try {
+    const response = await postEnvUpsert(input.key, input.value);
+    applyEnvMutationResponse(response);
+    const valueInput = document.getElementById("env-value-input");
+    if (valueInput instanceof HTMLInputElement) {
+      valueInput.value = "";
+    }
+  } catch (cause: unknown) {
+    setEnvStatus(`Failed to save env var: ${getErrorMessage(cause)}`);
+  } finally {
+    setEnvBusy(false);
+  }
+}
+
+async function removeEnvVar(): Promise<void> {
+  if (!envLoaded || envBusy) {
+    return;
+  }
+  const input = getEnvInput();
+  if (!input || !input.key) {
+    setEnvStatus("Key required to remove.");
+    return;
+  }
+  if (!window.confirm(`Remove ${input.key}?`)) {
+    return;
+  }
+  setEnvBusy(true);
+  setEnvStatus("Removing env var and restarting gateway...");
+  try {
+    const response = await deleteEnvKey(input.key);
+    applyEnvMutationResponse(response);
+    const valueInput = document.getElementById("env-value-input");
+    if (valueInput instanceof HTMLInputElement) {
+      valueInput.value = "";
+    }
+  } catch (cause: unknown) {
+    setEnvStatus(`Failed to remove env var: ${getErrorMessage(cause)}`);
+  } finally {
+    setEnvBusy(false);
+  }
+}
+
+function applyEnvMutationResponse(response: EnvMutationResponse): void {
+  renderEnvMeta(response.env);
+  renderEnvList(response.env.entries);
+  renderGatewayStatus(response.gateway, null);
+  queryClient.setQueryData(gatewayQueryKey, response.gateway);
+  if (response.restart.ok) {
+    setEnvStatus("Env updated. Gateway restarted.");
+    return;
+  }
+  setEnvStatus(`Env updated. Gateway restart failed: ${response.restart.error ?? "Unknown error"}`);
+}
+
 type MonacoApi = typeof import("monaco-editor");
 type MonacoAmdRequire = {
   config: (options: { paths: { vs: string } }) => void;
@@ -544,6 +753,34 @@ async function getConfigRead(): Promise<ConfigReadResult> {
     throw new Error(await getResponseErrorMessage(response));
   }
   return response.json() as Promise<ConfigReadResult>;
+}
+
+async function getEnvRead(): Promise<EnvReadResult> {
+  const response = await rpcClient.env.$get();
+  if (!response.ok) {
+    throw new Error(await getResponseErrorMessage(response));
+  }
+  return response.json() as Promise<EnvReadResult>;
+}
+
+async function postEnvUpsert(key: string, value: string): Promise<EnvMutationResponse> {
+  const response = await rpcClient.env.$post({
+    json: { key, value },
+  });
+  if (!response.ok) {
+    throw new Error(await getResponseErrorMessage(response));
+  }
+  return response.json() as Promise<EnvMutationResponse>;
+}
+
+async function deleteEnvKey(key: string): Promise<EnvMutationResponse> {
+  const response = await rpcClient.env[":key"].$delete({
+    param: { key },
+  });
+  if (!response.ok) {
+    throw new Error(await getResponseErrorMessage(response));
+  }
+  return response.json() as Promise<EnvMutationResponse>;
 }
 
 async function postConfig(content: string): Promise<ConfigSaveResponse> {

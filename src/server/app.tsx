@@ -6,6 +6,7 @@ import type {
   AppEnv,
   ConfigReadResult,
   ConfigSaveResult,
+  EnvReadResult,
   GatewayStatus,
   LogTail,
 } from "./types";
@@ -33,6 +34,11 @@ export type AppServices = {
   gateway: AppGateway;
   logs: AppLogs;
   config: AppConfig;
+  envVars: {
+    read: () => Promise<EnvReadResult>;
+    upsert: (key: string, value: string) => Promise<EnvReadResult>;
+    remove: (key: string) => Promise<EnvReadResult>;
+  };
 };
 
 export function createApp(services: AppServices) {
@@ -144,6 +150,53 @@ export function createApp(services: AppServices) {
         });
       }
     })
+    .get("/env", async (context) => {
+      try {
+        return context.json(await services.envVars.read());
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to read env: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .post("/env", async (context) => {
+      const input = await parseEnvUpsertInput(context.req.json());
+      if (input === null) {
+        return context.json(
+          { error: "Body must include string key and value." },
+          400,
+        );
+      }
+
+      const envResult = await mutateEnv(
+        () => services.envVars.upsert(input.key, input.value),
+      );
+      if (!envResult.ok) {
+        return context.json(
+          { error: `Failed to update env: ${envResult.error}` },
+          500,
+        );
+      }
+
+      return context.json(
+        await withGatewayRestart(services.gateway, envResult.value),
+      );
+    })
+    .delete("/env/:key", async (context) => {
+      const key = context.req.param("key");
+      const envResult = await mutateEnv(() => services.envVars.remove(key));
+      if (!envResult.ok) {
+        return context.json(
+          { error: `Failed to delete env: ${envResult.error}` },
+          500,
+        );
+      }
+
+      return context.json(
+        await withGatewayRestart(services.gateway, envResult.value),
+      );
+    })
     .get("/logs/tail", async (context) =>
       context.json(await services.logs.tail(200)),
     )
@@ -218,6 +271,65 @@ async function saveConfig(
   }
 }
 
+async function parseEnvUpsertInput(
+  bodyPromise: Promise<unknown>,
+): Promise<{ key: string; value: string } | null> {
+  try {
+    const body = await bodyPromise;
+    if (
+      !isRecord(body) ||
+      typeof body.key !== "string" ||
+      typeof body.value !== "string"
+    ) {
+      return null;
+    }
+    return {
+      key: body.key,
+      value: body.value,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function mutateEnv(
+  action: () => Promise<EnvReadResult>,
+): Promise<{ ok: true; value: EnvReadResult } | { ok: false; error: string }> {
+  try {
+    return { ok: true, value: await action() };
+  } catch (cause: unknown) {
+    return { ok: false, error: getErrorMessage(cause) };
+  }
+}
+
+async function withGatewayRestart(
+  gateway: AppGateway,
+  env: EnvReadResult,
+): Promise<{
+  env: EnvReadResult;
+  restart: { attempted: boolean; ok: boolean; error: string | null };
+  gateway: GatewayStatus;
+}> {
+  try {
+    const status = await gateway.restart();
+    return {
+      env,
+      restart: { attempted: true, ok: true, error: null },
+      gateway: status,
+    };
+  } catch (cause: unknown) {
+    return {
+      env,
+      restart: {
+        attempted: true,
+        ok: false,
+        error: getErrorMessage(cause),
+      },
+      gateway: gateway.status(),
+    };
+  }
+}
+
 function getErrorMessage(cause: unknown): string {
   if (cause instanceof Error) {
     return cause.message;
@@ -242,56 +354,19 @@ function renderHtmlDocument(title: string, initialStatus: string): string {
       </head>
       <body>
         <main class="h-screen overflow-x-hidden overflow-y-hidden bg-background text-text">
-          <section class="mx-auto flex h-full min-w-0 max-w-[1400px] flex-col gap-4 p-4 xl:grid xl:grid-cols-[420px_minmax(0,1fr)] xl:grid-rows-1">
-            <aside
-              id="gateway-panel"
-              class="min-w-0 shrink-0 overflow-auto rounded-xl border border-accent-border bg-surface p-5 xl:min-h-0"
-            >
-              <p class="text-xs uppercase text-muted">Gateway</p>
-              <h1 class="mt-2 text-4xl font-medium tracking-[-0.08em]">
-                Hermes Agent
-              </h1>
-              <div
-                class="mt-6 text-sm text-muted"
-                id="gateway-status"
-                data-state="stopped"
-              />
-              <p id="gateway-error" class="mt-2 text-xs text-danger hidden" />
-              <div class="mt-4 flex gap-2">
-                <button
-                  id="start-button"
-                  class="rounded-full bg-text px-4 py-2 text-sm text-background"
-                  hx-post="/gateway/start"
-                  hx-trigger="click"
-                  hx-swap="none"
-                >
-                  Start
-                </button>
-                <button
-                  id="stop-button"
-                  class="rounded-full bg-frosted px-4 py-2 text-sm text-text"
-                  hx-post="/gateway/stop"
-                  hx-trigger="click"
-                  hx-swap="none"
-                >
-                  Stop
-                </button>
-                <button
-                  id="restart-button"
-                  class="rounded-full bg-frosted px-4 py-2 text-sm text-text"
-                  hx-post="/gateway/restart"
-                  hx-trigger="click"
-                  hx-swap="none"
-                >
-                  Restart
-                </button>
-              </div>
-            </aside>
+          <section class="mx-auto flex h-full min-w-0 max-w-[1400px] flex-col gap-4 p-4">
             <section
               id="workspace"
-              class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-accent-border bg-surface p-3 xl:min-h-0"
+              class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-accent-border bg-surface p-3"
             >
               <div class="mb-3 flex shrink-0 gap-2 overflow-x-auto border-b border-frosted pb-3">
+                <button
+                  type="button"
+                  data-tab-trigger="control"
+                  class="rounded-full px-4 py-2 text-sm text-muted"
+                >
+                  Control
+                </button>
                 <button
                   type="button"
                   data-tab-trigger="logs"
@@ -313,7 +388,59 @@ function renderHtmlDocument(title: string, initialStatus: string): string {
                 >
                   Hermes config
                 </button>
+                <button
+                  type="button"
+                  data-tab-trigger="env"
+                  class="rounded-full px-4 py-2 text-sm text-muted"
+                >
+                  Env vars
+                </button>
               </div>
+              <section
+                id="gateway-panel"
+                data-tab-panel="control"
+                class="hidden min-h-0 min-w-0 flex-1 flex-col overflow-auto p-2"
+              >
+                <p class="text-xs uppercase text-muted">Gateway</p>
+                <h1 class="mt-2 text-4xl font-medium tracking-[-0.08em]">
+                  Hermes Agent
+                </h1>
+                <div
+                  class="mt-6 text-sm text-muted"
+                  id="gateway-status"
+                  data-state="stopped"
+                />
+                <p id="gateway-error" class="mt-2 text-xs text-danger hidden" />
+                <div class="mt-4 flex flex-wrap gap-2">
+                  <button
+                    id="start-button"
+                    class="rounded-full bg-text px-4 py-2 text-sm text-background"
+                    hx-post="/gateway/start"
+                    hx-trigger="click"
+                    hx-swap="none"
+                  >
+                    Start
+                  </button>
+                  <button
+                    id="stop-button"
+                    class="rounded-full bg-frosted px-4 py-2 text-sm text-text"
+                    hx-post="/gateway/stop"
+                    hx-trigger="click"
+                    hx-swap="none"
+                  >
+                    Stop
+                  </button>
+                  <button
+                    id="restart-button"
+                    class="rounded-full bg-frosted px-4 py-2 text-sm text-text"
+                    hx-post="/gateway/restart"
+                    hx-trigger="click"
+                    hx-swap="none"
+                  >
+                    Restart
+                  </button>
+                </div>
+              </section>
               <section
                 data-tab-panel="logs"
                 class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -397,6 +524,80 @@ function renderHtmlDocument(title: string, initialStatus: string): string {
                   id="config-issues"
                   class="mt-2 shrink-0 space-y-1 text-xs text-danger"
                 />
+              </section>
+              <section
+                data-tab-panel="env"
+                class="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+              >
+                <div class="mb-3 flex shrink-0 items-center justify-between gap-3">
+                  <div>
+                    <p class="text-xs uppercase text-muted">Environment Variables</p>
+                    <p id="env-path" class="mt-1 text-sm text-text">
+                      data/.env
+                    </p>
+                    <p id="env-updated-at" class="mt-1 text-xs text-muted">
+                      Loading env...
+                    </p>
+                  </div>
+                  <button
+                    id="env-reload"
+                    type="button"
+                    class="rounded-full bg-frosted px-3 py-1 text-xs text-text"
+                  >
+                    Reload
+                  </button>
+                </div>
+                <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
+                  <select
+                    id="env-list"
+                    size={12}
+                    class="min-h-[280px] w-full rounded-lg border border-frosted bg-background p-2 text-xs text-text"
+                  />
+                  <div class="flex min-h-0 flex-col gap-2 rounded-lg border border-frosted bg-background p-3">
+                    <label class="text-xs text-muted" for="env-key-input">
+                      Key
+                    </label>
+                    <input
+                      id="env-key-input"
+                      type="text"
+                      placeholder="OPENAI_API_KEY"
+                      class="rounded-md border border-frosted bg-surface px-2 py-1 text-xs text-text outline-none"
+                    />
+                    <label class="mt-2 text-xs text-muted" for="env-value-input">
+                      Value
+                    </label>
+                    <input
+                      id="env-value-input"
+                      type="password"
+                      placeholder="Enter value"
+                      class="rounded-md border border-frosted bg-surface px-2 py-1 text-xs text-text outline-none"
+                    />
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        id="env-save"
+                        type="button"
+                        class="rounded-full bg-text px-3 py-1 text-xs text-background"
+                      >
+                        Add / Update
+                      </button>
+                      <button
+                        id="env-remove"
+                        type="button"
+                        class="rounded-full bg-frosted px-3 py-1 text-xs text-text"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p
+                  id="env-status"
+                  class="mt-3 shrink-0 text-xs text-muted"
+                  role="status"
+                  aria-live="polite"
+                >
+                  Waiting for env editor...
+                </p>
               </section>
             </section>
           </section>

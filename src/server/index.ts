@@ -6,6 +6,7 @@ import { createApp } from "./app";
 import { loadEnv } from "./config/env";
 import { createLogger } from "./config/logger";
 import { ConfigStore } from "./services/config-store";
+import { EnvStore } from "./services/env-store";
 import { GatewayManager } from "./services/gateway-manager";
 import { LogStore } from "./services/log-store";
 import { createPaths } from "./services/paths";
@@ -22,6 +23,7 @@ export function createRuntime(
   const logs = new LogStore(paths.logsDir);
   const gateway = new GatewayManager(paths.dataDir, logs);
   const config = new ConfigStore(paths.dataDir, logs);
+  const envVars = new EnvStore(paths.dataDir);
   const terminals = new TerminalManager(paths.dataDir);
 
   return {
@@ -31,6 +33,7 @@ export function createRuntime(
     logs,
     gateway,
     config,
+    envVars,
     terminals,
   };
 }
@@ -55,6 +58,7 @@ export async function main(): Promise<void> {
     gateway: runtime.gateway,
     logs: runtime.logs,
     config: runtime.config,
+    envVars: runtime.envVars,
   });
   const server = createServer(getRequestListener(app.fetch));
 

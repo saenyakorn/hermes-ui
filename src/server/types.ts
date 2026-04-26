@@ -60,3 +60,24 @@ export type ConfigSaveResponse = {
   };
   gateway: GatewayStatus;
 };
+
+export type EnvEntry = {
+  key: string;
+  maskedValue: string;
+};
+
+export type EnvReadResult = {
+  path: string;
+  updatedAt: string | null;
+  entries: EnvEntry[];
+};
+
+export type EnvMutationResponse = {
+  env: EnvReadResult;
+  restart: {
+    attempted: boolean;
+    ok: boolean;
+    error: string | null;
+  };
+  gateway: GatewayStatus;
+};

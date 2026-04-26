@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createApp, type AppServices } from "../src/server/app";
-import type { ConfigReadResult, ConfigSaveResult, GatewayStatus } from "../src/server/types";
+import type {
+  ConfigReadResult,
+  ConfigSaveResult,
+  EnvReadResult,
+  GatewayStatus,
+} from "../src/server/types";
 
 const auth = `Basic ${Buffer.from("admin:secret").toString("base64")}`;
 
@@ -43,6 +48,12 @@ const configSave: ConfigSaveResult = {
   saved: true,
 };
 
+const envRead: EnvReadResult = {
+  path: "data/.env",
+  updatedAt: "2026-04-26T10:30:00.000Z",
+  entries: [{ key: "OPENAI_API_KEY", maskedValue: "******ab" }],
+};
+
 function createServices(): AppServices {
   return {
     env: {
@@ -65,6 +76,14 @@ function createServices(): AppServices {
     config: {
       read: vi.fn(async () => configRead),
       save: vi.fn(async () => configSave),
+    },
+    envVars: {
+      read: vi.fn(async () => envRead),
+      upsert: vi.fn(async (key: string, value: string) => ({
+        ...envRead,
+        entries: [{ key, maskedValue: "*".repeat(Math.min(8, value.length)) }],
+      })),
+      remove: vi.fn(async () => envRead),
     },
   };
 }
