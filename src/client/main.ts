@@ -1,3 +1,6 @@
+import loader from "@monaco-editor/loader";
+import type { editor } from "monaco-editor";
+
 type GatewayStatus = {
   state: string;
   health: string;
@@ -15,11 +18,30 @@ type LogTail = {
   warning: string | null;
 };
 
+type ConfigValidationIssue = { message: string; path: string | null };
+type ConfigReadResult = {
+  path: string;
+  content: string;
+  updatedAt: string | null;
+  validation: { ok: boolean; issues: ConfigValidationIssue[] };
+};
+type ConfigSaveResult = ConfigReadResult & { saved: boolean };
+type ConfigSaveResponse = {
+  config: ConfigSaveResult;
+  restart: { attempted: boolean; ok: boolean; error: string | null };
+  gateway: GatewayStatus;
+};
+
+let configEditor: editor.IStandaloneCodeEditor | null = null;
+let savedConfigContent: string | null = null;
+let configLoaded = false;
+let isSavingConfig = false;
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(new URL(url, window.location.origin), init);
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new Error(await getResponseErrorMessage(response));
   }
 
   return response.json() as Promise<T>;
@@ -93,10 +115,233 @@ function bindLogStream(): void {
   });
 }
 
+function setText(selector: string, value: string): void {
+  const target = document.querySelector<HTMLElement>(selector);
+  if (!target) {
+    return;
+  }
+
+  target.textContent = value;
+}
+
+function renderConfigStatus(message: string): void {
+  setText("#config-status", message);
+}
+
+function renderConfigErrors(issues: ConfigValidationIssue[]): void {
+  const target = document.querySelector<HTMLElement>("#config-errors");
+  if (!target) {
+    return;
+  }
+
+  if (issues.length === 0) {
+    target.replaceChildren();
+    return;
+  }
+
+  const list = document.createElement("ul");
+  list.className = "space-y-1";
+  issues.forEach((issue) => {
+    const item = document.createElement("li");
+    item.textContent = issue.path ? `${issue.path}: ${issue.message}` : issue.message;
+    list.append(item);
+  });
+  target.replaceChildren(list);
+}
+
+function updateSaveButton(): void {
+  const saveButton = document.querySelector<HTMLButtonElement>("#config-save");
+  if (!saveButton) {
+    return;
+  }
+
+  saveButton.disabled = !configLoaded || isSavingConfig || !isConfigDirty();
+}
+
+function renderConfigMetadata(config: ConfigReadResult): void {
+  setText("#config-path", config.path);
+  setText("#config-updated-at", config.updatedAt ? `Updated ${config.updatedAt}` : "Not saved yet");
+}
+
+async function loadConfigFromDisk(): Promise<void> {
+  if (!configEditor) {
+    return;
+  }
+
+  configLoaded = false;
+  updateSaveButton();
+  renderConfigStatus("Loading config...");
+  renderConfigErrors([]);
+
+  try {
+    const config = await fetchJson<ConfigReadResult>("/config");
+    savedConfigContent = config.content;
+    configEditor.setValue(config.content);
+    configLoaded = true;
+    renderConfigMetadata(config);
+    renderConfigErrors(config.validation.issues);
+    renderConfigStatus("No unsaved changes.");
+  } catch (cause: unknown) {
+    renderConfigStatus(`Failed to load config: ${getErrorMessage(cause)}`);
+  } finally {
+    updateSaveButton();
+  }
+}
+
+async function saveConfig(): Promise<void> {
+  if (!configEditor || !configLoaded || !isConfigDirty()) {
+    updateSaveButton();
+    return;
+  }
+
+  isSavingConfig = true;
+  updateSaveButton();
+  renderConfigStatus("Saving config...");
+
+  try {
+    const response = await fetchConfigSaveResponse(configEditor.getValue());
+    renderConfigErrors(response.config.validation.issues);
+
+    if (!response.config.saved) {
+      renderConfigMetadata(response.config);
+      renderStatus(response.gateway);
+      renderConfigStatus("Config validation failed. File was not changed.");
+      return;
+    }
+
+    savedConfigContent = response.config.content;
+    renderConfigMetadata(response.config);
+    renderStatus(response.gateway);
+    renderConfigStatus(getRestartStatusMessage(response));
+  } catch (cause: unknown) {
+    renderConfigStatus(`Failed to save config: ${getErrorMessage(cause)}`);
+  } finally {
+    isSavingConfig = false;
+    updateSaveButton();
+  }
+}
+
+async function reloadConfigWithConfirmation(): Promise<void> {
+  if (configLoaded && isConfigDirty() && !window.confirm("Discard unsaved config changes?")) {
+    return;
+  }
+
+  await loadConfigFromDisk();
+}
+
+async function initializeConfigEditor(): Promise<void> {
+  const container = document.querySelector<HTMLElement>("#config-editor");
+  if (!container) {
+    return;
+  }
+
+  try {
+    const monaco = await loader.init();
+    const editorInstance = monaco.editor.create(container, {
+      value: "",
+      language: "yaml",
+      theme: "vs-dark",
+      automaticLayout: true,
+      minimap: { enabled: false },
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      scrollBeyondLastLine: false,
+    });
+    configEditor = editorInstance;
+
+    editorInstance.onDidChangeModelContent(() => {
+      if (!configLoaded) {
+        updateSaveButton();
+        return;
+      }
+
+      renderConfigStatus(isConfigDirty() ? "Unsaved changes." : "No unsaved changes.");
+      updateSaveButton();
+    });
+
+    document.querySelector<HTMLButtonElement>("#config-save")?.addEventListener("click", () => {
+      void saveConfig();
+    });
+    document.querySelector<HTMLButtonElement>("#config-reload")?.addEventListener("click", () => {
+      void reloadConfigWithConfirmation();
+    });
+
+    await loadConfigFromDisk();
+  } catch (cause: unknown) {
+    renderConfigStatus(`Failed to initialize config editor: ${getErrorMessage(cause)}`);
+  }
+}
+
+function isConfigDirty(): boolean {
+  return savedConfigContent !== null && configEditor?.getValue() !== savedConfigContent;
+}
+
+async function fetchConfigSaveResponse(content: string): Promise<ConfigSaveResponse> {
+  const response = await fetch(new URL("/config", window.location.origin), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok && response.status !== 422) {
+    throw new Error(await getResponseErrorMessage(response));
+  }
+
+  return response.json() as Promise<ConfigSaveResponse>;
+}
+
+function getRestartStatusMessage(response: ConfigSaveResponse): string {
+  if (response.restart.attempted && response.restart.ok) {
+    return "Config saved. Gateway restarted.";
+  }
+
+  if (response.restart.attempted) {
+    return `Config saved. Gateway restart failed: ${response.restart.error ?? "Unknown error"}`;
+  }
+
+  return "Config saved. Gateway was stopped, so no restart was needed.";
+}
+
+async function getResponseErrorMessage(response: Response): Promise<string> {
+  const body = await response.text();
+  if (!body) {
+    return `${response.status} ${response.statusText}`;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    if (isErrorResponse(parsed)) {
+      return parsed.error;
+    }
+  } catch {
+    return body;
+  }
+
+  return body;
+}
+
+function isErrorResponse(value: unknown): value is { error: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "error" in value &&
+    typeof value.error === "string"
+  );
+}
+
+function getErrorMessage(cause: unknown): string {
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+
+  return String(cause);
+}
+
 bindActions();
 void refreshStatus();
 void refreshLogs();
 bindLogStream();
+void initializeConfigEditor();
 setInterval(() => {
   void refreshStatus();
 }, 3000);
