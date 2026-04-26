@@ -11,7 +11,7 @@ function getBasicAuthTokenFromLocation(): string | undefined {
 
 export type TerminalActions = { clear: () => void };
 
-export default function Terminal({
+export function Terminal({
   className,
   onReady,
 }: {
@@ -88,12 +88,11 @@ export default function Terminal({
 
         resizeTerminal(terminal, fit, socket);
 
-        const disposeOnData = terminal.onData((input) => {
+        const disposeOnData = terminal.onData((input: string) => {
           socket.emit("terminal:input", input);
         });
 
         const onConnect = () => {
-          terminal.writeln("\r\n[connected]\r\n");
           socket.emit("terminal:start");
           resizeTerminal(terminal, fit, socket);
         };
@@ -159,5 +158,5 @@ export default function Terminal({
     };
   }, [onReady]);
 
-  return createElement("div", { ref: hostRef, className });
+  return createElement("div", { id: "terminal", ref: hostRef, className });
 }

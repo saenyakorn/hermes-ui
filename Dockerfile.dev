@@ -3,7 +3,7 @@ FROM node:20-slim
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 make g++ \
+    && apt-get install -y --no-install-recommends bash build-essential ca-certificates curl git libffi-dev python3 python3-dev xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
@@ -13,7 +13,9 @@ ENV NODE_ENV=development
 ENV PORT=3000
 ENV HERMES_HOME=/app/data
 
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data \
+    && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
+      | bash -s -- --skip-setup --hermes-home /app/data
 
 EXPOSE 3000
 CMD ["npm", "run", "dev"]

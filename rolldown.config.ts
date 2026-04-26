@@ -5,12 +5,11 @@ export default defineConfig([
     input: "src/server/index.ts",
     platform: "node",
     external: ["node-pty"],
-    output: { file: "dist/index.js", format: "esm" },
+    output: { dir: "dist", format: "esm", entryFileNames: "index.js" },
   },
   {
     input: {
-      main: "src/client/main.ts",
-      workspace: "src/client/workspace.tsx",
+      main: "src/client/app.tsx",
     },
     platform: "browser",
     output: { dir: "dist/assets", format: "esm", entryFileNames: "[name].js" },

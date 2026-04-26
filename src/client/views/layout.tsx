@@ -10,11 +10,7 @@ export function Layout({ title, children }: { title: string; children: ReactNode
         <link rel="stylesheet" href="/assets/app.css" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
       </head>
-      <body>
-        {children}
-        <script type="module" src="/assets/workspace.js" />
-        <script type="module" src="/assets/main.js" />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
