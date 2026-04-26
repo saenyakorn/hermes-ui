@@ -5,6 +5,7 @@ import { getRequestListener } from "@hono/node-server";
 import { createApp } from "./app";
 import { loadEnv } from "./config/env";
 import { createLogger } from "./config/logger";
+import { ConfigStore } from "./services/config-store";
 import { GatewayManager } from "./services/gateway-manager";
 import { LogStore } from "./services/log-store";
 import { createPaths } from "./services/paths";
@@ -17,6 +18,7 @@ export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir =
   const paths = createPaths(rootDir);
   const logs = new LogStore(paths.logsDir);
   const gateway = new GatewayManager(paths.dataDir, logs);
+  const config = new ConfigStore(paths.dataDir, logs);
   const terminals = new TerminalManager(paths.dataDir);
 
   return {
@@ -25,6 +27,7 @@ export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir =
     paths,
     logs,
     gateway,
+    config,
     terminals,
   };
 }
@@ -39,6 +42,7 @@ export async function main(): Promise<void> {
     env: runtime.env,
     gateway: runtime.gateway,
     logs: runtime.logs,
+    config: runtime.config,
   });
   const server = createServer(getRequestListener(app.fetch));
 
