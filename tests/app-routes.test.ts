@@ -76,15 +76,17 @@ describe("createApp", () => {
     expect(response.status).toBe(401);
   });
 
-  it("renders dashboard layout with horizontal overflow guards", async () => {
+  it("renders plain HTML shell with htmx and vanilla app script", async () => {
     const response = await createApp(createServices()).request("/", {
       headers: { authorization: auth },
     });
 
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain("overflow-x-hidden");
-    expect(html).toContain("min-w-0");
+    expect(html).toContain('src="/assets/vendor/htmx.min.js"');
+    expect(html).toContain('id="gateway-panel"');
+    expect(html).toContain('id="workspace"');
+    expect(html).toContain('src="/assets/main.js"');
   });
 
   it("returns gateway status JSON", async () => {

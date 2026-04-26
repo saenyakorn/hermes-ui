@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-@source "../server/**/*.tsx";
-@source "../client/**/*.{ts,tsx}";
+@source "../server/**/*.{ts,tsx}";
+@source "../client/**/*.ts";
 
 @theme {
   --color-background: #000000;
