@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigStore } from "../src/server/services/config-store";
 import { LogStore } from "../src/server/services/log-store";
 
@@ -36,6 +36,21 @@ describe("ConfigStore", () => {
     expect(result.updatedAt).not.toBeNull();
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(result.content);
     await expect(readAuditLog()).resolves.toContain("Created starter config at data/config.yaml");
+  });
+
+  it("handles concurrent starter config creation", async () => {
+    const store = createStore();
+
+    const results = await Promise.all(Array.from({ length: 8 }, () => store.read()));
+
+    for (const result of results) {
+      expect(result.path).toBe("data/config.yaml");
+      expect(result.content).toContain("# Hermes Agent config");
+      expect(result.content).toContain("{}");
+      expect(result.updatedAt).not.toBeNull();
+      expect(result.validation).toEqual({ ok: true, issues: [] });
+    }
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(results[0]?.content);
   });
 
   it("reads existing config content and metadata", async () => {
@@ -95,6 +110,20 @@ describe("ConfigStore", () => {
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe("gateway: {}\n");
   });
 
+  it("rejects empty YAML documents without writing", async () => {
+    await writeFile(path.join(tmpDir, "config.yaml"), "gateway: {}\n");
+    const store = createStore();
+
+    const result = await store.save("  \n");
+
+    expect(result.saved).toBe(false);
+    expect(result.validation).toEqual({
+      ok: false,
+      issues: [{ message: "Config root must be a YAML mapping.", path: null }],
+    });
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe("gateway: {}\n");
+  });
+
   it("writes valid config atomically", async () => {
     const store = createStore();
 
@@ -107,6 +136,25 @@ describe("ConfigStore", () => {
       "gateway:\n  port: 8080\n",
     );
     await expect(readAuditLog()).resolves.toContain("Config saved");
+  });
+
+  it("uses unique temporary files for concurrent saves", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_777_777_777);
+    const store = createStore();
+
+    const results = await Promise.all([
+      store.save("gateway:\n  port: 8080\n"),
+      store.save("gateway:\n  port: 9090\n"),
+    ]);
+
+    expect(results).toHaveLength(2);
+    for (const result of results) {
+      expect(result.saved).toBe(true);
+      expect(result.validation).toEqual({ ok: true, issues: [] });
+    }
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toMatch(
+      /^gateway:\n  port: (8080|9090)\n$/,
+    );
   });
 
   it("allows unknown top-level keys for forward compatibility", async () => {

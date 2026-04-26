@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isMap, parseDocument } from "yaml";
@@ -44,7 +45,7 @@ export class ConfigStore {
       };
     }
 
-    const temporaryPath = path.join(this.dataDir, `.config.yaml.${process.pid}.${Date.now()}.tmp`);
+    const temporaryPath = path.join(this.dataDir, `.config.yaml.${randomUUID()}.tmp`);
 
     try {
       await writeFile(temporaryPath, content);
@@ -73,8 +74,14 @@ export class ConfigStore {
         throw cause;
       }
 
-      await writeFile(this.getConfigPath(), STARTER_CONFIG, { flag: "wx" });
-      await this.logs.append("gateway", "Created starter config at data/config.yaml");
+      try {
+        await writeFile(this.getConfigPath(), STARTER_CONFIG, { flag: "wx" });
+        await this.logs.append("gateway", "Created starter config at data/config.yaml");
+      } catch (writeCause: unknown) {
+        if (!this.isFileErrorCode(writeCause, "EEXIST")) {
+          throw writeCause;
+        }
+      }
     }
   }
 
@@ -93,7 +100,7 @@ export class ConfigStore {
       return { ok: false, issues };
     }
 
-    if (document.contents !== null && !isMap(document.contents)) {
+    if (document.contents === null || !isMap(document.contents)) {
       return {
         ok: false,
         issues: [{ message: "Config root must be a YAML mapping.", path: null }],
@@ -122,6 +129,10 @@ export class ConfigStore {
   }
 
   private isMissingFileError(cause: unknown): boolean {
-    return cause instanceof Error && "code" in cause && cause.code === "ENOENT";
+    return this.isFileErrorCode(cause, "ENOENT");
+  }
+
+  private isFileErrorCode(cause: unknown, code: string): boolean {
+    return cause instanceof Error && "code" in cause && cause.code === code;
   }
 }
