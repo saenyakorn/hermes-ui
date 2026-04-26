@@ -1,3 +1,6 @@
+# Dev uses an anonymous volume for /app/node_modules (Linux binaries, e.g. node-pty).
+# After dependency changes, the image entrypoint runs `npm ci` when package-lock.json
+# changes; if you still see stale modules, run: docker compose -f docker-compose.dev.yml down -v
 services:
   hermes-agent-dev:
     build:

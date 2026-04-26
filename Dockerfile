@@ -15,14 +15,15 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends bash build-essential ca-certificates curl git libffi-dev python3 python3-dev xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /app/data \
+    && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
+        | bash -s -- --skip-setup --hermes-home /app/data
+
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HERMES_HOME=/app/data
 
-RUN mkdir -p /app/data \
-    && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
-      | bash -s -- --skip-setup --hermes-home /app/data
 
 COPY package*.json ./
 RUN npm ci --omit=dev

@@ -4,7 +4,13 @@ import { renderToString } from "react-dom/server";
 import { Dashboard } from "../client/ssr/dashboard";
 import { Layout } from "../client/ssr/layout";
 import { basicAuthMiddleware } from "./services/auth";
-import type { AppEnv, ConfigReadResult, ConfigSaveResult, GatewayStatus, LogTail } from "./types";
+import type {
+  AppEnv,
+  ConfigReadResult,
+  ConfigSaveResult,
+  GatewayStatus,
+  LogTail,
+} from "./types";
 
 export type AppGateway = {
   status: () => GatewayStatus;
@@ -33,7 +39,10 @@ export type AppServices = {
 
 export function createApp(services: AppServices) {
   const app = new Hono();
-  app.use("*", basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword));
+  app.use(
+    "*",
+    basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword),
+  );
 
   return app
     .get("/assets/*", serveStatic({ root: "./dist" }))
@@ -47,24 +56,39 @@ export function createApp(services: AppServices) {
 
       return context.html(`<!doctype html>${html}`);
     })
-    .get("/gateway/status", (context) => context.json(services.gateway.status()))
+    .get("/gateway/status", (context) =>
+      context.json(services.gateway.status()),
+    )
     .get("/gateway/health", async (context) =>
       context.json(await services.gateway.refreshHealth()),
     )
     .post("/gateway/start", async (context) =>
-      context.json(await runGatewayAction(services.gateway, () => services.gateway.start())),
+      context.json(
+        await runGatewayAction(services.gateway, () =>
+          services.gateway.start(),
+        ),
+      ),
     )
     .post("/gateway/stop", async (context) =>
-      context.json(await runGatewayAction(services.gateway, () => services.gateway.stop())),
+      context.json(
+        await runGatewayAction(services.gateway, () => services.gateway.stop()),
+      ),
     )
     .post("/gateway/restart", async (context) =>
-      context.json(await runGatewayAction(services.gateway, () => services.gateway.restart())),
+      context.json(
+        await runGatewayAction(services.gateway, () =>
+          services.gateway.restart(),
+        ),
+      ),
     )
     .get("/config", async (context) => {
       try {
         return context.json(await services.config.read());
       } catch (cause: unknown) {
-        return context.json({ error: `Failed to read config: ${getErrorMessage(cause)}` }, 500);
+        return context.json(
+          { error: `Failed to read config: ${getErrorMessage(cause)}` },
+          500,
+        );
       }
     })
     .post("/config", async (context) => {
@@ -78,7 +102,10 @@ export function createApp(services: AppServices) {
       const config = await saveConfig(services.config, content);
 
       if (!config.ok) {
-        return context.json({ error: `Failed to save config: ${config.error}` }, 500);
+        return context.json(
+          { error: `Failed to save config: ${config.error}` },
+          500,
+        );
       }
 
       if (!config.value.saved) {
@@ -111,18 +138,26 @@ export function createApp(services: AppServices) {
       } catch (cause: unknown) {
         return context.json({
           config: config.value,
-          restart: { attempted: true, ok: false, error: getErrorMessage(cause) },
+          restart: {
+            attempted: true,
+            ok: false,
+            error: getErrorMessage(cause),
+          },
           gateway: services.gateway.status(),
         });
       }
     })
-    .get("/logs/tail", async (context) => context.json(await services.logs.tail(200)))
+    .get("/logs/tail", async (context) =>
+      context.json(await services.logs.tail(200)),
+    )
     .get("/logs/stream", (context) => {
       const { readable, writable } = new TransformStream<Uint8Array>();
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
       const unsubscribe = services.logs.subscribe((line) => {
-        void writer.write(encoder.encode(`data: ${JSON.stringify({ line })}\n\n`));
+        void writer.write(
+          encoder.encode(`data: ${JSON.stringify({ line })}\n\n`),
+        );
       });
 
       context.req.raw.signal.addEventListener("abort", () => {
@@ -153,7 +188,9 @@ async function runGatewayAction(
   }
 }
 
-async function parseConfigContent(bodyPromise: Promise<unknown>): Promise<string | null> {
+async function parseConfigContent(
+  bodyPromise: Promise<unknown>,
+): Promise<string | null> {
   try {
     const body = await bodyPromise;
 
@@ -174,7 +211,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 async function saveConfig(
   config: AppConfig,
   content: string,
-): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; value: ConfigSaveResult } | { ok: false; error: string }
+> {
   try {
     return { ok: true, value: await config.save(content) };
   } catch (cause: unknown) {

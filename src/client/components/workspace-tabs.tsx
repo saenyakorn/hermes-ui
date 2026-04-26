@@ -1,5 +1,4 @@
 import { Tabs } from "@base-ui/react/tabs";
-import type { GatewayStatus } from "../api";
 import { ConfigTab } from "../tabs/config-tab";
 import { LogsTab } from "../tabs/logs-tab";
 import { ShellTab } from "../tabs/shell-tab";
@@ -7,13 +6,7 @@ import { ShellTab } from "../tabs/shell-tab";
 const tabClass =
   "rounded-full px-4 py-2 text-sm text-muted outline-none transition-colors hover:text-text data-[active]:bg-frosted data-[active]:text-text";
 
-export function WorkspaceTabs({
-  onGatewayRefresh,
-  onGatewayStatus,
-}: {
-  onGatewayRefresh: () => Promise<void>;
-  onGatewayStatus: (status: GatewayStatus) => void;
-}) {
+export function WorkspaceTabs() {
   return (
     <Tabs.Root defaultValue="logs" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <Tabs.List className="mb-3 flex shrink-0 gap-2 overflow-x-auto border-b border-frosted pb-3">
@@ -49,12 +42,7 @@ export function WorkspaceTabs({
         keepMounted
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       >
-        <ConfigTab
-          onGatewayStatus={(status) => {
-            onGatewayStatus(status);
-            void onGatewayRefresh();
-          }}
-        />
+        <ConfigTab />
       </Tabs.Panel>
     </Tabs.Root>
   );

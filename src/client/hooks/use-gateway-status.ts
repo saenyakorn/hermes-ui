@@ -1,52 +1,66 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getErrorMessage, getGatewayStatus, runGatewayAction, type GatewayStatus } from "../api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
+import {
+  getErrorMessage,
+  getGatewayStatus,
+  runGatewayAction,
+  type GatewayStatus,
+} from "../api";
 
 type GatewayAction = "start" | "stop" | "restart";
 
 export function useGatewayStatus(initialStatus: GatewayStatus) {
-  const [status, setStatus] = useState<GatewayStatus>(initialStatus);
+  const queryClient = useQueryClient();
   const [busyAction, setBusyAction] = useState<GatewayAction | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const statusQuery = useQuery({
+    queryKey: ["gateway-status"],
+    queryFn: getGatewayStatus,
+    initialData: initialStatus,
+    refetchInterval: 3000,
+  });
 
   const refresh = useCallback(async () => {
-    try {
-      setStatus(await getGatewayStatus());
-      setError(null);
-    } catch (cause: unknown) {
-      setError(getErrorMessage(cause));
-    }
-  }, []);
+    await statusQuery.refetch();
+  }, [statusQuery]);
 
   const runAction = useCallback(
     async (action: GatewayAction) => {
       setBusyAction(action);
       try {
-        setStatus(await runGatewayAction(action));
-        setError(null);
+        const nextStatus = await runGatewayAction(action);
+        queryClient.setQueryData<GatewayStatus>(["gateway-status"], nextStatus);
+        setActionError(null);
       } catch (cause: unknown) {
-        setError(getErrorMessage(cause));
+        setActionError(getErrorMessage(cause));
       } finally {
         setBusyAction(null);
       }
     },
-    [],
+    [queryClient],
   );
 
-  const applyStatus = useCallback((nextStatus: GatewayStatus) => {
-    setStatus(nextStatus);
-    setError(null);
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, 3000);
-    return () => window.clearInterval(timer);
-  }, [refresh]);
-
-  return useMemo(
-    () => ({ status, error, busyAction, refresh, runAction, applyStatus }),
-    [applyStatus, busyAction, error, refresh, runAction, status],
+  const applyStatus = useCallback(
+    (nextStatus: GatewayStatus) => {
+      queryClient.setQueryData<GatewayStatus>(["gateway-status"], nextStatus);
+      setActionError(null);
+    },
+    [queryClient],
   );
+
+  const status = statusQuery.data ?? initialStatus;
+  const queryError = statusQuery.error
+    ? getErrorMessage(statusQuery.error)
+    : null;
+  const error = actionError ?? queryError;
+
+  return {
+    status,
+    error,
+    busyAction,
+    refresh,
+    runAction,
+    applyStatus,
+  };
 }

@@ -1,12 +1,15 @@
 import { Button } from "@base-ui/react/button";
+import { useQueryClient } from "@tanstack/react-query";
 import type { GatewayStatus } from "../api";
 import { useConfigEditor } from "../hooks/use-config-editor";
 
-export function ConfigTab({
-  onGatewayStatus,
-}: {
-  onGatewayStatus: (status: GatewayStatus) => void;
-}) {
+export function ConfigTab() {
+  const queryClient = useQueryClient();
+  const onGatewayStatus = (status: GatewayStatus) => {
+    queryClient.setQueryData<GatewayStatus>(["gateway-status"], status);
+    void queryClient.invalidateQueries({ queryKey: ["gateway-status"] });
+  };
+
   const {
     containerRef,
     path,

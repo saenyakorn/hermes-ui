@@ -53,7 +53,7 @@ export function Terminal({
     };
 
     void Promise.all([
-      import("xterm"),
+      import("@xterm/xterm"),
       import("@xterm/addon-fit"),
       import("socket.io-client"),
     ])
@@ -156,7 +156,7 @@ export function Terminal({
       cancelled = true;
       dispose?.();
     };
-  }, [onReady]);
+  }, []);
 
   return createElement("div", { id: "terminal", ref: hostRef, className });
 }
