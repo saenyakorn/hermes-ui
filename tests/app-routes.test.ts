@@ -112,6 +112,22 @@ describe("createApp", () => {
     expect(services.config.read).toHaveBeenCalledOnce();
   });
 
+  it("returns JSON error when config read fails", async () => {
+    const services = createServices();
+    services.config.read = vi.fn(async () => {
+      throw new Error("permission denied");
+    });
+
+    const response = await createApp(services).request("/config", {
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to read config: permission denied",
+    });
+  });
+
   it("saves config without restarting gateway while stopped", async () => {
     const services = createServices();
 
@@ -128,6 +144,26 @@ describe("createApp", () => {
       gateway: stoppedStatus,
     });
     expect(services.config.save).toHaveBeenCalledWith("{}\n");
+    expect(services.gateway.restart).not.toHaveBeenCalled();
+  });
+
+  it("returns JSON error without restarting when config save fails", async () => {
+    const services = createServices();
+    services.gateway.status = vi.fn(() => runningStatus);
+    services.config.save = vi.fn(async () => {
+      throw new Error("disk full");
+    });
+
+    const response = await createApp(services).request("/config", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ content: "{}\n" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to save config: disk full",
+    });
     expect(services.gateway.restart).not.toHaveBeenCalled();
   });
 

@@ -61,7 +61,13 @@ export function createApp(services: AppServices): Hono {
   app.post("/gateway/restart", async (context) =>
     context.json(await runGatewayAction(services.gateway, () => services.gateway.restart())),
   );
-  app.get("/config", async (context) => context.json(await services.config.read()));
+  app.get("/config", async (context) => {
+    try {
+      return context.json(await services.config.read());
+    } catch (cause: unknown) {
+      return context.json({ error: `Failed to read config: ${getErrorMessage(cause)}` }, 500);
+    }
+  });
   app.post("/config", async (context) => {
     const content = await parseConfigContent(context.req.json());
 
@@ -70,12 +76,16 @@ export function createApp(services: AppServices): Hono {
     }
 
     const wasRunning = services.gateway.status().state === "running";
-    const config = await services.config.save(content);
+    const config = await saveConfig(services.config, content);
 
-    if (!config.saved) {
+    if (!config.ok) {
+      return context.json({ error: `Failed to save config: ${config.error}` }, 500);
+    }
+
+    if (!config.value.saved) {
       return context.json(
         {
-          config,
+          config: config.value,
           restart: { attempted: false, ok: true, error: null },
           gateway: services.gateway.status(),
         },
@@ -85,7 +95,7 @@ export function createApp(services: AppServices): Hono {
 
     if (!wasRunning) {
       return context.json({
-        config,
+        config: config.value,
         restart: { attempted: false, ok: true, error: null },
         gateway: services.gateway.status(),
       });
@@ -95,13 +105,13 @@ export function createApp(services: AppServices): Hono {
       const gateway = await services.gateway.restart();
 
       return context.json({
-        config,
+        config: config.value,
         restart: { attempted: true, ok: true, error: null },
         gateway,
       });
     } catch (cause: unknown) {
       return context.json({
-        config,
+        config: config.value,
         restart: { attempted: true, ok: false, error: getErrorMessage(cause) },
         gateway: services.gateway.status(),
       });
@@ -161,6 +171,17 @@ async function parseConfigContent(bodyPromise: Promise<unknown>): Promise<string
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+async function saveConfig(
+  config: AppConfig,
+  content: string,
+): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
+  try {
+    return { ok: true, value: await config.save(content) };
+  } catch (cause: unknown) {
+    return { ok: false, error: getErrorMessage(cause) };
+  }
 }
 
 function getErrorMessage(cause: unknown): string {
