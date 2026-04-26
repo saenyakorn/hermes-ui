@@ -47,5 +47,8 @@
   },
   "engines": {
     "node": ">=20 <25"
+  },
+  "overrides": {
+    "dompurify": "3.4.1"
   }
 }
