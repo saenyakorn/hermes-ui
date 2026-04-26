@@ -31,3 +31,32 @@ export type LogTail = {
 export type JsonError = {
   error: string;
 };
+
+export type ConfigValidationIssue = {
+  message: string;
+  path: string | null;
+};
+
+export type ConfigReadResult = {
+  path: string;
+  content: string;
+  updatedAt: string | null;
+  validation: {
+    ok: boolean;
+    issues: ConfigValidationIssue[];
+  };
+};
+
+export type ConfigSaveResult = ConfigReadResult & {
+  saved: boolean;
+};
+
+export type ConfigSaveResponse = {
+  config: ConfigSaveResult;
+  restart: {
+    attempted: boolean;
+    ok: boolean;
+    error: string | null;
+  };
+  gateway: GatewayStatus;
+};
