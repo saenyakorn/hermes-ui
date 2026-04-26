@@ -32,11 +32,18 @@ export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir =
   };
 }
 
+type RuntimeServices = ReturnType<typeof createRuntime>;
+
+export async function initializeRuntimeFilesystem(runtime: RuntimeServices): Promise<void> {
+  await mkdir(runtime.paths.dataDir, { recursive: true });
+  await mkdir(runtime.paths.logsDir, { recursive: true });
+  await runtime.config.initialize();
+}
+
 export async function main(): Promise<void> {
   const runtime = createRuntime();
 
-  await mkdir(runtime.paths.dataDir, { recursive: true });
-  await mkdir(runtime.paths.logsDir, { recursive: true });
+  await initializeRuntimeFilesystem(runtime);
 
   const app = createApp({
     env: runtime.env,

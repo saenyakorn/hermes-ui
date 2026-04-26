@@ -1,0 +1,19 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm ci
+
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HERMES_HOME=/app/data
+
+RUN mkdir -p /app/data
+
+EXPOSE 3000
+CMD ["npm", "run", "dev"]

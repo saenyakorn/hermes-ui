@@ -10,7 +10,6 @@ export default defineConfig([
   {
     input: {
       main: "src/client/main.ts",
-      terminal: "src/client/terminal.ts",
       workspace: "src/client/workspace.tsx",
     },
     platform: "browser",

@@ -1,10 +1,15 @@
 import { Button } from "@base-ui/react/button";
 import { Tabs } from "@base-ui/react/tabs";
+import { useState } from "react";
+import Terminal from "../../client/terminal";
+import type { TerminalActions } from "../../client/terminal";
 
 const tabClass =
   "rounded-full px-4 py-2 text-sm text-muted outline-none transition-colors hover:text-text data-[active]:bg-frosted data-[active]:text-text";
 
 export function WorkspaceTabs() {
+  const [clearTerminal, setClearTerminal] = useState<() => void>(() => () => undefined);
+
   return (
     <Tabs.Root defaultValue="logs" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <Tabs.List className="mb-3 flex shrink-0 gap-2 overflow-x-auto border-b border-frosted pb-3">
@@ -39,13 +44,18 @@ export function WorkspaceTabs() {
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <p className="text-sm text-muted">Interactive shell</p>
           <Button
-            id="terminal-clear"
+            onClick={clearTerminal}
             className="rounded-full bg-frosted px-3 py-1 text-xs text-text"
           >
             Clear
           </Button>
         </div>
-        <div id="terminal" className="min-h-[320px] flex-1 rounded-lg bg-background" />
+        <Terminal
+          onReady={({ clear }: TerminalActions) => {
+            setClearTerminal(() => clear);
+          }}
+          className="min-h-[320px] flex-1 rounded-lg bg-background"
+        />
       </Tabs.Panel>
 
       <Tabs.Panel

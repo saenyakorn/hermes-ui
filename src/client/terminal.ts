@@ -1,23 +1,4 @@
-import { FitAddon } from "@xterm/addon-fit";
-import type { Socket } from "socket.io-client";
-import { io } from "socket.io-client";
-import { Terminal } from "xterm";
-
-function resizeTerminal(
-  host: HTMLElement,
-  terminal: Terminal,
-  fit: FitAddon,
-  socket: Socket,
-): void {
-  if (host.offsetWidth < 2 || host.offsetHeight < 2) {
-    return;
-  }
-
-  fit.fit();
-  if (socket.connected) {
-    socket.emit("terminal:resize", { cols: terminal.cols, rows: terminal.rows });
-  }
-}
+import { createElement, useCallback, useEffect, useRef } from "react";
 
 function getBasicAuthTokenFromLocation(): string | undefined {
   const url = new URL(window.location.href);
@@ -28,71 +9,155 @@ function getBasicAuthTokenFromLocation(): string | undefined {
   return `Basic ${btoa(`${url.username}:${url.password}`)}`;
 }
 
-const terminalElement = document.querySelector<HTMLElement>("#terminal");
+export type TerminalActions = { clear: () => void };
 
-if (terminalElement) {
-  const terminal = new Terminal({
-    cursorBlink: true,
-    fontFamily: '"Azeret Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: 13,
-    theme: {
-      background: "#000000",
-      foreground: "#ffffff",
-      cursor: "#0099ff",
-      selectionBackground: "#0099ff55",
-    },
-  });
-  const fit = new FitAddon();
-  terminal.loadAddon(fit);
-  terminal.open(terminalElement);
+export default function Terminal({
+  className,
+  onReady,
+}: {
+  className?: string;
+  onReady?: (actions: TerminalActions) => void;
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const terminalRef = useRef<{ clear: () => void } | null>(null);
 
-  const socket = io({
-    transports: ["websocket"],
-    auth: {
-      token: getBasicAuthTokenFromLocation(),
-    },
-  });
+  const clear = useCallback(() => {
+    terminalRef.current?.clear();
+  }, []);
 
-  resizeTerminal(terminalElement, terminal, fit, socket);
+  useEffect(() => {
+    onReady?.({ clear });
+  }, [clear, onReady]);
 
-  terminal.onData((input) => {
-    socket.emit("terminal:input", input);
-  });
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
 
-  socket.on("connect", () => {
-    terminal.writeln("\r\n[connected]\r\n");
-    socket.emit("terminal:start");
-    resizeTerminal(terminalElement, terminal, fit, socket);
-  });
+    const resizeTerminal = (
+      terminal: { cols: number; rows: number },
+      fit: { fit: () => void },
+      socket: { connected: boolean; emit: (event: string, payload?: unknown) => void },
+    ): void => {
+      if (host.offsetWidth < 2 || host.offsetHeight < 2) {
+        return;
+      }
 
-  socket.on("terminal:output", (data: string) => {
-    terminal.write(data);
-  });
+      fit.fit();
+      if (socket.connected) {
+        socket.emit("terminal:resize", { cols: terminal.cols, rows: terminal.rows });
+      }
+    };
 
-  socket.on("terminal:exit", ({ exitCode }: { exitCode: number }) => {
-    terminal.writeln(`\r\n[process exited ${exitCode}]\r\n`);
-  });
+    void Promise.all([
+      import("xterm"),
+      import("@xterm/addon-fit"),
+      import("socket.io-client"),
+    ])
+      .then(([xtermModule, fitModule, socketModule]) => {
+        if (cancelled) {
+          return;
+        }
 
-  window.addEventListener("resize", () => {
-    resizeTerminal(terminalElement, terminal, fit, socket);
-  });
+        const terminal = new xtermModule.Terminal({
+          cursorBlink: true,
+          fontFamily: '"Azeret Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: 13,
+          theme: {
+            background: "#000000",
+            foreground: "#ffffff",
+            cursor: "#0099ff",
+            selectionBackground: "#0099ff55",
+          },
+        });
+        terminalRef.current = terminal;
 
-  const observer = new ResizeObserver(() => {
-    resizeTerminal(terminalElement, terminal, fit, socket);
-  });
-  observer.observe(terminalElement);
-  const panel = terminalElement.closest<HTMLElement>('[role="tabpanel"]');
-  if (panel) {
-    const visibilityObserver = new MutationObserver(() => {
-      resizeTerminal(terminalElement, terminal, fit, socket);
-    });
-    visibilityObserver.observe(panel, {
-      attributes: true,
-      attributeFilter: ["hidden", "style", "class", "data-state"],
-    });
-  }
+        const fit = new fitModule.FitAddon();
+        terminal.loadAddon(fit);
+        terminal.open(host);
 
-  document.querySelector<HTMLButtonElement>("#terminal-clear")?.addEventListener("click", () => {
-    terminal.clear();
-  });
+        const socket = socketModule.io({
+          transports: ["websocket"],
+          auth: {
+            token: getBasicAuthTokenFromLocation(),
+          },
+        });
+
+        resizeTerminal(terminal, fit, socket);
+
+        const disposeOnData = terminal.onData((input) => {
+          socket.emit("terminal:input", input);
+        });
+
+        const onConnect = () => {
+          terminal.writeln("\r\n[connected]\r\n");
+          socket.emit("terminal:start");
+          resizeTerminal(terminal, fit, socket);
+        };
+        socket.on("connect", onConnect);
+
+        const onOutput = (data: string) => {
+          terminal.write(data);
+        };
+        socket.on("terminal:output", onOutput);
+
+        const onExit = ({ exitCode }: { exitCode: number }) => {
+          terminal.writeln(`\r\n[process exited ${exitCode}]\r\n`);
+        };
+        socket.on("terminal:exit", onExit);
+
+        const onWindowResize = () => {
+          resizeTerminal(terminal, fit, socket);
+        };
+        window.addEventListener("resize", onWindowResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+          resizeTerminal(terminal, fit, socket);
+        });
+        resizeObserver.observe(host);
+
+        const panel = host.closest<HTMLElement>('[role="tabpanel"]');
+        const visibilityObserver = panel
+          ? new MutationObserver(() => {
+              resizeTerminal(terminal, fit, socket);
+            })
+          : null;
+
+        if (visibilityObserver && panel) {
+          visibilityObserver.observe(panel, {
+            attributes: true,
+            attributeFilter: ["hidden", "style", "class", "data-state"],
+          });
+        }
+
+        dispose = () => {
+          disposeOnData.dispose();
+          window.removeEventListener("resize", onWindowResize);
+          resizeObserver.disconnect();
+          visibilityObserver?.disconnect();
+          socket.off("connect", onConnect);
+          socket.off("terminal:output", onOutput);
+          socket.off("terminal:exit", onExit);
+          socket.disconnect();
+          terminal.dispose();
+          terminalRef.current = null;
+        };
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          const message = cause instanceof Error ? cause.message : String(cause);
+          host.textContent = `[failed to initialize terminal: ${message}]`;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      dispose?.();
+    };
+  }, [onReady]);
+
+  return createElement("div", { ref: hostRef, className });
 }

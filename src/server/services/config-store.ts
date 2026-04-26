@@ -64,6 +64,10 @@ export class ConfigStore {
     };
   }
 
+  async initialize(): Promise<void> {
+    await this.ensureConfigFile();
+  }
+
   private async ensureConfigFile(): Promise<void> {
     await this.ensureDataDir();
 
