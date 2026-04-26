@@ -9,7 +9,7 @@
     "lint": "oxlint .",
     "format": "oxfmt .",
     "typecheck": "tsc --noEmit",
-    "build": "rolldown -c && tailwindcss -i src/styles/app.css -o dist/assets/app.css --minify",
+    "build": "rolldown -c && tailwindcss -i src/styles/app.css -o dist/assets/app.css --minify && rm -rf dist/assets/monaco/vs && mkdir -p dist/assets/monaco && cp -R node_modules/monaco-editor/min/vs dist/assets/monaco/vs",
     "start": "node dist/index.js",
     "test": "vitest run"
   },

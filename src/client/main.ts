@@ -1,4 +1,3 @@
-import loader from "@monaco-editor/loader";
 import type { editor } from "monaco-editor";
 
 type GatewayStatus = {
@@ -36,6 +35,24 @@ let configEditor: editor.IStandaloneCodeEditor | null = null;
 let savedConfigContent: string | null = null;
 let configLoaded = false;
 let isSavingConfig = false;
+let lastConfigStatus: string | null = null;
+
+const monacoAssetsPath = "/assets/monaco/vs";
+const monacoLoaderPath = `${monacoAssetsPath}/loader.js`;
+
+type MonacoApi = typeof import("monaco-editor");
+type MonacoAmdRequire = {
+  config: (options: { paths: { vs: string } }) => void;
+  (
+    modules: readonly string[],
+    onLoad: (monaco: MonacoApi) => void,
+    onError?: (error: unknown) => void,
+  ): void;
+};
+type MonacoGlobal = typeof globalThis & {
+  monaco?: MonacoApi;
+  require?: MonacoAmdRequire;
+};
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(new URL(url, window.location.origin), init);
@@ -125,6 +142,11 @@ function setText(selector: string, value: string): void {
 }
 
 function renderConfigStatus(message: string): void {
+  if (lastConfigStatus === message) {
+    return;
+  }
+
+  lastConfigStatus = message;
   setText("#config-status", message);
 }
 
@@ -209,9 +231,16 @@ async function saveConfig(): Promise<void> {
       return;
     }
 
-    savedConfigContent = response.config.content;
+    const savedContent = response.config.content;
+    savedConfigContent = savedContent;
     renderConfigMetadata(response.config);
     renderStatus(response.gateway);
+
+    if (configEditor.getValue() !== savedContent) {
+      renderConfigStatus("Unsaved changes.");
+      return;
+    }
+
     renderConfigStatus(getRestartStatusMessage(response));
   } catch (cause: unknown) {
     renderConfigStatus(`Failed to save config: ${getErrorMessage(cause)}`);
@@ -236,7 +265,7 @@ async function initializeConfigEditor(): Promise<void> {
   }
 
   try {
-    const monaco = await loader.init();
+    const monaco = await loadMonaco();
     const editorInstance = monaco.editor.create(container, {
       value: "",
       language: "yaml",
@@ -270,6 +299,54 @@ async function initializeConfigEditor(): Promise<void> {
   } catch (cause: unknown) {
     renderConfigStatus(`Failed to initialize config editor: ${getErrorMessage(cause)}`);
   }
+}
+
+async function loadMonaco(): Promise<MonacoApi> {
+  const global = globalThis as MonacoGlobal;
+  if (global.monaco) {
+    return global.monaco;
+  }
+
+  await loadScript(monacoLoaderPath);
+  const amdRequire = global.require;
+  if (!amdRequire) {
+    throw new Error("Monaco loader did not initialize.");
+  }
+
+  amdRequire.config({ paths: { vs: monacoAssetsPath } });
+
+  return new Promise((resolve, reject) => {
+    amdRequire(
+      ["vs/editor/editor.main"],
+      () => {
+        if (!global.monaco) {
+          reject(new Error("Monaco editor did not initialize."));
+          return;
+        }
+
+        resolve(global.monaco);
+      },
+      reject,
+    );
+  });
+}
+
+function loadScript(src: string): Promise<void> {
+  const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+  if (existingScript) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = src;
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
+      once: true,
+    });
+    document.head.append(script);
+  });
 }
 
 function isConfigDirty(): boolean {
