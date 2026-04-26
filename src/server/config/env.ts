@@ -2,7 +2,15 @@ import "dotenv/config";
 import { z } from "zod";
 import type { AppEnv } from "../types";
 
-const logLevels = ["trace", "debug", "info", "warn", "error", "fatal", "silent"] as const;
+const logLevels = [
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "error",
+  "fatal",
+  "silent",
+] as const;
 
 const envSchema = z.object({
   ADMIN_USERNAME: z.string().min(1),

@@ -1,6 +1,6 @@
-/** @jsxImportSource hono/jsx */
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import { renderHtmlDocument } from "./html/document";
 import { basicAuthMiddleware } from "./services/auth";
 import type {
   AppEnv,
@@ -38,6 +38,10 @@ export type AppServices = {
     read: () => Promise<EnvReadResult>;
     upsert: (key: string, value: string) => Promise<EnvReadResult>;
     remove: (key: string) => Promise<EnvReadResult>;
+    applyBatch: (input: {
+      set?: Record<string, string>;
+      remove?: string[];
+    }) => Promise<EnvReadResult>;
   };
 };
 
@@ -183,6 +187,32 @@ export function createApp(services: AppServices) {
         await withGatewayRestart(services.gateway, envResult.value),
       );
     })
+    .post("/env/batch", async (context) => {
+      const input = await parseEnvBatchInput(context.req.json());
+      if (input === null) {
+        return context.json(
+          {
+            error:
+              "Body must include set (object of string values) and/or remove (string[]), with at least one non-empty set value or remove key.",
+          },
+          400,
+        );
+      }
+
+      const envResult = await mutateEnv(() =>
+        services.envVars.applyBatch(input),
+      );
+      if (!envResult.ok) {
+        return context.json(
+          { error: `Failed to update env: ${envResult.error}` },
+          500,
+        );
+      }
+
+      return context.json(
+        await withGatewayRestart(services.gateway, envResult.value),
+      );
+    })
     .delete("/env/:key", async (context) => {
       const key = context.req.param("key");
       const envResult = await mutateEnv(() => services.envVars.remove(key));
@@ -292,6 +322,66 @@ async function parseEnvUpsertInput(
   }
 }
 
+async function parseEnvBatchInput(
+  bodyPromise: Promise<unknown>,
+): Promise<{ set?: Record<string, string>; remove?: string[] } | null> {
+  try {
+    const body = await bodyPromise;
+    if (!isRecord(body)) {
+      return null;
+    }
+
+    let set: Record<string, string> | undefined;
+    if (body.set !== undefined) {
+      if (!isRecord(body.set)) {
+        return null;
+      }
+      set = {};
+      for (const [key, value] of Object.entries(body.set)) {
+        if (typeof value !== "string") {
+          return null;
+        }
+        const trimmed = value.trim();
+        if (trimmed.length > 0) {
+          set[key] = trimmed;
+        }
+      }
+      if (Object.keys(set).length === 0) {
+        set = undefined;
+      }
+    }
+
+    let remove: string[] | undefined;
+    if (body.remove !== undefined) {
+      if (!Array.isArray(body.remove)) {
+        return null;
+      }
+      if (!body.remove.every((item): item is string => typeof item === "string")) {
+        return null;
+      }
+      remove = [...new Set(body.remove)];
+    }
+
+    if (
+      (set === undefined || Object.keys(set).length === 0) &&
+      (remove === undefined || remove.length === 0)
+    ) {
+      return null;
+    }
+
+    const result: { set?: Record<string, string>; remove?: string[] } = {};
+    if (set !== undefined && Object.keys(set).length > 0) {
+      result.set = set;
+    }
+    if (remove !== undefined && remove.length > 0) {
+      result.remove = remove;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
 async function mutateEnv(
   action: () => Promise<EnvReadResult>,
 ): Promise<{ ok: true; value: EnvReadResult } | { ok: false; error: string }> {
@@ -336,278 +426,4 @@ function getErrorMessage(cause: unknown): string {
   }
 
   return String(cause);
-}
-
-function renderHtmlDocument(title: string, initialStatus: string): string {
-  return (
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{title}</title>
-        <link rel="stylesheet" href="/assets/app.css" />
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css"
-        />
-        <script src="/assets/vendor/htmx.min.js" />
-      </head>
-      <body>
-        <main class="h-screen overflow-x-hidden overflow-y-hidden bg-background text-text">
-          <section class="mx-auto flex h-full min-w-0 max-w-[1400px] flex-col gap-4 p-4">
-            <section
-              id="workspace"
-              class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-accent-border bg-surface p-3"
-            >
-              <div class="mb-3 flex shrink-0 gap-2 overflow-x-auto border-b border-frosted pb-3">
-                <button
-                  type="button"
-                  data-tab-trigger="control"
-                  class="rounded-full px-4 py-2 text-sm text-muted"
-                >
-                  Control
-                </button>
-                <button
-                  type="button"
-                  data-tab-trigger="logs"
-                  class="rounded-full bg-frosted px-4 py-2 text-sm text-text"
-                >
-                  Live log
-                </button>
-                <button
-                  type="button"
-                  data-tab-trigger="shell"
-                  class="rounded-full px-4 py-2 text-sm text-muted"
-                >
-                  Interactive shell
-                </button>
-                <button
-                  type="button"
-                  data-tab-trigger="config"
-                  class="rounded-full px-4 py-2 text-sm text-muted"
-                >
-                  Hermes config
-                </button>
-                <button
-                  type="button"
-                  data-tab-trigger="env"
-                  class="rounded-full px-4 py-2 text-sm text-muted"
-                >
-                  Env vars
-                </button>
-              </div>
-              <section
-                id="gateway-panel"
-                data-tab-panel="control"
-                class="hidden min-h-0 min-w-0 flex-1 flex-col overflow-auto p-2"
-              >
-                <p class="text-xs uppercase text-muted">Gateway</p>
-                <h1 class="mt-2 text-4xl font-medium tracking-[-0.08em]">
-                  Hermes Agent
-                </h1>
-                <div
-                  class="mt-6 text-sm text-muted"
-                  id="gateway-status"
-                  data-state="stopped"
-                />
-                <p id="gateway-error" class="mt-2 text-xs text-danger hidden" />
-                <div class="mt-4 flex flex-wrap gap-2">
-                  <button
-                    id="start-button"
-                    class="rounded-full bg-text px-4 py-2 text-sm text-background"
-                    hx-post="/gateway/start"
-                    hx-trigger="click"
-                    hx-swap="none"
-                  >
-                    Start
-                  </button>
-                  <button
-                    id="stop-button"
-                    class="rounded-full bg-frosted px-4 py-2 text-sm text-text"
-                    hx-post="/gateway/stop"
-                    hx-trigger="click"
-                    hx-swap="none"
-                  >
-                    Stop
-                  </button>
-                  <button
-                    id="restart-button"
-                    class="rounded-full bg-frosted px-4 py-2 text-sm text-text"
-                    hx-post="/gateway/restart"
-                    hx-trigger="click"
-                    hx-swap="none"
-                  >
-                    Restart
-                  </button>
-                </div>
-              </section>
-              <section
-                data-tab-panel="logs"
-                class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-              >
-                <p class="mb-2 shrink-0 text-xs uppercase text-muted">
-                  Gateway log
-                </p>
-                <pre
-                  id="log-lines"
-                  class="min-h-0 flex-1 overflow-auto rounded-lg bg-background p-3 text-xs text-muted"
-                />
-                <p
-                  id="log-error"
-                  class="mt-2 shrink-0 text-xs text-danger hidden"
-                />
-              </section>
-              <section
-                data-tab-panel="shell"
-                class="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-              >
-                <div class="mb-3 flex shrink-0 items-center justify-between">
-                  <p class="text-sm text-muted">Interactive shell</p>
-                  <button
-                    id="shell-clear"
-                    type="button"
-                    class="rounded-full bg-frosted px-3 py-1 text-xs text-text"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <div
-                  id="terminal"
-                  class="min-h-[320px] flex-1 rounded-lg bg-background"
-                />
-              </section>
-              <section
-                data-tab-panel="config"
-                class="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-              >
-                <div class="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p class="text-xs uppercase text-muted">Hermes Config</p>
-                    <p id="config-path" class="mt-1 text-sm text-text">
-                      data/config.yaml
-                    </p>
-                    <p id="config-updated-at" class="mt-1 text-xs text-muted">
-                      Loading config...
-                    </p>
-                  </div>
-                  <div class="flex gap-2">
-                    <button
-                      id="config-reload"
-                      type="button"
-                      class="rounded-full bg-frosted px-3 py-1 text-xs text-text"
-                    >
-                      Reload from disk
-                    </button>
-                    <button
-                      id="config-save"
-                      type="button"
-                      class="rounded-full bg-text px-3 py-1 text-xs text-background disabled:opacity-50"
-                      disabled
-                    >
-                      Save config
-                    </button>
-                  </div>
-                </div>
-                <div
-                  id="config-editor"
-                  class="min-h-[280px] flex-1 overflow-hidden rounded-lg border border-frosted bg-background"
-                />
-                <div
-                  id="config-status"
-                  class="mt-3 shrink-0 text-xs text-muted"
-                  role="status"
-                  aria-live="polite"
-                >
-                  Waiting for editor...
-                </div>
-                <ul
-                  id="config-issues"
-                  class="mt-2 shrink-0 space-y-1 text-xs text-danger"
-                />
-              </section>
-              <section
-                data-tab-panel="env"
-                class="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-              >
-                <div class="mb-3 flex shrink-0 items-center justify-between gap-3">
-                  <div>
-                    <p class="text-xs uppercase text-muted">Environment Variables</p>
-                    <p id="env-path" class="mt-1 text-sm text-text">
-                      data/.env
-                    </p>
-                    <p id="env-updated-at" class="mt-1 text-xs text-muted">
-                      Loading env...
-                    </p>
-                  </div>
-                  <button
-                    id="env-reload"
-                    type="button"
-                    class="rounded-full bg-frosted px-3 py-1 text-xs text-text"
-                  >
-                    Reload
-                  </button>
-                </div>
-                <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
-                  <select
-                    id="env-list"
-                    size={12}
-                    class="min-h-[280px] w-full rounded-lg border border-frosted bg-background p-2 text-xs text-text"
-                  />
-                  <div class="flex min-h-0 flex-col gap-2 rounded-lg border border-frosted bg-background p-3">
-                    <label class="text-xs text-muted" for="env-key-input">
-                      Key
-                    </label>
-                    <input
-                      id="env-key-input"
-                      type="text"
-                      placeholder="OPENAI_API_KEY"
-                      class="rounded-md border border-frosted bg-surface px-2 py-1 text-xs text-text outline-none"
-                    />
-                    <label class="mt-2 text-xs text-muted" for="env-value-input">
-                      Value
-                    </label>
-                    <input
-                      id="env-value-input"
-                      type="password"
-                      placeholder="Enter value"
-                      class="rounded-md border border-frosted bg-surface px-2 py-1 text-xs text-text outline-none"
-                    />
-                    <div class="mt-3 flex flex-wrap gap-2">
-                      <button
-                        id="env-save"
-                        type="button"
-                        class="rounded-full bg-text px-3 py-1 text-xs text-background"
-                      >
-                        Add / Update
-                      </button>
-                      <button
-                        id="env-remove"
-                        type="button"
-                        class="rounded-full bg-frosted px-3 py-1 text-xs text-text"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <p
-                  id="env-status"
-                  class="mt-3 shrink-0 text-xs text-muted"
-                  role="status"
-                  aria-live="polite"
-                >
-                  Waiting for env editor...
-                </p>
-              </section>
-            </section>
-          </section>
-        </main>
-        <script
-          type="module"
-          src="/assets/main.js"
-          data-initial-status={initialStatus}
-        />
-      </body>
-    </html>
-  ).toString();
 }

@@ -17,7 +17,7 @@ RUN apt-get update \
 
 RUN mkdir -p /app/data \
     && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
-        | bash -s -- --skip-setup --hermes-home /app/data
+    | bash -s -- --skip-setup --hermes-home /app/data
 
 WORKDIR /app
 ENV NODE_ENV=production

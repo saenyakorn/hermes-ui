@@ -84,6 +84,7 @@ function createServices(): AppServices {
         entries: [{ key, maskedValue: "*".repeat(Math.min(8, value.length)) }],
       })),
       remove: vi.fn(async () => envRead),
+      applyBatch: vi.fn(async () => envRead),
     },
   };
 }
@@ -106,6 +107,9 @@ describe("createApp", () => {
     expect(html).toContain('id="gateway-panel"');
     expect(html).toContain('id="workspace"');
     expect(html).toContain('src="/assets/main.js"');
+    expect(html).toContain('data-tab-trigger="messaging"');
+    expect(html).toContain("Messaging Platform");
+    expect(html).toContain("Advanced options");
   });
 
   it("returns gateway status JSON", async () => {
@@ -313,6 +317,85 @@ describe("createApp", () => {
     await expect(response.json()).resolves.toMatchObject({
       state: "crashed",
       lastError: "spawn hermes ENOENT",
+    });
+  });
+
+  it("protects env batch route with basic auth", async () => {
+    const response = await createApp(createServices()).request("/env/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ set: { DISCORD_BOT_TOKEN: "x" } }),
+    });
+
+    expect(response.status).toBe(401);
+  });
+
+  it("returns bad request for invalid env batch body", async () => {
+    const services = createServices();
+
+    const response = await createApp(services).request("/env/batch", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(response.status).toBe(400);
+    expect(services.envVars.applyBatch).not.toHaveBeenCalled();
+  });
+
+  it("returns bad request when env batch has only blank set values", async () => {
+    const services = createServices();
+
+    const response = await createApp(services).request("/env/batch", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ set: { DISCORD_BOT_TOKEN: "   " } }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(services.envVars.applyBatch).not.toHaveBeenCalled();
+  });
+
+  it("applies env batch and restarts gateway", async () => {
+    const services = createServices();
+    services.gateway.restart = vi.fn(async () => runningStatus);
+    const afterBatch: EnvReadResult = {
+      ...envRead,
+      entries: [...envRead.entries, { key: "DISCORD_BOT_TOKEN", maskedValue: "******ab" }],
+    };
+    services.envVars.applyBatch = vi.fn(async () => afterBatch);
+
+    const response = await createApp(services).request("/env/batch", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ set: { DISCORD_BOT_TOKEN: "tok" } }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.envVars.applyBatch).toHaveBeenCalledWith({ set: { DISCORD_BOT_TOKEN: "tok" } });
+    expect(services.gateway.restart).toHaveBeenCalledOnce();
+    await expect(response.json()).resolves.toEqual({
+      env: afterBatch,
+      restart: { attempted: true, ok: true, error: null },
+      gateway: runningStatus,
+    });
+  });
+
+  it("returns JSON error when env batch apply fails", async () => {
+    const services = createServices();
+    services.envVars.applyBatch = vi.fn(async () => {
+      throw new Error("disk full");
+    });
+
+    const response = await createApp(services).request("/env/batch", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ remove: ["DISCORD_BOT_TOKEN"] }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to update env: disk full",
     });
   });
 });

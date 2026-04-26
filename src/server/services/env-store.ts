@@ -49,6 +49,42 @@ export class EnvStore {
     return this.read();
   }
 
+  /**
+   * Apply multiple env changes in one atomic write (single gateway restart when used from HTTP).
+   */
+  async applyBatch(options: {
+    set?: Record<string, string>;
+    remove?: string[];
+  }): Promise<EnvReadResult> {
+    const setEntries = options.set ? Object.entries(options.set) : [];
+    const removeKeys = options.remove ?? [];
+    if (setEntries.length === 0 && removeKeys.length === 0) {
+      throw new Error("Batch must include at least one set or remove entry");
+    }
+
+    for (const key of removeKeys) {
+      this.validateKey(key);
+    }
+    for (const [key] of setEntries) {
+      this.validateKey(key);
+    }
+
+    await this.ensureDataDir();
+    const parsed = parseEnv(await this.readRawContent());
+
+    for (const key of removeKeys) {
+      delete parsed[key];
+    }
+    for (const [key, value] of setEntries) {
+      if (value.length > 0) {
+        parsed[key] = value;
+      }
+    }
+
+    await this.writeParsed(parsed);
+    return this.read();
+  }
+
   private async ensureDataDir(): Promise<void> {
     await mkdir(this.dataDir, { recursive: true });
   }

@@ -15,7 +15,7 @@ import type {
 } from "../server/types";
 
 type GatewayAction = "start" | "stop" | "restart";
-type TabKey = "control" | "logs" | "shell" | "config" | "env";
+type TabKey = "control" | "logs" | "shell" | "config" | "env" | "messaging";
 
 const queryClient = new QueryClient();
 const gatewayQueryKey = ["gateway-status"] as const;
@@ -27,7 +27,33 @@ let isSaving = false;
 let shellTerminal: Terminal | null = null;
 let envLoaded = false;
 let envBusy = false;
+let messagingBusy = false;
 const rpcClient = hc<AppType>(window.location.origin);
+
+/** All Discord env keys the UI can set — used for Clear + hint logic */
+const MESSAGING_DISCORD_ALL_KEYS: readonly string[] = [
+  "DISCORD_BOT_TOKEN",
+  "DISCORD_ALLOWED_USERS",
+  "DISCORD_ALLOWED_ROLES",
+  "DISCORD_ALLOWED_CHANNELS",
+  "DISCORD_FREE_RESPONSE_CHANNELS",
+  "DISCORD_HOME_CHANNEL",
+  "DISCORD_HOME_CHANNEL_NAME",
+  "DISCORD_PROXY",
+  "DISCORD_COMMAND_SYNC_POLICY",
+  "DISCORD_REQUIRE_MENTION",
+  "DISCORD_AUTO_THREAD",
+  "DISCORD_REACTIONS",
+  "DISCORD_IGNORED_CHANNELS",
+  "DISCORD_NO_THREAD_CHANNELS",
+  "DISCORD_REPLY_TO_MODE",
+  "DISCORD_ALLOW_MENTION_EVERYONE",
+  "DISCORD_ALLOW_MENTION_ROLES",
+  "DISCORD_ALLOW_MENTION_USERS",
+  "DISCORD_ALLOW_MENTION_REPLIED_USER",
+  "DISCORD_IGNORE_NO_MENTION",
+];
+const MESSAGING_SLACK_KEYS = ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"] as const;
 
 function main(): void {
   const initialStatus = parseInitialStatus();
@@ -40,6 +66,7 @@ function main(): void {
   void setupConfigEditor();
   void setupTerminal();
   void setupEnvEditor();
+  void setupMessagingPlatform();
 }
 
 function parseInitialStatus(): GatewayStatus {
@@ -74,8 +101,12 @@ function wireTabs(): void {
       trigger.classList.toggle("text-muted", !active);
     }
     for (const panel of Array.from(panels)) {
-      panel.classList.toggle("hidden", panel.dataset.tabPanel !== tab);
-      panel.classList.toggle("flex", panel.dataset.tabPanel === tab);
+      const panelKey = panel.dataset.tabPanel;
+      if (!panelKey) {
+        continue;
+      }
+      // Use the `hidden` property so panels keep `display:flex` layout classes at all times.
+      panel.hidden = panelKey !== tab;
     }
     if (tab === "shell") {
       shellTerminal?.focus();
@@ -89,6 +120,13 @@ function wireTabs(): void {
         keyInput.focus();
       }
     }
+    if (tab === "messaging") {
+      const tokenInput = document.getElementById("messaging-discord-token");
+      if (tokenInput instanceof HTMLInputElement) {
+        tokenInput.focus();
+      }
+      void refreshMessagingEnvHint();
+    }
   };
 
   for (const trigger of Array.from(triggers)) {
@@ -99,7 +137,8 @@ function wireTabs(): void {
         key === "logs" ||
         key === "shell" ||
         key === "config" ||
-        key === "env"
+        key === "env" ||
+        key === "messaging"
       ) {
         setActiveTab(key);
       }
@@ -581,6 +620,7 @@ async function loadEnvVars(): Promise<void> {
     const env = await getEnvRead();
     renderEnvMeta(env);
     renderEnvList(env.entries);
+    renderMessagingEnvHint(env);
     envLoaded = true;
     setEnvStatus("Select key to update. Values are masked.");
   } catch (cause: unknown) {
@@ -660,6 +700,247 @@ function applyEnvMutationResponse(response: EnvMutationResponse): void {
     return;
   }
   setEnvStatus(`Env updated. Gateway restart failed: ${response.restart.error ?? "Unknown error"}`);
+}
+
+function setMessagingStatus(message: string): void {
+  const el = document.getElementById("messaging-status");
+  if (el) {
+    el.textContent = message;
+  }
+}
+
+function renderMessagingEnvHint(env: EnvReadResult): void {
+  const hint = document.getElementById("messaging-env-hint");
+  if (!hint) {
+    return;
+  }
+  const discordN = env.entries.filter((e) => e.key.startsWith("DISCORD_")).length;
+  const slackN = env.entries.filter((e) => e.key.startsWith("SLACK_")).length;
+  const parts: string[] = [];
+  if (discordN > 0) {
+    parts.push(`Discord: ${String(discordN)} DISCORD_* key(s) in .env`);
+  } else {
+    parts.push("Discord: no DISCORD_* in .env");
+  }
+  if (slackN > 0) {
+    parts.push(`Slack: ${String(slackN)} SLACK_* key(s) in .env`);
+  } else {
+    parts.push("Slack: no SLACK_* in .env");
+  }
+  hint.textContent = parts.join(" · ");
+}
+
+async function refreshMessagingEnvHint(): Promise<void> {
+  const hint = document.getElementById("messaging-env-hint");
+  if (!hint) {
+    return;
+  }
+  hint.textContent = "Loading…";
+  try {
+    const env = await getEnvRead();
+    renderMessagingEnvHint(env);
+  } catch (cause: unknown) {
+    hint.textContent = `Could not load .env: ${getErrorMessage(cause)}`;
+  }
+}
+
+function updateMessagingButtons(): void {
+  for (const id of [
+    "messaging-save-discord",
+    "messaging-save-slack",
+    "messaging-clear-discord",
+    "messaging-clear-slack",
+  ]) {
+    const button = document.getElementById(id);
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = messagingBusy;
+    }
+  }
+}
+
+function setMessagingBusy(busy: boolean): void {
+  messagingBusy = busy;
+  updateMessagingButtons();
+}
+
+function applyMessagingMutationResponse(
+  response: EnvMutationResponse,
+  doneMessage: string,
+): void {
+  renderEnvMeta(response.env);
+  renderEnvList(response.env.entries);
+  renderGatewayStatus(response.gateway, null);
+  queryClient.setQueryData(gatewayQueryKey, response.gateway);
+  renderMessagingEnvHint(response.env);
+  if (response.restart.ok) {
+    setMessagingStatus(`${doneMessage} Gateway restarted.`);
+    return;
+  }
+  setMessagingStatus(
+    `${doneMessage} Gateway restart failed: ${response.restart.error ?? "Unknown error"}`,
+  );
+}
+
+function readDiscordFieldsFromAdvanced(set: Record<string, string>): void {
+  const root = document.getElementById("messaging-discord-advanced");
+  if (root === null) {
+    return;
+  }
+  for (const el of Array.from(
+    root.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-discord-key]"),
+  )) {
+    const key = el.getAttribute("data-discord-key");
+    if (key === null) {
+      continue;
+    }
+    const value = el.value.trim();
+    if (value.length > 0) {
+      set[key] = value;
+    }
+  }
+}
+
+function readDiscordForm(): Record<string, string> {
+  const set: Record<string, string> = {};
+  const discordToken = document.getElementById("messaging-discord-token");
+  const discordAllowed = document.getElementById("messaging-discord-allowed");
+  if (discordToken instanceof HTMLInputElement && discordToken.value.trim().length > 0) {
+    set.DISCORD_BOT_TOKEN = discordToken.value.trim();
+  }
+  if (discordAllowed instanceof HTMLInputElement && discordAllowed.value.trim().length > 0) {
+    set.DISCORD_ALLOWED_USERS = discordAllowed.value.trim();
+  }
+  readDiscordFieldsFromAdvanced(set);
+  return set;
+}
+
+function readSlackForm(): Record<string, string> {
+  const set: Record<string, string> = {};
+  const slackBot = document.getElementById("messaging-slack-bot");
+  const slackApp = document.getElementById("messaging-slack-app");
+  if (slackBot instanceof HTMLInputElement && slackBot.value.trim().length > 0) {
+    set.SLACK_BOT_TOKEN = slackBot.value.trim();
+  }
+  if (slackApp instanceof HTMLInputElement && slackApp.value.trim().length > 0) {
+    set.SLACK_APP_TOKEN = slackApp.value.trim();
+  }
+  return set;
+}
+
+function clearMessagingInputs(platform: "discord" | "slack"): void {
+  if (platform === "discord") {
+    for (const id of ["messaging-discord-token", "messaging-discord-allowed"]) {
+      const el = document.getElementById(id);
+      if (el instanceof HTMLInputElement) {
+        el.value = "";
+      }
+    }
+    const adv = document.getElementById("messaging-discord-advanced");
+    if (adv !== null) {
+      for (const el of Array.from(
+        adv.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-discord-key]"),
+      )) {
+        if (el instanceof HTMLInputElement) {
+          el.value = "";
+        } else {
+          el.selectedIndex = 0;
+        }
+      }
+    }
+    return;
+  }
+  for (const id of ["messaging-slack-bot", "messaging-slack-app"]) {
+    const el = document.getElementById(id);
+    if (el instanceof HTMLInputElement) {
+      el.value = "";
+    }
+  }
+}
+
+type MessagingPlatform = "discord" | "slack";
+
+async function saveMessagingSettings(platform: MessagingPlatform): Promise<void> {
+  if (messagingBusy) {
+    return;
+  }
+  const set = platform === "discord" ? readDiscordForm() : readSlackForm();
+  if (Object.keys(set).length === 0) {
+    const name = platform === "discord" ? "Discord" : "Slack";
+    setMessagingStatus(
+      `Nothing to save for ${name} — enter at least one value or use Clear to remove keys.`,
+    );
+    return;
+  }
+  setMessagingBusy(true);
+  setMessagingStatus("Saving and restarting gateway…");
+  try {
+    const response = await postEnvBatch({ set });
+    const done =
+      platform === "discord" ? "Discord settings written to .env." : "Slack settings written to .env.";
+    applyMessagingMutationResponse(response, done);
+    clearMessagingInputs(platform);
+  } catch (cause: unknown) {
+    setMessagingStatus(`Save failed: ${getErrorMessage(cause)}`);
+  } finally {
+    setMessagingBusy(false);
+  }
+}
+
+async function clearMessagingPlatformKeys(
+  platform: MessagingPlatform,
+  keys: readonly string[],
+  label: string,
+): Promise<void> {
+  if (messagingBusy) {
+    return;
+  }
+  if (!window.confirm(`Remove ${label} keys from data/.env and restart the gateway?`)) {
+    return;
+  }
+  setMessagingBusy(true);
+  setMessagingStatus("Removing keys and restarting gateway…");
+  try {
+    const response = await postEnvBatch({ remove: [...keys] });
+    applyMessagingMutationResponse(
+      response,
+      `${label} keys removed from .env.`,
+    );
+    clearMessagingInputs(platform);
+  } catch (cause: unknown) {
+    setMessagingStatus(`Clear failed: ${getErrorMessage(cause)}`);
+  } finally {
+    setMessagingBusy(false);
+  }
+}
+
+function setupMessagingPlatform(): void {
+  void refreshMessagingEnvHint();
+  updateMessagingButtons();
+
+  const saveDiscord = document.getElementById("messaging-save-discord");
+  if (saveDiscord instanceof HTMLButtonElement) {
+    saveDiscord.addEventListener("click", () => {
+      void saveMessagingSettings("discord");
+    });
+  }
+  const saveSlack = document.getElementById("messaging-save-slack");
+  if (saveSlack instanceof HTMLButtonElement) {
+    saveSlack.addEventListener("click", () => {
+      void saveMessagingSettings("slack");
+    });
+  }
+  const clearDiscord = document.getElementById("messaging-clear-discord");
+  if (clearDiscord instanceof HTMLButtonElement) {
+    clearDiscord.addEventListener("click", () => {
+      void clearMessagingPlatformKeys("discord", MESSAGING_DISCORD_ALL_KEYS, "Discord");
+    });
+  }
+  const clearSlack = document.getElementById("messaging-clear-slack");
+  if (clearSlack instanceof HTMLButtonElement) {
+    clearSlack.addEventListener("click", () => {
+      void clearMessagingPlatformKeys("slack", MESSAGING_SLACK_KEYS, "Slack");
+    });
+  }
 }
 
 type MonacoApi = typeof import("monaco-editor");
@@ -766,6 +1047,19 @@ async function getEnvRead(): Promise<EnvReadResult> {
 async function postEnvUpsert(key: string, value: string): Promise<EnvMutationResponse> {
   const response = await rpcClient.env.$post({
     json: { key, value },
+  });
+  if (!response.ok) {
+    throw new Error(await getResponseErrorMessage(response));
+  }
+  return response.json() as Promise<EnvMutationResponse>;
+}
+
+async function postEnvBatch(body: {
+  set?: Record<string, string>;
+  remove?: string[];
+}): Promise<EnvMutationResponse> {
+  const response = await rpcClient.env.batch.$post({
+    json: body,
   });
   if (!response.ok) {
     throw new Error(await getResponseErrorMessage(response));
