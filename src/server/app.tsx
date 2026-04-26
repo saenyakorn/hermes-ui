@@ -44,9 +44,9 @@ export function createApp(services: AppServices): Hono {
 
   app.get('/gateway/status', (context) => context.json(services.gateway.status()));
   app.get('/gateway/health', async (context) => context.json(await services.gateway.refreshHealth()));
-  app.post('/gateway/start', async (context) => context.json(await services.gateway.start()));
-  app.post('/gateway/stop', async (context) => context.json(await services.gateway.stop()));
-  app.post('/gateway/restart', async (context) => context.json(await services.gateway.restart()));
+  app.post('/gateway/start', async (context) => context.json(await runGatewayAction(services.gateway, () => services.gateway.start())));
+  app.post('/gateway/stop', async (context) => context.json(await runGatewayAction(services.gateway, () => services.gateway.stop())));
+  app.post('/gateway/restart', async (context) => context.json(await runGatewayAction(services.gateway, () => services.gateway.restart())));
   app.get('/logs/tail', async (context) => context.json(await services.logs.tail(200)));
 
   app.get('/logs/stream', (context) => {
@@ -72,4 +72,15 @@ export function createApp(services: AppServices): Hono {
   });
 
   return app;
+}
+
+async function runGatewayAction(
+  gateway: AppGateway,
+  action: () => Promise<GatewayStatus>,
+): Promise<GatewayStatus> {
+  try {
+    return await action();
+  } catch {
+    return gateway.status();
+  }
 }

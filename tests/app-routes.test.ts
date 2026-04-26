@@ -62,4 +62,34 @@ describe('createApp', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ lines: ['line one'], warning: null });
   });
+
+  it('returns current gateway status when start fails', async () => {
+    const services = createServices();
+    const failedStatus: GatewayStatus = {
+      state: 'crashed',
+      health: 'unknown',
+      pid: null,
+      cwd: '/repo/data',
+      startedAt: null,
+      uptimeMs: null,
+      exitCode: null,
+      lastError: 'spawn hermes ENOENT',
+      logWarning: null,
+    };
+    services.gateway.start = vi.fn(async () => {
+      throw new Error('spawn hermes ENOENT');
+    });
+    services.gateway.status = vi.fn(() => failedStatus);
+
+    const response = await createApp(services).request('/gateway/start', {
+      method: 'POST',
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      state: 'crashed',
+      lastError: 'spawn hermes ENOENT',
+    });
+  });
 });
