@@ -60,6 +60,30 @@ export async function main(): Promise<void> {
   attachSocketServer(server, runtime.env, runtime.terminals);
   await listen(server, runtime.env.port);
 
+  let shuttingDown = false;
+  const gracefulShutdown = (signal: NodeJS.Signals) => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    void (async () => {
+      runtime.logger.info({ signal }, "Shutting down");
+      try {
+        await runtime.gateway.shutdown();
+      } catch (cause: unknown) {
+        runtime.logger.error({ cause }, "Failed to stop gateway during shutdown");
+      }
+      process.exit(0);
+    })();
+  };
+
+  process.once("SIGTERM", () => {
+    gracefulShutdown("SIGTERM");
+  });
+  process.once("SIGINT", () => {
+    gracefulShutdown("SIGINT");
+  });
+
   runtime.logger.info({ port: runtime.env.port }, "Hermes control plane listening");
 }
 

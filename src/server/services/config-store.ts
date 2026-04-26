@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isMap, parseDocument } from "yaml";
-import type { ConfigReadResult, ConfigSaveResult, ConfigValidationIssue } from "../types";
+import type {
+  ConfigReadResult,
+  ConfigSaveResult,
+  ConfigValidationIssue,
+  ModelYamlPatch,
+} from "../types";
 import { DEFAULT_HERMES_CONFIG_YAML } from "../config/default-hermes-config";
 import type { LogStore } from "./log-store";
 
@@ -26,6 +31,60 @@ export class ConfigStore {
       updatedAt: metadata.mtime.toISOString(),
       validation: this.validate(content),
     };
+  }
+
+  /**
+   * Merges non-empty string fields into `model` in config.yaml and saves.
+   * Omitted or blank fields are left unchanged on disk.
+   */
+  async patchModel(updates: ModelYamlPatch): Promise<ConfigSaveResult> {
+    const trimmed: Record<string, string> = {};
+    for (const key of ["default", "provider", "base_url"] as const) {
+      const value = updates[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        trimmed[key] = value.trim();
+      }
+    }
+    if (Object.keys(trimmed).length === 0) {
+      const current = await this.read();
+      return { ...current, saved: false };
+    }
+
+    const { content } = await this.read();
+    const document = parseDocument(content);
+    const parseIssues: ConfigValidationIssue[] = document.errors.map((error) => ({
+      message: `YAML parse error: ${error.message}`,
+      path: null,
+    }));
+    if (parseIssues.length > 0) {
+      const updatedAt = await this.getExistingUpdatedAt();
+      return {
+        path: "data/config.yaml",
+        content,
+        updatedAt,
+        validation: { ok: false, issues: parseIssues },
+        saved: false,
+      };
+    }
+    if (document.contents === null || !isMap(document.contents)) {
+      const updatedAt = await this.getExistingUpdatedAt();
+      return {
+        path: "data/config.yaml",
+        content,
+        updatedAt,
+        validation: {
+          ok: false,
+          issues: [{ message: "Config root must be a YAML mapping.", path: null }],
+        },
+        saved: false,
+      };
+    }
+
+    for (const [yamlKey, value] of Object.entries(trimmed)) {
+      document.setIn(["model", yamlKey], value);
+    }
+
+    return this.save(String(document));
   }
 
   async save(content: string): Promise<ConfigSaveResult> {

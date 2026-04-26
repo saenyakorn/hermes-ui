@@ -94,6 +94,34 @@ describe("GatewayManager", () => {
     });
   });
 
+  it("shutdown resolves immediately when gateway is already stopped", async () => {
+    const spawnGateway: SpawnGateway = vi.fn(() => createFakeChild(1234));
+    const manager = createManager(spawnGateway);
+
+    await manager.shutdown();
+
+    expect(spawnGateway).not.toHaveBeenCalled();
+  });
+
+  it("shutdown waits for child exit after stop", async () => {
+    const child = createFakeChild(1234);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway);
+
+    await manager.start();
+
+    const done = manager.shutdown();
+    await vi.waitFor(() => {
+      expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+    });
+
+    child.emit("exit", 0, null);
+
+    await done;
+
+    expect(manager.status()).toMatchObject({ state: "stopped", pid: null });
+  });
+
   it("waits for asynchronous child exit before restart spawns another gateway", async () => {
     const firstChild = createFakeChild(1234);
     const secondChild = createFakeChild(5678);

@@ -105,6 +105,21 @@ export class GatewayManager {
     return this.start();
   }
 
+  /**
+   * Stops the gateway and waits until the child process has exited.
+   * Used on control-plane shutdown (e.g. tsx watch reload) so the gateway
+   * port is not left held by an orphaned process.
+   */
+  async shutdown(): Promise<void> {
+    const stoppingChild = this.child;
+    if (stoppingChild === null) {
+      return;
+    }
+
+    await this.stop();
+    await this.waitForChildExit(stoppingChild);
+  }
+
   async refreshHealth(): Promise<GatewayStatus> {
     const health = await checkGatewayHealth(this.state === "running");
 

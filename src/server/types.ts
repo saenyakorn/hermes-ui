@@ -81,3 +81,21 @@ export type EnvMutationResponse = {
   };
   gateway: GatewayStatus;
 };
+
+/** Non-secret `model:` keys written by the model-providers settings route. */
+export type ModelYamlPatch = {
+  default?: string;
+  provider?: string;
+  base_url?: string;
+};
+
+export type ModelProvidersMutationResponse = {
+  env: EnvReadResult;
+  config: ConfigSaveResult;
+  restart: {
+    attempted: boolean;
+    ok: boolean;
+    error: string | null;
+  };
+  gateway: GatewayStatus;
+};

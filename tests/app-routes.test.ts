@@ -5,6 +5,7 @@ import type {
   ConfigSaveResult,
   EnvReadResult,
   GatewayStatus,
+  ModelYamlPatch,
 } from "../src/server/types";
 
 const auth = `Basic ${Buffer.from("admin:secret").toString("base64")}`;
@@ -76,6 +77,7 @@ function createServices(): AppServices {
     config: {
       read: vi.fn(async () => configRead),
       save: vi.fn(async () => configSave),
+      patchModel: vi.fn(async (_updates: ModelYamlPatch) => configSave),
     },
     envVars: {
       read: vi.fn(async () => envRead),
@@ -109,6 +111,8 @@ describe("createApp", () => {
     expect(html).toContain('src="/assets/main.js"');
     expect(html).toContain('data-tab-trigger="messaging"');
     expect(html).toContain("Messaging Platform");
+    expect(html).toContain('data-tab-trigger="model-providers"');
+    expect(html).toContain("Model providers");
     expect(html).toContain("Advanced options");
   });
 
@@ -396,6 +400,120 @@ describe("createApp", () => {
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
       error: "Failed to update env: disk full",
+    });
+  });
+
+  it("protects model-providers settings route with basic auth", async () => {
+    const response = await createApp(createServices()).request("/settings/model-providers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ env: { set: { OPENROUTER_API_KEY: "k" } } }),
+    });
+
+    expect(response.status).toBe(401);
+  });
+
+  it("returns bad request for empty model-providers body", async () => {
+    const services = createServices();
+
+    const response = await createApp(services).request("/settings/model-providers", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(response.status).toBe(400);
+    expect(services.config.patchModel).not.toHaveBeenCalled();
+    expect(services.envVars.applyBatch).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 when model yaml patch does not save and does not apply env", async () => {
+    const services = createServices();
+    services.gateway.status = vi.fn(() => runningStatus);
+    const invalidPatch: ConfigSaveResult = {
+      ...configRead,
+      content: "[]\n",
+      validation: {
+        ok: false,
+        issues: [{ message: "Config root must be a YAML mapping.", path: null }],
+      },
+      saved: false,
+    };
+    services.config.patchModel = vi.fn(async () => invalidPatch);
+
+    const response = await createApp(services).request("/settings/model-providers", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: { default: "x/y" },
+        env: { set: { OPENROUTER_API_KEY: "secret" } },
+      }),
+    });
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Config validation failed; env was not modified.",
+      config: invalidPatch,
+    });
+    expect(services.config.patchModel).toHaveBeenCalledOnce();
+    expect(services.envVars.applyBatch).not.toHaveBeenCalled();
+    expect(services.gateway.restart).not.toHaveBeenCalled();
+  });
+
+  it("patches model config, applies env batch, and restarts gateway once", async () => {
+    const services = createServices();
+    services.gateway.status = vi.fn(() => runningStatus);
+    services.gateway.restart = vi.fn(async () => runningStatus);
+    const afterBatch: EnvReadResult = {
+      ...envRead,
+      entries: [...envRead.entries, { key: "OPENROUTER_API_KEY", maskedValue: "******ab" }],
+    };
+    services.envVars.applyBatch = vi.fn(async () => afterBatch);
+    const patchedConfig: ConfigSaveResult = {
+      ...configRead,
+      content: "model:\n  default: anthropic/claude\n",
+      saved: true,
+    };
+    services.config.patchModel = vi.fn(async () => patchedConfig);
+
+    const response = await createApp(services).request("/settings/model-providers", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: { default: "anthropic/claude" },
+        env: { set: { OPENROUTER_API_KEY: "tok" } },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.config.patchModel).toHaveBeenCalledWith({ default: "anthropic/claude" });
+    expect(services.envVars.applyBatch).toHaveBeenCalledWith({ set: { OPENROUTER_API_KEY: "tok" } });
+    expect(services.gateway.restart).toHaveBeenCalledOnce();
+    await expect(response.json()).resolves.toEqual({
+      env: afterBatch,
+      config: patchedConfig,
+      restart: { attempted: true, ok: true, error: null },
+      gateway: runningStatus,
+    });
+  });
+
+  it("model-providers env-only skips patchModel and does not restart when gateway stopped", async () => {
+    const services = createServices();
+    services.gateway.restart = vi.fn(async () => runningStatus);
+
+    const response = await createApp(services).request("/settings/model-providers", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ env: { set: { OPENROUTER_API_KEY: "tok" } } }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.config.patchModel).not.toHaveBeenCalled();
+    expect(services.envVars.applyBatch).toHaveBeenCalledOnce();
+    expect(services.gateway.restart).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      restart: { attempted: false, ok: true, error: null },
+      gateway: stoppedStatus,
     });
   });
 });

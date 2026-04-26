@@ -168,4 +168,26 @@ describe("ConfigStore", () => {
     expect(result.saved).toBe(true);
     expect(result.validation.ok).toBe(true);
   });
+
+  it("patchModel merges into existing model map and saves", async () => {
+    const store = createStore();
+
+    const result = await store.patchModel({ default: "openai/gpt-4o" });
+
+    expect(result.saved).toBe(true);
+    expect(result.validation.ok).toBe(true);
+    expect(result.content).toContain("openai/gpt-4o");
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toContain("openai/gpt-4o");
+  });
+
+  it("patchModel returns saved false when no fields to apply", async () => {
+    const store = createStore();
+
+    const result = await store.patchModel({});
+
+    expect(result.saved).toBe(false);
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(
+      DEFAULT_HERMES_CONFIG_YAML,
+    );
+  });
 });

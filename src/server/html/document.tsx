@@ -5,6 +5,7 @@ import { ControlTabPanel } from "./tabs/control-tab";
 import { EnvTabPanel } from "./tabs/env-tab";
 import { LogsTabPanel } from "./tabs/logs-tab";
 import { MessagingTabPanel } from "./tabs/messaging-tab";
+import { ModelProvidersTabPanel } from "./tabs/model-providers-tab";
 import { ShellTabPanel } from "./tabs/shell-tab";
 import { WorkspaceTabStrip } from "./workspace-tab-strip";
 
@@ -33,6 +34,7 @@ export function renderHtmlDocument(title: string, initialStatus: string): string
               <ConfigTabPanel />
               <EnvTabPanel />
               <MessagingTabPanel />
+              <ModelProvidersTabPanel />
             </section>
           </section>
         </main>

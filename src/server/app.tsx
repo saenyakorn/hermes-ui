@@ -9,6 +9,8 @@ import type {
   EnvReadResult,
   GatewayStatus,
   LogTail,
+  ModelProvidersMutationResponse,
+  ModelYamlPatch,
 } from "./types";
 
 export type AppGateway = {
@@ -27,6 +29,7 @@ export type AppLogs = {
 export type AppConfig = {
   read: () => Promise<ConfigReadResult>;
   save: (content: string) => Promise<ConfigSaveResult>;
+  patchModel: (updates: ModelYamlPatch) => Promise<ConfigSaveResult>;
 };
 
 export type AppServices = {
@@ -170,6 +173,88 @@ export function createApp(services: AppServices) {
 
       return context.json(await withGatewayRestart(services.gateway, envResult.value));
     })
+    .post("/settings/model-providers", async (context) => {
+      const input = await parseModelProvidersInput(context.req.json());
+      if (input === null) {
+        return context.json(
+          {
+            error:
+              "Body must include a non-empty model patch and/or env set/remove with at least one mutation.",
+          },
+          400,
+        );
+      }
+
+      let configResult: ConfigSaveResult;
+
+      if (input.model !== undefined && Object.keys(input.model).length > 0) {
+        const patched = await saveConfigPatch(services.config, input.model);
+        if (!patched.ok) {
+          return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
+        }
+        configResult = patched.value;
+        if (!configResult.saved) {
+          return context.json(
+            {
+              config: configResult,
+              error: "Config validation failed; env was not modified.",
+            },
+            422,
+          );
+        }
+      } else {
+        try {
+          const read = await services.config.read();
+          configResult = { ...read, saved: false };
+        } catch (cause: unknown) {
+          return context.json({ error: `Failed to read config: ${getErrorMessage(cause)}` }, 500);
+        }
+      }
+
+      let envSnapshot: EnvReadResult;
+      const envMutation = input.env;
+      if (envMutation !== undefined) {
+        const envResult = await mutateEnv(() => services.envVars.applyBatch(envMutation));
+        if (!envResult.ok) {
+          return context.json({ error: `Failed to update env: ${envResult.error}` }, 500);
+        }
+        envSnapshot = envResult.value;
+      } else {
+        try {
+          envSnapshot = await services.envVars.read();
+        } catch (cause: unknown) {
+          return context.json({ error: `Failed to read env: ${getErrorMessage(cause)}` }, 500);
+        }
+      }
+
+      const wasRunning = services.gateway.status().state === "running";
+      let restart: ModelProvidersMutationResponse["restart"];
+      let gateway: GatewayStatus;
+      if (!wasRunning) {
+        restart = { attempted: false, ok: true, error: null };
+        gateway = services.gateway.status();
+      } else {
+        try {
+          gateway = await services.gateway.restart();
+          restart = { attempted: true, ok: true, error: null };
+        } catch (cause: unknown) {
+          restart = {
+            attempted: true,
+            ok: false,
+            error: getErrorMessage(cause),
+          };
+          gateway = services.gateway.status();
+        }
+      }
+
+      const payload: ModelProvidersMutationResponse = {
+        env: envSnapshot,
+        config: configResult,
+        restart,
+        gateway,
+      };
+      return context.json(payload);
+    })
     .delete("/env/:key", async (context) => {
       const key = context.req.param("key");
       const envResult = await mutateEnv(() => services.envVars.remove(key));
@@ -245,6 +330,17 @@ async function saveConfig(
   }
 }
 
+async function saveConfigPatch(
+  config: AppConfig,
+  updates: ModelYamlPatch,
+): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
+  try {
+    return { ok: true, value: await config.patchModel(updates) };
+  } catch (cause: unknown) {
+    return { ok: false, error: getErrorMessage(cause) };
+  }
+}
+
 async function parseEnvUpsertInput(
   bodyPromise: Promise<unknown>,
 ): Promise<{ key: string; value: string } | null> {
@@ -262,59 +358,130 @@ async function parseEnvUpsertInput(
   }
 }
 
+function parseEnvBatchRecord(body: unknown): { set?: Record<string, string>; remove?: string[] } | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  let set: Record<string, string> | undefined;
+  if (body.set !== undefined) {
+    if (!isRecord(body.set)) {
+      return null;
+    }
+    set = {};
+    for (const [key, value] of Object.entries(body.set)) {
+      if (typeof value !== "string") {
+        return null;
+      }
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        set[key] = trimmed;
+      }
+    }
+    if (Object.keys(set).length === 0) {
+      set = undefined;
+    }
+  }
+
+  let remove: string[] | undefined;
+  if (body.remove !== undefined) {
+    if (!Array.isArray(body.remove)) {
+      return null;
+    }
+    if (!body.remove.every((item): item is string => typeof item === "string")) {
+      return null;
+    }
+    remove = [...new Set(body.remove)];
+  }
+
+  if (
+    (set === undefined || Object.keys(set).length === 0) &&
+    (remove === undefined || remove.length === 0)
+  ) {
+    return null;
+  }
+
+  const result: { set?: Record<string, string>; remove?: string[] } = {};
+  if (set !== undefined && Object.keys(set).length > 0) {
+    result.set = set;
+  }
+  if (remove !== undefined && remove.length > 0) {
+    result.remove = remove;
+  }
+  return result;
+}
+
 async function parseEnvBatchInput(
   bodyPromise: Promise<unknown>,
 ): Promise<{ set?: Record<string, string>; remove?: string[] } | null> {
+  try {
+    const body = await bodyPromise;
+    return parseEnvBatchRecord(body);
+  } catch {
+    return null;
+  }
+}
+
+function hasEnvBatchMutation(env: { set?: Record<string, string>; remove?: string[] }): boolean {
+  const hasSet = env.set !== undefined && Object.keys(env.set).length > 0;
+  const hasRemove = env.remove !== undefined && env.remove.length > 0;
+  return hasSet || hasRemove;
+}
+
+async function parseModelProvidersInput(
+  bodyPromise: Promise<unknown>,
+): Promise<{
+  model?: ModelYamlPatch;
+  env?: { set?: Record<string, string>; remove?: string[] };
+} | null> {
   try {
     const body = await bodyPromise;
     if (!isRecord(body)) {
       return null;
     }
 
-    let set: Record<string, string> | undefined;
-    if (body.set !== undefined) {
-      if (!isRecord(body.set)) {
+    let model: ModelYamlPatch | undefined;
+    if (body.model !== undefined) {
+      if (!isRecord(body.model)) {
         return null;
       }
-      set = {};
-      for (const [key, value] of Object.entries(body.set)) {
-        if (typeof value !== "string") {
-          return null;
-        }
-        const trimmed = value.trim();
-        if (trimmed.length > 0) {
-          set[key] = trimmed;
+      const out: ModelYamlPatch = {};
+      for (const key of ["default", "provider", "base_url"] as const) {
+        const value = body.model[key];
+        if (typeof value === "string" && value.trim().length > 0) {
+          out[key] = value.trim();
         }
       }
-      if (Object.keys(set).length === 0) {
-        set = undefined;
+      if (Object.keys(out).length > 0) {
+        model = out;
       }
     }
 
-    let remove: string[] | undefined;
-    if (body.remove !== undefined) {
-      if (!Array.isArray(body.remove)) {
+    let env: { set?: Record<string, string>; remove?: string[] } | undefined;
+    if (body.env !== undefined) {
+      const parsed = parseEnvBatchRecord(body.env);
+      if (parsed === null) {
         return null;
       }
-      if (!body.remove.every((item): item is string => typeof item === "string")) {
-        return null;
+      if (hasEnvBatchMutation(parsed)) {
+        env = parsed;
       }
-      remove = [...new Set(body.remove)];
     }
 
-    if (
-      (set === undefined || Object.keys(set).length === 0) &&
-      (remove === undefined || remove.length === 0)
-    ) {
+    const hasModel = model !== undefined && Object.keys(model).length > 0;
+    if (!hasModel && env === undefined) {
       return null;
     }
 
-    const result: { set?: Record<string, string>; remove?: string[] } = {};
-    if (set !== undefined && Object.keys(set).length > 0) {
-      result.set = set;
+    const result: {
+      model?: ModelYamlPatch;
+      env?: { set?: Record<string, string>; remove?: string[] };
+    } = {};
+    if (model !== undefined) {
+      result.model = model;
     }
-    if (remove !== undefined && remove.length > 0) {
-      result.remove = remove;
+    if (env !== undefined) {
+      result.env = env;
     }
     return result;
   } catch {

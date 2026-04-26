@@ -45,6 +45,10 @@ export function MessagingTabPanel() {
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
+              <p class="mt-1 text-xs text-muted leading-relaxed">
+                From the Discord Developer Portal. Leave empty to keep the current
+                token on disk.
+              </p>
             </div>
             <div class="min-w-0">
               <label
@@ -61,18 +65,21 @@ export function MessagingTabPanel() {
                 placeholder="Leave empty to keep current value"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
+              <p class="mt-1 text-xs text-muted leading-relaxed">
+                If set, only these Discord user IDs may use the bot (comma-separated).
+                Leave empty to allow all users in allowed channels.
+              </p>
             </div>
           </div>
           <details
             id="messaging-discord-advanced"
             class="mt-6 rounded-lg border border-frosted bg-surface/40 p-4 open:border-accent-border/40"
           >
-            <summary class="cursor-pointer text-base font-medium text-text">
+            <summary class="cursor-pointer list-none text-sm font-normal normal-case text-text">
               Advanced options
             </summary>
             <p class="mt-2 text-xs text-muted">
-              Optional <span class="text-text/90">DISCORD_*</span> variables
-              from the{" "}
+              Optional Discord settings from the{" "}
               <a
                 class="text-accent underline"
                 href="https://hermes-agent.nousresearch.com/docs/user-guide/messaging/discord"
@@ -96,10 +103,10 @@ export function MessagingTabPanel() {
             <div class="mt-4 grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-roles"
                 >
-                  DISCORD_ALLOWED_ROLES
+                  Allow Role IDs
                 </label>
                 <input
                   id="d-adv-roles"
@@ -109,13 +116,17 @@ export function MessagingTabPanel() {
                   placeholder="Comma-separated role IDs"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Comma-separated role IDs. If set, members need one of these roles
+                  (in addition to channel rules).
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-allow-ch"
                 >
-                  DISCORD_ALLOWED_CHANNELS
+                  Allow Channel IDs
                 </label>
                 <input
                   id="d-adv-allow-ch"
@@ -125,13 +136,17 @@ export function MessagingTabPanel() {
                   placeholder="Comma-separated channel IDs"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Comma-separated channel IDs where the bot is allowed to read and
+                  reply. Leave empty to use Hermes defaults.
+                </p>
               </div>
               <div class="sm:col-span-2">
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-free"
                 >
-                  DISCORD_FREE_RESPONSE_CHANNELS
+                  Free Response Channels
                 </label>
                 <input
                   id="d-adv-free"
@@ -141,13 +156,17 @@ export function MessagingTabPanel() {
                   placeholder="Channels where @mention is not required"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Channels where the bot may respond without an @mention (comma-separated
+                  IDs).
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-home"
                 >
-                  DISCORD_HOME_CHANNEL
+                  Home Channel
                 </label>
                 <input
                   id="d-adv-home"
@@ -157,13 +176,17 @@ export function MessagingTabPanel() {
                   placeholder="Channel ID for cron / notifications"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Channel ID used for cron jobs, notifications, and similar “home”
+                  traffic.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-homen"
                 >
-                  DISCORD_HOME_CHANNEL_NAME
+                  Home Channel Name
                 </label>
                 <input
                   id="d-adv-homen"
@@ -173,13 +196,16 @@ export function MessagingTabPanel() {
                   placeholder="Display name, e.g. #bot-updates"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Display name for the home channel (e.g. #alerts) for logs and UI.
+                </p>
               </div>
               <div class="sm:col-span-2">
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-proxy"
                 >
-                  DISCORD_PROXY
+                  Proxy URL
                 </label>
                 <input
                   id="d-adv-proxy"
@@ -189,15 +215,18 @@ export function MessagingTabPanel() {
                   placeholder="http(s):// or socks5:// URL"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Optional outbound proxy for Discord (http://, https://, or socks5://).
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-cmd"
                 >
-                  DISCORD_COMMAND_SYNC_POLICY
+                  Command Sync Policy
                 </label>
-                <select
+<select
                   id="d-adv-cmd"
                   data-discord-key="DISCORD_COMMAND_SYNC_POLICY"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -207,15 +236,19 @@ export function MessagingTabPanel() {
                   <option value="bulk">bulk</option>
                   <option value="off">off</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  How slash commands are synced with Discord: safe (incremental),
+                  bulk (full replace), or off.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-reply"
                 >
-                  DISCORD_REPLY_TO_MODE
+                  Reply-To Mode
                 </label>
-                <select
+<select
                   id="d-adv-reply"
                   data-discord-key="DISCORD_REPLY_TO_MODE"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -225,15 +258,19 @@ export function MessagingTabPanel() {
                   <option value="first">first</option>
                   <option value="all">all</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Controls reply threading: off, link only the first assistant message,
+                  or link all replies in the chain.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-reqm"
                 >
-                  DISCORD_REQUIRE_MENTION
+                  Require Mention
                 </label>
-                <select
+<select
                   id="d-adv-reqm"
                   data-discord-key="DISCORD_REQUIRE_MENTION"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -242,15 +279,19 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  When true, the bot only responds if @mentioned (except in free-response
+                  channels).
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-autoth"
                 >
-                  DISCORD_AUTO_THREAD
+                  Auto Thread
                 </label>
-                <select
+<select
                   id="d-adv-autoth"
                   data-discord-key="DISCORD_AUTO_THREAD"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -259,15 +300,19 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  When true, assistant replies start a new thread instead of posting
+                  inline.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-rxn"
                 >
-                  DISCORD_REACTIONS
+                  Reactions
                 </label>
-                <select
+<select
                   id="d-adv-rxn"
                   data-discord-key="DISCORD_REACTIONS"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -276,13 +321,16 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Whether the bot may add emoji reactions to messages.
+                </p>
               </div>
               <div class="sm:col-span-2">
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-ign"
                 >
-                  DISCORD_IGNORED_CHANNELS
+                  Ignored Channels
                 </label>
                 <input
                   id="d-adv-ign"
@@ -292,13 +340,17 @@ export function MessagingTabPanel() {
                   placeholder="Bot never responds, even if @mentioned"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Channel IDs the bot never reads or responds in, even if @mentioned
+                  (comma-separated).
+                </p>
               </div>
               <div class="sm:col-span-2">
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-nothr"
                 >
-                  DISCORD_NO_THREAD_CHANNELS
+                  No-Thread Channels
                 </label>
                 <input
                   id="d-adv-nothr"
@@ -308,15 +360,19 @@ export function MessagingTabPanel() {
                   placeholder="Reply inline (no new thread) when auto_thread is on"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  When auto-thread is on, these channels still get inline replies
+                  (comma-separated IDs).
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-alle"
                 >
-                  DISCORD_ALLOW_MENTION_EVERYONE
+                  Allow Mention Everyone
                 </label>
-                <select
+<select
                   id="d-adv-alle"
                   data-discord-key="DISCORD_ALLOW_MENTION_EVERYONE"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -325,15 +381,18 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Whether bot messages may include an @everyone mention.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-alr"
                 >
-                  DISCORD_ALLOW_MENTION_ROLES
+                  Allow Mention Roles
                 </label>
-                <select
+<select
                   id="d-adv-alr"
                   data-discord-key="DISCORD_ALLOW_MENTION_ROLES"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -342,15 +401,18 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Whether bot messages may @mention roles.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-alu"
                 >
-                  DISCORD_ALLOW_MENTION_USERS
+                  Allow Mention Users
                 </label>
-                <select
+<select
                   id="d-adv-alu"
                   data-discord-key="DISCORD_ALLOW_MENTION_USERS"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -359,15 +421,18 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Whether bot messages may @mention users.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-alk"
                 >
-                  DISCORD_ALLOW_MENTION_REPLIED_USER
+                  Allow Mention Replied User
                 </label>
-                <select
+<select
                   id="d-adv-alk"
                   data-discord-key="DISCORD_ALLOW_MENTION_REPLIED_USER"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -376,15 +441,18 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  Whether replies may ping the author of the message being replied to.
+                </p>
               </div>
               <div>
                 <label
-                  class="mb-1 block text-sm font-medium text-text"
+                  class="mb-1 block text-sm font-medium normal-case text-text"
                   for="d-adv-ignm"
                 >
-                  DISCORD_IGNORE_NO_MENTION
+                  Ignore Without Mention
                 </label>
-                <select
+<select
                   id="d-adv-ignm"
                   data-discord-key="DISCORD_IGNORE_NO_MENTION"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -393,6 +461,10 @@ export function MessagingTabPanel() {
                   <option value="true">true</option>
                   <option value="false">false</option>
                 </select>
+                <p class="mt-1 text-xs text-muted leading-relaxed">
+                  When true, messages without an @mention are ignored outside free-response
+                  channels.
+                </p>
               </div>
             </div>
           </details>
@@ -432,6 +504,10 @@ export function MessagingTabPanel() {
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
+              <p class="mt-1 text-xs text-muted leading-relaxed">
+                OAuth bot token from your Slack app (starts with xoxb-). Used for Web
+                API calls. Leave empty to keep the current value.
+              </p>
             </div>
             <div class="min-w-0">
               <label
@@ -447,6 +523,10 @@ export function MessagingTabPanel() {
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
+              <p class="mt-1 text-xs text-muted leading-relaxed">
+                App-level token with connections:write for Socket Mode (starts with
+                xapp-). Leave empty to keep the current value.
+              </p>
             </div>
           </div>
           <div class="mt-6 flex flex-wrap gap-2">
