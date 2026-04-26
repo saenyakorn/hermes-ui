@@ -4,9 +4,9 @@ import { WorkspaceTabs } from "./workspace-tabs";
 
 export function Dashboard({ status }: { status: GatewayStatus }) {
   return (
-    <main className="min-h-screen bg-background text-text">
-      <section className="mx-auto flex min-h-screen max-w-[1400px] flex-col gap-4 px-4 py-4 xl:grid xl:min-h-screen xl:grid-cols-[420px_1fr] xl:grid-rows-1">
-        <aside className="shrink-0 rounded-xl border border-accent-border bg-surface p-5 xl:min-h-0">
+    <main className="h-screen overflow-x-hidden overflow-y-hidden bg-background text-text">
+      <section className="mx-auto flex h-full min-w-0 max-w-[1400px] flex-col gap-4 p-4 xl:grid xl:grid-cols-[420px_minmax(0,1fr)] xl:grid-rows-1">
+        <aside className="min-w-0 shrink-0 overflow-auto rounded-xl border border-accent-border bg-surface p-5 xl:min-h-0">
           <p className="text-xs uppercase text-muted">Gateway</p>
           <h1 className="mt-2 text-4xl font-medium tracking-[-0.08em]">Hermes Agent</h1>
           <div
@@ -38,8 +38,8 @@ export function Dashboard({ status }: { status: GatewayStatus }) {
           </div>
         </aside>
 
-        <section className="flex min-h-0 min-h-[min(560px,calc(100vh-8rem))] flex-1 flex-col rounded-xl border border-accent-border bg-surface p-3 xl:min-h-0">
-          <div id="workspace-tabs-root" className="flex min-h-0 flex-1 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-accent-border bg-surface p-3 xl:min-h-0">
+          <div id="workspace-tabs-root" className="flex min-h-0 min-w-0 flex-1 flex-col">
             <WorkspaceTabs />
           </div>
         </section>

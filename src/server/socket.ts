@@ -4,6 +4,30 @@ import { isAuthorizedBasicHeader } from "./services/auth";
 import type { TerminalManager } from "./services/terminal-manager";
 import type { AppEnv } from "./types";
 
+type SocketHandshake = {
+  headers: Record<string, string | string[] | undefined>;
+  auth?: Record<string, unknown>;
+};
+
+export function isSocketAuthorized(
+  handshake: SocketHandshake,
+  username: string,
+  password: string,
+): boolean {
+  const header = handshake.headers.authorization;
+  const headerValue = Array.isArray(header) ? header[0] : header;
+  if (isAuthorizedBasicHeader(headerValue, username, password)) {
+    return true;
+  }
+
+  const authToken = handshake.auth?.token;
+  if (typeof authToken === "string") {
+    return isAuthorizedBasicHeader(authToken, username, password);
+  }
+
+  return false;
+}
+
 export function attachSocketServer(
   server: HttpServer,
   env: AppEnv,
@@ -12,12 +36,7 @@ export function attachSocketServer(
   const io = new Server(server);
 
   io.use((socket, next) => {
-    const header = socket.handshake.headers.authorization;
-    const authorized = isAuthorizedBasicHeader(
-      Array.isArray(header) ? header[0] : header,
-      env.adminUsername,
-      env.adminPassword,
-    );
+    const authorized = isSocketAuthorized(socket.handshake, env.adminUsername, env.adminPassword);
 
     if (!authorized) {
       next(new Error("Unauthorized"));

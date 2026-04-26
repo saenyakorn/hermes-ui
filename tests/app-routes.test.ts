@@ -76,6 +76,17 @@ describe("createApp", () => {
     expect(response.status).toBe(401);
   });
 
+  it("renders dashboard layout with horizontal overflow guards", async () => {
+    const response = await createApp(createServices()).request("/", {
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("overflow-x-hidden");
+    expect(html).toContain("min-w-0");
+  });
+
   it("returns gateway status JSON", async () => {
     const response = await createApp(createServices()).request("/gateway/status", {
       headers: { authorization: auth },

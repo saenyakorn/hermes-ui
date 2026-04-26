@@ -6,8 +6,8 @@ const tabClass =
 
 export function WorkspaceTabs() {
   return (
-    <Tabs.Root defaultValue="logs" className="flex min-h-0 flex-1 flex-col">
-      <Tabs.List className="mb-3 flex shrink-0 gap-2 border-b border-frosted pb-3">
+    <Tabs.Root defaultValue="logs" className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <Tabs.List className="mb-3 flex shrink-0 gap-2 overflow-x-auto border-b border-frosted pb-3">
         <Tabs.Tab value="logs" className={tabClass}>
           Live log
         </Tabs.Tab>
@@ -19,15 +19,23 @@ export function WorkspaceTabs() {
         </Tabs.Tab>
       </Tabs.List>
 
-      <Tabs.Panel value="logs" keepMounted className="min-h-0 flex-1 overflow-hidden">
-        <p className="mb-2 text-xs uppercase text-muted">Gateway log</p>
+      <Tabs.Panel
+        value="logs"
+        keepMounted
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      >
+        <p className="mb-2 shrink-0 text-xs uppercase text-muted">Gateway log</p>
         <pre
           id="log-tail"
-          className="max-h-[min(480px,calc(100vh-14rem))] overflow-auto rounded-lg bg-background p-3 text-xs text-muted"
+          className="min-h-0 flex-1 overflow-auto rounded-lg bg-background p-3 text-xs text-muted"
         />
       </Tabs.Panel>
 
-      <Tabs.Panel value="shell" keepMounted className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <Tabs.Panel
+        value="shell"
+        keepMounted
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      >
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <p className="text-sm text-muted">Interactive shell</p>
           <Button
@@ -40,7 +48,11 @@ export function WorkspaceTabs() {
         <div id="terminal" className="min-h-[320px] flex-1 rounded-lg bg-background" />
       </Tabs.Panel>
 
-      <Tabs.Panel value="config" keepMounted className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <Tabs.Panel
+        value="config"
+        keepMounted
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      >
         <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs uppercase text-muted">Hermes Config</p>

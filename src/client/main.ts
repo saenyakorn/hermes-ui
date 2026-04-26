@@ -298,6 +298,16 @@ async function initializeConfigEditor(): Promise<void> {
       layoutEditorIfVisible();
     });
     resizeObserver.observe(container);
+    const panel = container.closest<HTMLElement>('[role="tabpanel"]');
+    if (panel) {
+      const visibilityObserver = new MutationObserver(() => {
+        layoutEditorIfVisible();
+      });
+      visibilityObserver.observe(panel, {
+        attributes: true,
+        attributeFilter: ["hidden", "style", "class", "data-state"],
+      });
+    }
     layoutEditorIfVisible();
 
     editorInstance.onDidChangeModelContent(() => {

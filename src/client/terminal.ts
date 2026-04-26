@@ -19,6 +19,15 @@ function resizeTerminal(
   }
 }
 
+function getBasicAuthTokenFromLocation(): string | undefined {
+  const url = new URL(window.location.href);
+  if (!url.username || !url.password) {
+    return undefined;
+  }
+
+  return `Basic ${btoa(`${url.username}:${url.password}`)}`;
+}
+
 const terminalElement = document.querySelector<HTMLElement>("#terminal");
 
 if (terminalElement) {
@@ -39,6 +48,9 @@ if (terminalElement) {
 
   const socket = io({
     transports: ["websocket"],
+    auth: {
+      token: getBasicAuthTokenFromLocation(),
+    },
   });
 
   resizeTerminal(terminalElement, terminal, fit, socket);
@@ -69,6 +81,16 @@ if (terminalElement) {
     resizeTerminal(terminalElement, terminal, fit, socket);
   });
   observer.observe(terminalElement);
+  const panel = terminalElement.closest<HTMLElement>('[role="tabpanel"]');
+  if (panel) {
+    const visibilityObserver = new MutationObserver(() => {
+      resizeTerminal(terminalElement, terminal, fit, socket);
+    });
+    visibilityObserver.observe(panel, {
+      attributes: true,
+      attributeFilter: ["hidden", "style", "class", "data-state"],
+    });
+  }
 
   document.querySelector<HTMLButtonElement>("#terminal-clear")?.addEventListener("click", () => {
     terminal.clear();
