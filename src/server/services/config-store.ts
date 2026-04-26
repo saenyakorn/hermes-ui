@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { isMap, parseDocument } from "yaml";
+import type { Document } from "yaml";
+import { isMap, isScalar, isSeq, parseDocument } from "yaml";
 import type {
   ConfigReadResult,
   ConfigSaveResult,
   ConfigValidationIssue,
   ModelYamlPatch,
+  WorkspaceConfigHints,
 } from "../types";
 import { DEFAULT_HERMES_CONFIG_YAML } from "../config/default-hermes-config";
 import type { LogStore } from "./log-store";
@@ -123,8 +125,135 @@ export class ConfigStore {
     };
   }
 
+  /**
+   * Reads `model.*` and `discord.allowed_users` for UI fields (best-effort if YAML is invalid).
+   */
+  async getWorkspaceConfigHints(): Promise<WorkspaceConfigHints> {
+    const empty: WorkspaceConfigHints = {
+      model: { default: null, provider: null, base_url: null },
+      discord: { allowed_users: null },
+    };
+    const { content } = await this.read();
+    const document = parseDocument(content);
+    if (document.errors.length > 0 || document.contents === null || !isMap(document.contents)) {
+      return empty;
+    }
+
+    return {
+      model: {
+        default: this.yamlScalarToString(document.getIn(["model", "default"])),
+        provider: this.yamlScalarToString(document.getIn(["model", "provider"])),
+        base_url: this.yamlScalarToString(document.getIn(["model", "base_url"])),
+      },
+      discord: {
+        allowed_users: this.yamlDiscordAllowedUsers(document),
+      },
+    };
+  }
+
+  /**
+   * Sets or clears `discord.allowed_users` in config.yaml (comma-separated user IDs).
+   * Pass an empty string to remove the key.
+   */
+  async patchDiscordAllowedUsers(allowed_users: string): Promise<ConfigSaveResult> {
+    const { content } = await this.read();
+    const document = parseDocument(content);
+    const parseIssues: ConfigValidationIssue[] = document.errors.map((error) => ({
+      message: `YAML parse error: ${error.message}`,
+      path: null,
+    }));
+    if (parseIssues.length > 0) {
+      const updatedAt = await this.getExistingUpdatedAt();
+      return {
+        path: "data/config.yaml",
+        content,
+        updatedAt,
+        validation: { ok: false, issues: parseIssues },
+        saved: false,
+      };
+    }
+    if (document.contents === null || !isMap(document.contents)) {
+      const updatedAt = await this.getExistingUpdatedAt();
+      return {
+        path: "data/config.yaml",
+        content,
+        updatedAt,
+        validation: {
+          ok: false,
+          issues: [{ message: "Config root must be a YAML mapping.", path: null }],
+        },
+        saved: false,
+      };
+    }
+
+    const trimmed = allowed_users.trim();
+    if (trimmed.length === 0) {
+      const discordMap = document.getIn(["discord"]);
+      if (isMap(discordMap)) {
+        discordMap.delete("allowed_users");
+      }
+    } else {
+      document.setIn(["discord", "allowed_users"], trimmed);
+    }
+
+    return this.save(String(document));
+  }
+
   async initialize(): Promise<void> {
     await this.ensureConfigFile();
+  }
+
+  private yamlScalarToString(node: unknown): string | null {
+    if (node === null || node === undefined) {
+      return null;
+    }
+    if (typeof node === "string") {
+      return node;
+    }
+    if (typeof node === "number" || typeof node === "boolean") {
+      return String(node);
+    }
+    if (isScalar(node)) {
+      const value = node.value;
+      if (value === null || value === undefined) {
+        return null;
+      }
+      return typeof value === "string" ? value : String(value);
+    }
+    return null;
+  }
+
+  private yamlDiscordAllowedUsers(document: Document): string | null {
+    const node = document.getIn(["discord", "allowed_users"]);
+    if (node === null || node === undefined) {
+      return null;
+    }
+    if (typeof node === "string") {
+      return node;
+    }
+    if (typeof node === "number" || typeof node === "boolean") {
+      return String(node);
+    }
+    if (isScalar(node)) {
+      const value = node.value;
+      if (value === null || value === undefined) {
+        return null;
+      }
+      return typeof value === "string" ? value : String(value);
+    }
+    if (isSeq(node)) {
+      const parts: string[] = [];
+      for (const item of node.items) {
+        if (item === null || item === undefined) {
+          continue;
+        }
+        if (isScalar(item) && item.value !== null && item.value !== undefined) {
+          parts.push(String(item.value));
+        }
+      }
+      return parts.length > 0 ? parts.join(",") : null;
+    }
+    return null;
   }
 
   private async ensureConfigFile(): Promise<void> {

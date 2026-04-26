@@ -41,7 +41,7 @@ export function MessagingTabPanel() {
               <input
                 id="messaging-discord-token"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
@@ -56,7 +56,7 @@ export function MessagingTabPanel() {
                 for="messaging-discord-allowed"
               >
                 Allowed user IDs, comma-separated (optional,
-                DISCORD_ALLOWED_USERS)
+                config.yaml → discord.allowed_users)
               </label>
               <input
                 id="messaging-discord-allowed"
@@ -66,8 +66,10 @@ export function MessagingTabPanel() {
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
               <p class="mt-1 text-xs text-muted leading-relaxed">
-                If set, only these Discord user IDs may use the bot (comma-separated).
-                Leave empty to allow all users in allowed channels.
+                Stored in <span class="text-text">data/config.yaml</span> under{" "}
+                <span class="text-text">discord.allowed_users</span>. If set, only
+                these Discord user IDs may use the bot. Leave empty to allow all
+                users in allowed channels.
               </p>
             </div>
           </div>
@@ -500,7 +502,7 @@ export function MessagingTabPanel() {
               <input
                 id="messaging-slack-bot"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
@@ -519,7 +521,7 @@ export function MessagingTabPanel() {
               <input
                 id="messaging-slack-app"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />

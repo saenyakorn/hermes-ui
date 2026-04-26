@@ -86,4 +86,18 @@ describe("EnvStore", () => {
 
     await expect(store.applyBatch({ remove: ["bad"] })).rejects.toThrow("Env key must match");
   });
+
+  it("read includes publicValue for Discord boolean/select env keys", async () => {
+    await writeFile(
+      path.join(tmpDir, ".env"),
+      "DISCORD_REQUIRE_MENTION=true\nDISCORD_BOT_TOKEN=secret\n",
+      "utf8",
+    );
+    const store = createStore();
+    const read = await store.read();
+    const mention = read.entries.find((e) => e.key === "DISCORD_REQUIRE_MENTION");
+    const token = read.entries.find((e) => e.key === "DISCORD_BOT_TOKEN");
+    expect(mention?.publicValue).toBe("true");
+    expect(token?.publicValue).toBeUndefined();
+  });
 });

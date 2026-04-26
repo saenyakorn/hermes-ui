@@ -64,6 +64,11 @@ export type ConfigSaveResponse = {
 export type EnvEntry = {
   key: string;
   maskedValue: string;
+  /**
+   * Unmasked value for non-secret Hermes flags (e.g. Discord boolean/enum .env keys).
+   * Used by workspace UI selects only; list view still uses maskedValue.
+   */
+  publicValue?: string;
 };
 
 export type EnvReadResult = {
@@ -87,6 +92,18 @@ export type ModelYamlPatch = {
   default?: string;
   provider?: string;
   base_url?: string;
+};
+
+/** Values read from `config.yaml` for workspace UI fields (no secrets). */
+export type WorkspaceConfigHints = {
+  model: {
+    default: string | null;
+    provider: string | null;
+    base_url: string | null;
+  };
+  discord: {
+    allowed_users: string | null;
+  };
 };
 
 export type ModelProvidersMutationResponse = {

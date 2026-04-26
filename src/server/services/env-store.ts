@@ -7,6 +7,20 @@ import type { EnvReadResult } from "../types";
 const ENV_FILE_NAME = ".env";
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
 
+/** Non-secret Discord .env keys whose raw value may be sent to the workspace UI (selects). */
+const ENV_KEYS_WITH_PUBLIC_VALUE_IN_API = new Set([
+  "DISCORD_COMMAND_SYNC_POLICY",
+  "DISCORD_REPLY_TO_MODE",
+  "DISCORD_REQUIRE_MENTION",
+  "DISCORD_AUTO_THREAD",
+  "DISCORD_REACTIONS",
+  "DISCORD_ALLOW_MENTION_EVERYONE",
+  "DISCORD_ALLOW_MENTION_ROLES",
+  "DISCORD_ALLOW_MENTION_USERS",
+  "DISCORD_ALLOW_MENTION_REPLIED_USER",
+  "DISCORD_IGNORE_NO_MENTION",
+]);
+
 export class EnvStore {
   constructor(private readonly dataDir: string) {}
 
@@ -17,10 +31,17 @@ export class EnvStore {
     const metadata = await this.getUpdatedAt();
     const entries = Object.entries(parsed)
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, value]) => ({
-        key,
-        maskedValue: this.maskValue(value),
-      }));
+      .map(([key, value]) => {
+        const maskedValue = this.maskValue(value);
+        const base = { key, maskedValue };
+        if (value.length === 0 || value.length > 128 || value.includes("\n")) {
+          return base;
+        }
+        if (ENV_KEYS_WITH_PUBLIC_VALUE_IN_API.has(key)) {
+          return { ...base, publicValue: value };
+        }
+        return base;
+      });
 
     return {
       path: "data/.env",

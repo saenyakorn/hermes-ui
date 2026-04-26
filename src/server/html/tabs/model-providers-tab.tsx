@@ -110,7 +110,7 @@ export function ModelProvidersTabPanel() {
               <input
                 id="mp-or-key"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
@@ -158,7 +158,7 @@ export function ModelProvidersTabPanel() {
               <input
                 id="mp-anthropic-key"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
@@ -196,7 +196,7 @@ export function ModelProvidersTabPanel() {
               <input
                 id="mp-openai-key"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
@@ -244,7 +244,7 @@ export function ModelProvidersTabPanel() {
               <input
                 id="mp-google-key"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder="Leave unchanged if already set"
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />

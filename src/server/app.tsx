@@ -11,6 +11,7 @@ import type {
   LogTail,
   ModelProvidersMutationResponse,
   ModelYamlPatch,
+  WorkspaceConfigHints,
 } from "./types";
 
 export type AppGateway = {
@@ -30,6 +31,8 @@ export type AppConfig = {
   read: () => Promise<ConfigReadResult>;
   save: (content: string) => Promise<ConfigSaveResult>;
   patchModel: (updates: ModelYamlPatch) => Promise<ConfigSaveResult>;
+  getWorkspaceConfigHints: () => Promise<WorkspaceConfigHints>;
+  patchDiscordAllowedUsers: (allowed_users: string) => Promise<ConfigSaveResult>;
 };
 
 export type AppServices = {
@@ -173,42 +176,65 @@ export function createApp(services: AppServices) {
 
       return context.json(await withGatewayRestart(services.gateway, envResult.value));
     })
+    .get("/settings/workspace-hints", async (context) => {
+      try {
+        return context.json(await services.config.getWorkspaceConfigHints());
+      } catch (cause: unknown) {
+        return context.json({ error: `Failed to read config hints: ${getErrorMessage(cause)}` }, 500);
+      }
+    })
     .post("/settings/model-providers", async (context) => {
       const input = await parseModelProvidersInput(context.req.json());
       if (input === null) {
         return context.json(
           {
             error:
-              "Body must include a non-empty model patch and/or env set/remove with at least one mutation.",
+              "Body must include a model patch, discord.allowed_users update, and/or env set/remove with at least one mutation.",
           },
           400,
         );
       }
 
       let configResult: ConfigSaveResult;
+      try {
+        const baseline = await services.config.read();
+        configResult = { ...baseline, saved: false };
 
-      if (input.model !== undefined && Object.keys(input.model).length > 0) {
-        const patched = await saveConfigPatch(services.config, input.model);
-        if (!patched.ok) {
-          return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
+        if (input.model !== undefined && Object.keys(input.model).length > 0) {
+          const patched = await saveConfigPatch(services.config, input.model);
+          if (!patched.ok) {
+            return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
+          }
+          configResult = patched.value;
+          if (!configResult.saved) {
+            return context.json(
+              {
+                config: configResult,
+                error: "Config validation failed; env was not modified.",
+              },
+              422,
+            );
+          }
         }
-        configResult = patched.value;
-        if (!configResult.saved) {
-          return context.json(
-            {
-              config: configResult,
-              error: "Config validation failed; env was not modified.",
-            },
-            422,
-          );
+
+        if (input.discord !== undefined) {
+          const patched = await saveDiscordPatch(services.config, input.discord.allowed_users);
+          if (!patched.ok) {
+            return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
+          }
+          configResult = patched.value;
+          if (!configResult.saved) {
+            return context.json(
+              {
+                config: configResult,
+                error: "Config validation failed; env was not modified.",
+              },
+              422,
+            );
+          }
         }
-      } else {
-        try {
-          const read = await services.config.read();
-          configResult = { ...read, saved: false };
-        } catch (cause: unknown) {
-          return context.json({ error: `Failed to read config: ${getErrorMessage(cause)}` }, 500);
-        }
+      } catch (cause: unknown) {
+        return context.json({ error: `Failed to read or patch config: ${getErrorMessage(cause)}` }, 500);
       }
 
       let envSnapshot: EnvReadResult;
@@ -341,6 +367,17 @@ async function saveConfigPatch(
   }
 }
 
+async function saveDiscordPatch(
+  config: AppConfig,
+  allowed_users: string,
+): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
+  try {
+    return { ok: true, value: await config.patchDiscordAllowedUsers(allowed_users) };
+  } catch (cause: unknown) {
+    return { ok: false, error: getErrorMessage(cause) };
+  }
+}
+
 async function parseEnvUpsertInput(
   bodyPromise: Promise<unknown>,
 ): Promise<{ key: string; value: string } | null> {
@@ -433,6 +470,7 @@ async function parseModelProvidersInput(
 ): Promise<{
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
+  discord?: { allowed_users: string };
 } | null> {
   try {
     const body = await bodyPromise;
@@ -468,20 +506,33 @@ async function parseModelProvidersInput(
       }
     }
 
+    let discord: { allowed_users: string } | undefined;
+    if (body.discord !== undefined) {
+      if (!isRecord(body.discord) || typeof body.discord.allowed_users !== "string") {
+        return null;
+      }
+      discord = { allowed_users: body.discord.allowed_users };
+    }
+
     const hasModel = model !== undefined && Object.keys(model).length > 0;
-    if (!hasModel && env === undefined) {
+    const hasDiscord = discord !== undefined;
+    if (!hasModel && env === undefined && !hasDiscord) {
       return null;
     }
 
     const result: {
       model?: ModelYamlPatch;
       env?: { set?: Record<string, string>; remove?: string[] };
+      discord?: { allowed_users: string };
     } = {};
     if (model !== undefined) {
       result.model = model;
     }
     if (env !== undefined) {
       result.env = env;
+    }
+    if (discord !== undefined) {
+      result.discord = discord;
     }
     return result;
   } catch {

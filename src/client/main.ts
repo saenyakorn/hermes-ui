@@ -14,10 +14,50 @@ import type {
   LogTail,
   ModelProvidersMutationResponse,
   ModelYamlPatch,
+  WorkspaceConfigHints,
 } from "../server/types";
+import {
+  isConfiguredSecretPlaceholder,
+  populateMessagingIntegrationFields,
+  populateModelProvidersIntegrationFields,
+} from "./workspace-field-sources";
 
 type GatewayAction = "start" | "stop" | "restart";
 type TabKey = "control" | "logs" | "shell" | "config" | "env" | "messaging" | "model-providers";
+
+const LAST_OPEN_TAB_STORAGE_KEY = "hermes.workspace.lastOpenTab";
+
+function isTabKey(value: string): value is TabKey {
+  return (
+    value === "control" ||
+    value === "logs" ||
+    value === "shell" ||
+    value === "config" ||
+    value === "env" ||
+    value === "messaging" ||
+    value === "model-providers"
+  );
+}
+
+function readLastOpenTabFromStorage(): TabKey | null {
+  try {
+    const raw = localStorage.getItem(LAST_OPEN_TAB_STORAGE_KEY);
+    if (!raw || !isTabKey(raw)) {
+      return null;
+    }
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function persistLastOpenTabToStorage(tab: TabKey): void {
+  try {
+    localStorage.setItem(LAST_OPEN_TAB_STORAGE_KEY, tab);
+  } catch {
+    // Quota, private mode, or storage disabled
+  }
+}
 
 const queryClient = new QueryClient();
 const gatewayQueryKey = ["gateway-status"] as const;
@@ -31,12 +71,37 @@ let envLoaded = false;
 let envBusy = false;
 let messagingBusy = false;
 let modelProvidersBusy = false;
-const rpcClient = hc<AppType>(window.location.origin);
 
-/** All Discord env keys the UI can set — used for Clear + hint logic */
-const MESSAGING_DISCORD_ALL_KEYS: readonly string[] = [
+function getBasicAuthTokenFromLocation(): string | undefined {
+  const url = new URL(window.location.href);
+  if (!url.username || !url.password) {
+    return undefined;
+  }
+  return `Basic ${btoa(`${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`)}`;
+}
+
+/** Ensures /env and other JSON routes send auth when credentials are in the page URL (common on PaaS). */
+function authenticatedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  const token = getBasicAuthTokenFromLocation();
+  if (token !== undefined && !headers.has("Authorization")) {
+    headers.set("Authorization", token);
+  }
+  return fetch(input, {
+    ...init,
+    credentials: "include",
+    headers,
+  });
+}
+
+const rpcClient = hc<AppType>(window.location.origin, { fetch: authenticatedFetch });
+
+/**
+ * Discord keys stored in data/.env (Clear removes these).
+ * Allowed user IDs live in config.yaml (`discord.allowed_users`), not .env.
+ */
+const MESSAGING_DISCORD_ENV_KEYS: readonly string[] = [
   "DISCORD_BOT_TOKEN",
-  "DISCORD_ALLOWED_USERS",
   "DISCORD_ALLOWED_ROLES",
   "DISCORD_ALLOWED_CHANNELS",
   "DISCORD_FREE_RESPONSE_CHANNELS",
@@ -55,7 +120,7 @@ const MESSAGING_DISCORD_ALL_KEYS: readonly string[] = [
   "DISCORD_ALLOW_MENTION_USERS",
   "DISCORD_ALLOW_MENTION_REPLIED_USER",
   "DISCORD_IGNORE_NO_MENTION",
-];
+] as const;
 const MESSAGING_SLACK_KEYS = ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"] as const;
 
 const MODEL_OPENROUTER_KEYS = ["OPENROUTER_API_KEY", "OPENROUTER_BASE_URL"] as const;
@@ -99,24 +164,28 @@ function parseInitialStatus(): GatewayStatus {
 }
 
 function wireTabs(): void {
-  const triggers = document.querySelectorAll<HTMLButtonElement>("[data-tab-trigger]");
-  const panels = document.querySelectorAll<HTMLElement>("[data-tab-panel]");
-
   const setActiveTab = (tab: TabKey): void => {
+    const triggers = document.querySelectorAll<HTMLButtonElement>("[data-tab-trigger]");
+    const panels = document.querySelectorAll<HTMLElement>("[data-tab-panel]");
+
     for (const trigger of Array.from(triggers)) {
-      const active = trigger.dataset.tabTrigger === tab;
+      const triggerKey = trigger.getAttribute("data-tab-trigger");
+      const active = triggerKey === tab;
       trigger.classList.toggle("bg-frosted", active);
       trigger.classList.toggle("text-text", active);
       trigger.classList.toggle("text-muted", !active);
     }
     for (const panel of Array.from(panels)) {
-      const panelKey = panel.dataset.tabPanel;
+      const panelKey = panel.getAttribute("data-tab-panel");
       if (!panelKey) {
         continue;
       }
       // Use the `hidden` property so panels keep `display:flex` layout classes at all times.
       panel.hidden = panelKey !== tab;
     }
+
+    persistLastOpenTabToStorage(tab);
+
     if (tab === "shell") {
       shellTerminal?.focus();
     }
@@ -130,11 +199,11 @@ function wireTabs(): void {
       }
     }
     if (tab === "messaging") {
-      const tokenInput = document.getElementById("messaging-discord-token");
-      if (tokenInput instanceof HTMLInputElement) {
-        tokenInput.focus();
-      }
       void refreshMessagingEnvHint();
+      const saveDiscord = document.getElementById("messaging-save-discord");
+      if (saveDiscord instanceof HTMLButtonElement) {
+        saveDiscord.focus();
+      }
     }
     if (tab === "model-providers") {
       const first = document.getElementById("mp-yaml-default");
@@ -145,22 +214,51 @@ function wireTabs(): void {
     }
   };
 
-  for (const trigger of Array.from(triggers)) {
-    trigger.addEventListener("click", () => {
-      const key = trigger.dataset.tabTrigger;
-      if (
-        key === "control" ||
-        key === "logs" ||
-        key === "shell" ||
-        key === "config" ||
-        key === "env" ||
-        key === "messaging" ||
-        key === "model-providers"
-      ) {
-        setActiveTab(key);
+  const applyStoredOrDefaultTab = (): void => {
+    const storedTab = readLastOpenTabFromStorage();
+    setActiveTab(storedTab ?? "control");
+  };
+
+  applyStoredOrDefaultTab();
+
+  window.addEventListener(
+    "pageshow",
+    (event) => {
+      if (event.persisted) {
+        applyStoredOrDefaultTab();
       }
-    });
-  }
+    },
+    { passive: true },
+  );
+
+  const onTabStripClick = (event: MouseEvent): void => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const workspace = document.getElementById("workspace");
+    if (!workspace) {
+      return;
+    }
+    const trigger = target.closest<HTMLButtonElement>("[data-tab-trigger]");
+    if (!trigger || !workspace.contains(trigger)) {
+      return;
+    }
+    const key = trigger.getAttribute("data-tab-trigger");
+    if (
+      key === "control" ||
+      key === "logs" ||
+      key === "shell" ||
+      key === "config" ||
+      key === "env" ||
+      key === "messaging" ||
+      key === "model-providers"
+    ) {
+      setActiveTab(key);
+    }
+  };
+
+  document.body.addEventListener("click", onTabStripClick);
 }
 
 function setBusyButtons(disabled: boolean): void {
@@ -640,6 +738,7 @@ async function loadEnvVars(): Promise<void> {
     renderEnvMeta(env);
     renderEnvList(env.entries);
     renderMessagingEnvHint(env);
+    schedulePopulateIntegrationSecretsFromEnv(env);
     envLoaded = true;
     setEnvStatus("Select key to update. Values are masked.");
   } catch (cause: unknown) {
@@ -714,6 +813,7 @@ function applyEnvMutationResponse(response: EnvMutationResponse): void {
   renderEnvList(response.env.entries);
   renderGatewayStatus(response.gateway, null);
   queryClient.setQueryData(gatewayQueryKey, response.gateway);
+  schedulePopulateIntegrationSecretsFromEnv(response.env);
   if (response.restart.ok) {
     setEnvStatus("Env updated. Gateway restarted.");
     return;
@@ -726,6 +826,30 @@ function setMessagingStatus(message: string): void {
   if (el) {
     el.textContent = message;
   }
+}
+
+function populateAllIntegrationSecretFieldsFromEnv(
+  env: EnvReadResult,
+  hints: WorkspaceConfigHints | null,
+): void {
+  populateMessagingIntegrationFields(env, hints);
+  populateModelProvidersIntegrationFields(env, hints);
+}
+
+/** Re-apply after focus/layout so password managers do not leave fields blank. */
+function schedulePopulateIntegrationSecretsFromEnv(env: EnvReadResult): void {
+  void (async () => {
+    let hints: WorkspaceConfigHints | null = null;
+    try {
+      hints = await getWorkspaceConfigHints();
+    } catch {
+      // Leave hints null; do not overwrite config-driven fields without server data.
+    }
+    populateAllIntegrationSecretFieldsFromEnv(env, hints);
+    requestAnimationFrame(() => {
+      populateAllIntegrationSecretFieldsFromEnv(env, hints);
+    });
+  })();
 }
 
 function renderMessagingEnvHint(env: EnvReadResult): void {
@@ -757,7 +881,17 @@ async function refreshMessagingEnvHint(): Promise<void> {
   hint.textContent = "Loading…";
   try {
     const env = await getEnvRead();
+    let hints: WorkspaceConfigHints | null = null;
+    try {
+      hints = await getWorkspaceConfigHints();
+    } catch {
+      // hints optional for summary line
+    }
     renderMessagingEnvHint(env);
+    populateMessagingIntegrationFields(env, hints);
+    requestAnimationFrame(() => {
+      populateMessagingIntegrationFields(env, hints);
+    });
   } catch (cause: unknown) {
     hint.textContent = `Could not load .env: ${getErrorMessage(cause)}`;
   }
@@ -788,6 +922,7 @@ function applyMessagingMutationResponse(response: EnvMutationResponse, doneMessa
   renderGatewayStatus(response.gateway, null);
   queryClient.setQueryData(gatewayQueryKey, response.gateway);
   renderMessagingEnvHint(response.env);
+  schedulePopulateIntegrationSecretsFromEnv(response.env);
   if (response.restart.ok) {
     setMessagingStatus(`${doneMessage} Gateway restarted.`);
     return;
@@ -810,21 +945,25 @@ function readDiscordFieldsFromAdvanced(set: Record<string, string>): void {
       continue;
     }
     const value = el.value.trim();
-    if (value.length > 0) {
+    if (
+      value.length > 0 &&
+      !(el instanceof HTMLInputElement && isConfiguredSecretPlaceholder(el.value))
+    ) {
       set[key] = value;
     }
   }
 }
 
-function readDiscordForm(): Record<string, string> {
+/** Discord .env mutations only (tokens + advanced). Allowlist is config.yaml via `discord`. */
+function readDiscordEnvAndAdvanced(): Record<string, string> {
   const set: Record<string, string> = {};
   const discordToken = document.getElementById("messaging-discord-token");
-  const discordAllowed = document.getElementById("messaging-discord-allowed");
-  if (discordToken instanceof HTMLInputElement && discordToken.value.trim().length > 0) {
+  if (
+    discordToken instanceof HTMLInputElement &&
+    discordToken.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(discordToken.value)
+  ) {
     set.DISCORD_BOT_TOKEN = discordToken.value.trim();
-  }
-  if (discordAllowed instanceof HTMLInputElement && discordAllowed.value.trim().length > 0) {
-    set.DISCORD_ALLOWED_USERS = discordAllowed.value.trim();
   }
   readDiscordFieldsFromAdvanced(set);
   return set;
@@ -834,10 +973,18 @@ function readSlackForm(): Record<string, string> {
   const set: Record<string, string> = {};
   const slackBot = document.getElementById("messaging-slack-bot");
   const slackApp = document.getElementById("messaging-slack-app");
-  if (slackBot instanceof HTMLInputElement && slackBot.value.trim().length > 0) {
+  if (
+    slackBot instanceof HTMLInputElement &&
+    slackBot.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(slackBot.value)
+  ) {
     set.SLACK_BOT_TOKEN = slackBot.value.trim();
   }
-  if (slackApp instanceof HTMLInputElement && slackApp.value.trim().length > 0) {
+  if (
+    slackApp instanceof HTMLInputElement &&
+    slackApp.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(slackApp.value)
+  ) {
     set.SLACK_APP_TOKEN = slackApp.value.trim();
   }
   return set;
@@ -879,11 +1026,15 @@ async function saveMessagingSettings(platform: MessagingPlatform): Promise<void>
   if (messagingBusy) {
     return;
   }
-  const set = platform === "discord" ? readDiscordForm() : readSlackForm();
+  if (platform === "discord") {
+    await saveDiscordMessagingSettings();
+    return;
+  }
+
+  const set = readSlackForm();
   if (Object.keys(set).length === 0) {
-    const name = platform === "discord" ? "Discord" : "Slack";
     setMessagingStatus(
-      `Nothing to save for ${name} — enter at least one value or use Clear to remove keys.`,
+      "Nothing to save for Slack — enter at least one value or use Clear to remove keys.",
     );
     return;
   }
@@ -891,12 +1042,56 @@ async function saveMessagingSettings(platform: MessagingPlatform): Promise<void>
   setMessagingStatus("Saving and restarting gateway…");
   try {
     const response = await postEnvBatch({ set });
-    const done =
-      platform === "discord"
-        ? "Discord settings written to .env."
-        : "Slack settings written to .env.";
-    applyMessagingMutationResponse(response, done);
+    applyMessagingMutationResponse(response, "Slack settings written to .env.");
     clearMessagingInputs(platform);
+  } catch (cause: unknown) {
+    setMessagingStatus(`Save failed: ${getErrorMessage(cause)}`);
+  } finally {
+    setMessagingBusy(false);
+  }
+}
+
+async function saveDiscordMessagingSettings(): Promise<void> {
+  const set = readDiscordEnvAndAdvanced();
+  const allowedEl = document.getElementById("messaging-discord-allowed");
+  const allowedUsers = allowedEl instanceof HTMLInputElement ? allowedEl.value : "";
+
+  if (Object.keys(set).length === 0) {
+    try {
+      const hints = await getWorkspaceConfigHints();
+      if (
+        allowedUsers.trim() === "" &&
+        (hints.discord.allowed_users === null || hints.discord.allowed_users.trim() === "")
+      ) {
+        setMessagingStatus(
+          "Nothing to save for Discord — enter a bot token, advanced value, or allowlist change.",
+        );
+        return;
+      }
+    } catch (cause: unknown) {
+      if (allowedUsers.trim() === "") {
+        setMessagingStatus(`Could not read config hints: ${getErrorMessage(cause)}`);
+        return;
+      }
+    }
+  }
+
+  setMessagingBusy(true);
+  setMessagingStatus("Saving and restarting gateway…");
+  const doneMessage =
+    Object.keys(set).length > 0
+      ? "Discord .env settings and config.yaml allowlist updated."
+      : "Discord allowlist written to config.yaml.";
+  try {
+    const payload: ModelProvidersSavePayload = {
+      discord: { allowed_users: allowedUsers },
+    };
+    if (Object.keys(set).length > 0) {
+      payload.env = { set };
+    }
+    const response = await postModelProvidersSettings(payload);
+    applyModelProvidersMutationResponse(response, doneMessage, { setStatus: setMessagingStatus });
+    clearMessagingInputs("discord");
   } catch (cause: unknown) {
     setMessagingStatus(`Save failed: ${getErrorMessage(cause)}`);
   } finally {
@@ -912,6 +1107,33 @@ async function clearMessagingPlatformKeys(
   if (messagingBusy) {
     return;
   }
+  if (platform === "discord") {
+    if (
+      !window.confirm(
+        `Remove Discord keys from data/.env, clear discord.allowed_users in config.yaml, and restart the gateway if it is running?`,
+      )
+    ) {
+      return;
+    }
+    setMessagingBusy(true);
+    setMessagingStatus("Removing keys and restarting gateway…");
+    try {
+      const response = await postModelProvidersSettings({
+        env: { remove: [...keys] },
+        discord: { allowed_users: "" },
+      });
+      applyModelProvidersMutationResponse(response, `${label} .env keys removed; allowlist cleared in config.yaml.`, {
+        setStatus: setMessagingStatus,
+      });
+      clearMessagingInputs(platform);
+    } catch (cause: unknown) {
+      setMessagingStatus(`Clear failed: ${getErrorMessage(cause)}`);
+    } finally {
+      setMessagingBusy(false);
+    }
+    return;
+  }
+
   if (!window.confirm(`Remove ${label} keys from data/.env and restart the gateway?`)) {
     return;
   }
@@ -947,7 +1169,7 @@ function setupMessagingPlatform(): void {
   const clearDiscord = document.getElementById("messaging-clear-discord");
   if (clearDiscord instanceof HTMLButtonElement) {
     clearDiscord.addEventListener("click", () => {
-      void clearMessagingPlatformKeys("discord", MESSAGING_DISCORD_ALL_KEYS, "Discord");
+      void clearMessagingPlatformKeys("discord", MESSAGING_DISCORD_ENV_KEYS, "Discord");
     });
   }
   const clearSlack = document.getElementById("messaging-clear-slack");
@@ -994,7 +1216,17 @@ async function refreshModelProvidersEnvHint(): Promise<void> {
   hint.textContent = "Loading…";
   try {
     const env = await getEnvRead();
+    let workspaceHints: WorkspaceConfigHints | null = null;
+    try {
+      workspaceHints = await getWorkspaceConfigHints();
+    } catch {
+      // Model fields from config stay unchanged if hints fail.
+    }
     renderModelProvidersEnvHint(env);
+    populateAllIntegrationSecretFieldsFromEnv(env, workspaceHints);
+    requestAnimationFrame(() => {
+      populateAllIntegrationSecretFieldsFromEnv(env, workspaceHints);
+    });
   } catch (cause: unknown) {
     hint.textContent = `Could not load .env: ${getErrorMessage(cause)}`;
   }
@@ -1029,22 +1261,25 @@ function setModelProvidersBusy(busy: boolean): void {
 function applyModelProvidersMutationResponse(
   response: ModelProvidersMutationResponse,
   doneMessage: string,
+  options?: { setStatus?: (message: string) => void },
 ): void {
+  const setStatusLine = options?.setStatus ?? setModelProvidersStatus;
   renderEnvMeta(response.env);
   renderEnvList(response.env.entries);
   renderGatewayStatus(response.gateway, null);
   queryClient.setQueryData(gatewayQueryKey, response.gateway);
   renderModelProvidersEnvHint(response.env);
+  schedulePopulateIntegrationSecretsFromEnv(response.env);
   void syncConfigEditorFromServerIfClean();
   if (response.restart.ok) {
-    setModelProvidersStatus(`${doneMessage} Gateway restarted.`);
+    setStatusLine(`${doneMessage} Gateway restarted.`);
     return;
   }
   if (!response.restart.attempted) {
-    setModelProvidersStatus(`${doneMessage} Gateway was stopped; no restart performed.`);
+    setStatusLine(`${doneMessage} Gateway was stopped; no restart performed.`);
     return;
   }
-  setModelProvidersStatus(
+  setStatusLine(
     `${doneMessage} Gateway restart failed: ${response.restart.error ?? "Unknown error"}`,
   );
 }
@@ -1069,15 +1304,15 @@ async function syncConfigEditorFromServerIfClean(): Promise<void> {
 type ModelProvidersSavePayload = {
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
+  discord?: { allowed_users: string };
 };
 
 async function postModelProvidersSettings(
   body: ModelProvidersSavePayload,
 ): Promise<ModelProvidersMutationResponse> {
-  const response = await fetch(`${window.location.origin}/settings/model-providers`, {
+  const response = await authenticatedFetch(`${window.location.origin}/settings/model-providers`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    credentials: "same-origin",
     body: JSON.stringify(body),
   });
   const raw = await response.text();
@@ -1138,10 +1373,18 @@ function readOpenRouterForm(): Record<string, string> {
   const set: Record<string, string> = {};
   const keyEl = document.getElementById("mp-or-key");
   const baseEl = document.getElementById("mp-or-base");
-  if (keyEl instanceof HTMLInputElement && keyEl.value.trim().length > 0) {
+  if (
+    keyEl instanceof HTMLInputElement &&
+    keyEl.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(keyEl.value)
+  ) {
     set.OPENROUTER_API_KEY = keyEl.value.trim();
   }
-  if (baseEl instanceof HTMLInputElement && baseEl.value.trim().length > 0) {
+  if (
+    baseEl instanceof HTMLInputElement &&
+    baseEl.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(baseEl.value)
+  ) {
     set.OPENROUTER_BASE_URL = baseEl.value.trim();
   }
   return set;
@@ -1159,7 +1402,11 @@ function clearOpenRouterInputs(): void {
 function readAnthropicForm(): Record<string, string> {
   const set: Record<string, string> = {};
   const keyEl = document.getElementById("mp-anthropic-key");
-  if (keyEl instanceof HTMLInputElement && keyEl.value.trim().length > 0) {
+  if (
+    keyEl instanceof HTMLInputElement &&
+    keyEl.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(keyEl.value)
+  ) {
     set.ANTHROPIC_API_KEY = keyEl.value.trim();
   }
   return set;
@@ -1176,10 +1423,18 @@ function readOpenAiForm(): Record<string, string> {
   const set: Record<string, string> = {};
   const keyEl = document.getElementById("mp-openai-key");
   const baseEl = document.getElementById("mp-openai-base");
-  if (keyEl instanceof HTMLInputElement && keyEl.value.trim().length > 0) {
+  if (
+    keyEl instanceof HTMLInputElement &&
+    keyEl.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(keyEl.value)
+  ) {
     set.OPENAI_API_KEY = keyEl.value.trim();
   }
-  if (baseEl instanceof HTMLInputElement && baseEl.value.trim().length > 0) {
+  if (
+    baseEl instanceof HTMLInputElement &&
+    baseEl.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(baseEl.value)
+  ) {
     set.OPENAI_BASE_URL = baseEl.value.trim();
   }
   return set;
@@ -1198,10 +1453,18 @@ function readGeminiForm(): Record<string, string> {
   const set: Record<string, string> = {};
   const keyEl = document.getElementById("mp-google-key");
   const baseEl = document.getElementById("mp-gemini-base");
-  if (keyEl instanceof HTMLInputElement && keyEl.value.trim().length > 0) {
+  if (
+    keyEl instanceof HTMLInputElement &&
+    keyEl.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(keyEl.value)
+  ) {
     set.GOOGLE_API_KEY = keyEl.value.trim();
   }
-  if (baseEl instanceof HTMLInputElement && baseEl.value.trim().length > 0) {
+  if (
+    baseEl instanceof HTMLInputElement &&
+    baseEl.value.trim().length > 0 &&
+    !isConfiguredSecretPlaceholder(baseEl.value)
+  ) {
     set.GEMINI_BASE_URL = baseEl.value.trim();
   }
   return set;
@@ -1218,11 +1481,12 @@ function clearGeminiInputs(): void {
 
 function modelProvidersPayloadHasWork(payload: ModelProvidersSavePayload): boolean {
   const hasModel = payload.model !== undefined && Object.keys(payload.model).length > 0;
+  const hasDiscord = payload.discord !== undefined;
   const hasEnvSet =
     payload.env?.set !== undefined && Object.keys(payload.env.set).length > 0;
   const hasEnvRemove =
     payload.env?.remove !== undefined && payload.env.remove.length > 0;
-  return hasModel || hasEnvSet || hasEnvRemove;
+  return hasModel || hasDiscord || hasEnvSet || hasEnvRemove;
 }
 
 async function saveModelProvidersFromPayload(
@@ -1433,14 +1697,6 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-function getBasicAuthTokenFromLocation(): string | undefined {
-  const url = new URL(window.location.href);
-  if (!url.username || !url.password) {
-    return undefined;
-  }
-  return `Basic ${btoa(`${url.username}:${url.password}`)}`;
-}
-
 function getErrorMessage(cause: unknown): string {
   if (cause instanceof Error) {
     return cause.message;
@@ -1478,6 +1734,38 @@ async function getEnvRead(): Promise<EnvReadResult> {
     throw new Error(await getResponseErrorMessage(response));
   }
   return response.json() as Promise<EnvReadResult>;
+}
+
+async function getWorkspaceConfigHints(): Promise<WorkspaceConfigHints> {
+  const response = await authenticatedFetch(`${window.location.origin}/settings/workspace-hints`, {
+    credentials: "include",
+  });
+  const raw = await response.text();
+  if (!response.ok) {
+    let message = `${String(response.status)} ${response.statusText}`;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "error" in parsed &&
+          typeof (parsed as { error: unknown }).error === "string"
+        ) {
+          message = (parsed as { error: string }).error;
+        } else {
+          message = raw;
+        }
+      } catch {
+        message = raw;
+      }
+    }
+    throw new Error(message);
+  }
+  if (!raw) {
+    throw new Error("Empty response from server.");
+  }
+  return JSON.parse(raw) as WorkspaceConfigHints;
 }
 
 async function postEnvUpsert(key: string, value: string): Promise<EnvMutationResponse> {

@@ -190,4 +190,44 @@ describe("ConfigStore", () => {
       DEFAULT_HERMES_CONFIG_YAML,
     );
   });
+
+  it("getWorkspaceConfigHints reads model and discord allowlist", async () => {
+    const store = createStore();
+    await writeFile(
+      path.join(tmpDir, "config.yaml"),
+      'model:\n  default: "x/y"\n  provider: openrouter\ndiscord:\n  allowed_users: "1,2"\n',
+      "utf8",
+    );
+
+    const hints = await store.getWorkspaceConfigHints();
+
+    expect(hints.model.default).toBe("x/y");
+    expect(hints.model.provider).toBe("openrouter");
+    expect(hints.model.base_url).toBeNull();
+    expect(hints.discord.allowed_users).toBe("1,2");
+  });
+
+  it("patchDiscordAllowedUsers writes and empty string clears the key", async () => {
+    const store = createStore();
+
+    const saved = await store.patchDiscordAllowedUsers("10,11");
+    expect(saved.saved).toBe(true);
+    expect((await store.getWorkspaceConfigHints()).discord.allowed_users).toBe("10,11");
+
+    const cleared = await store.patchDiscordAllowedUsers("");
+    expect(cleared.saved).toBe(true);
+    expect((await store.getWorkspaceConfigHints()).discord.allowed_users).toBeNull();
+  });
+
+  it("getWorkspaceConfigHints joins discord allowed_users YAML sequence", async () => {
+    const store = createStore();
+    await writeFile(
+      path.join(tmpDir, "config.yaml"),
+      "discord:\n  allowed_users:\n    - \"a\"\n    - b\n",
+      "utf8",
+    );
+
+    const hints = await store.getWorkspaceConfigHints();
+    expect(hints.discord.allowed_users).toBe("a,b");
+  });
 });
