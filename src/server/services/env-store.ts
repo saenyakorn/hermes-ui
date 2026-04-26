@@ -8,9 +8,7 @@ const ENV_FILE_NAME = ".env";
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
 
 export class EnvStore {
-  constructor(
-    private readonly dataDir: string,
-  ) {}
+  constructor(private readonly dataDir: string) {}
 
   async read(): Promise<EnvReadResult> {
     await this.ensureDataDir();

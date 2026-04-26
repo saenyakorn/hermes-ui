@@ -17,10 +17,7 @@ export function ShellTabPanel() {
           Clear
         </button>
       </div>
-      <div
-        id="terminal"
-        class="min-h-[320px] flex-1 rounded-lg bg-background"
-      />
+      <div id="terminal" class="min-h-[320px] flex-1 rounded-lg bg-background" />
     </section>
   );
 }

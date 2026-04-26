@@ -47,10 +47,7 @@ export function ConfigTabPanel() {
       >
         Waiting for editor...
       </div>
-      <ul
-        id="config-issues"
-        class="mt-2 shrink-0 space-y-1 text-xs text-danger"
-      />
+      <ul id="config-issues" class="mt-2 shrink-0 space-y-1 text-xs text-danger" />
     </section>
   );
 }

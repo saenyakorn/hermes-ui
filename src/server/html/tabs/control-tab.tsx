@@ -9,18 +9,9 @@ export function ControlTabPanel() {
     >
       <div class="flex min-h-full w-full flex-1 flex-col items-center justify-center p-2">
         <p class="text-center text-xs uppercase text-muted">Gateway</p>
-        <h1 class="mt-2 text-center text-4xl font-medium tracking-[-0.08em]">
-          Hermes Agent
-        </h1>
-        <div
-          class="mt-6 text-center text-sm text-muted"
-          id="gateway-status"
-          data-state="stopped"
-        />
-        <p
-          id="gateway-error"
-          class="mt-2 text-center text-xs text-danger hidden"
-        />
+        <h1 class="mt-2 text-center text-4xl font-medium tracking-[-0.08em]">Hermes Agent</h1>
+        <div class="mt-6 text-center text-sm text-muted" id="gateway-status" data-state="stopped" />
+        <p id="gateway-error" class="mt-2 text-center text-xs text-danger hidden" />
         <div class="mt-4 flex flex-wrap justify-center gap-2">
           <button
             id="start-button"

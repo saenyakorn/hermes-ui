@@ -33,18 +33,11 @@ describe("EnvStore", () => {
     expect(raw).toContain("DISCORD_BOT_TOKEN=");
     expect(raw).toContain("SLACK_BOT_TOKEN=");
     const read = await store.read();
-    expect(read.entries.map((e) => e.key).sort()).toEqual([
-      "DISCORD_BOT_TOKEN",
-      "SLACK_BOT_TOKEN",
-    ]);
+    expect(read.entries.map((e) => e.key).sort()).toEqual(["DISCORD_BOT_TOKEN", "SLACK_BOT_TOKEN"]);
   });
 
   it("applyBatch remove deletes keys and preserves others", async () => {
-    await writeFile(
-      path.join(tmpDir, ".env"),
-      'FOO=1\nDISCORD_BOT_TOKEN="old"\nBAR=2\n',
-      "utf8",
-    );
+    await writeFile(path.join(tmpDir, ".env"), 'FOO=1\nDISCORD_BOT_TOKEN="old"\nBAR=2\n', "utf8");
     const store = createStore();
 
     await store.applyBatch({ remove: ["DISCORD_BOT_TOKEN"] });
@@ -82,9 +75,9 @@ describe("EnvStore", () => {
   it("applyBatch rejects invalid key in set", async () => {
     const store = createStore();
 
-    await expect(
-      store.applyBatch({ set: { "bad-key": "x" } }),
-    ).rejects.toThrow("Env key must match");
+    await expect(store.applyBatch({ set: { "bad-key": "x" } })).rejects.toThrow(
+      "Env key must match",
+    );
   });
 
   it("applyBatch rejects invalid key in remove", async () => {

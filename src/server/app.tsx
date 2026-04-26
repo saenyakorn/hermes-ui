@@ -47,10 +47,7 @@ export type AppServices = {
 
 export function createApp(services: AppServices) {
   const app = new Hono();
-  app.use(
-    "*",
-    basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword),
-  );
+  app.use("*", basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword));
 
   return app
     .get("/assets/*", serveStatic({ root: "./dist" }))
@@ -63,39 +60,22 @@ export function createApp(services: AppServices) {
         ),
       );
     })
-    .get("/gateway/status", (context) =>
-      context.json(services.gateway.status()),
-    )
-    .get("/gateway/health", async (context) =>
-      context.json(await services.gateway.refreshHealth()),
-    )
+    .get("/gateway/status", (context) => context.json(services.gateway.status()))
+    .get("/gateway/health", async (context) => context.json(await services.gateway.refreshHealth()))
     .post("/gateway/start", async (context) =>
-      context.json(
-        await runGatewayAction(services.gateway, () =>
-          services.gateway.start(),
-        ),
-      ),
+      context.json(await runGatewayAction(services.gateway, () => services.gateway.start())),
     )
     .post("/gateway/stop", async (context) =>
-      context.json(
-        await runGatewayAction(services.gateway, () => services.gateway.stop()),
-      ),
+      context.json(await runGatewayAction(services.gateway, () => services.gateway.stop())),
     )
     .post("/gateway/restart", async (context) =>
-      context.json(
-        await runGatewayAction(services.gateway, () =>
-          services.gateway.restart(),
-        ),
-      ),
+      context.json(await runGatewayAction(services.gateway, () => services.gateway.restart())),
     )
     .get("/config", async (context) => {
       try {
         return context.json(await services.config.read());
       } catch (cause: unknown) {
-        return context.json(
-          { error: `Failed to read config: ${getErrorMessage(cause)}` },
-          500,
-        );
+        return context.json({ error: `Failed to read config: ${getErrorMessage(cause)}` }, 500);
       }
     })
     .post("/config", async (context) => {
@@ -109,10 +89,7 @@ export function createApp(services: AppServices) {
       const config = await saveConfig(services.config, content);
 
       if (!config.ok) {
-        return context.json(
-          { error: `Failed to save config: ${config.error}` },
-          500,
-        );
+        return context.json({ error: `Failed to save config: ${config.error}` }, 500);
       }
 
       if (!config.value.saved) {
@@ -158,34 +135,21 @@ export function createApp(services: AppServices) {
       try {
         return context.json(await services.envVars.read());
       } catch (cause: unknown) {
-        return context.json(
-          { error: `Failed to read env: ${getErrorMessage(cause)}` },
-          500,
-        );
+        return context.json({ error: `Failed to read env: ${getErrorMessage(cause)}` }, 500);
       }
     })
     .post("/env", async (context) => {
       const input = await parseEnvUpsertInput(context.req.json());
       if (input === null) {
-        return context.json(
-          { error: "Body must include string key and value." },
-          400,
-        );
+        return context.json({ error: "Body must include string key and value." }, 400);
       }
 
-      const envResult = await mutateEnv(
-        () => services.envVars.upsert(input.key, input.value),
-      );
+      const envResult = await mutateEnv(() => services.envVars.upsert(input.key, input.value));
       if (!envResult.ok) {
-        return context.json(
-          { error: `Failed to update env: ${envResult.error}` },
-          500,
-        );
+        return context.json({ error: `Failed to update env: ${envResult.error}` }, 500);
       }
 
-      return context.json(
-        await withGatewayRestart(services.gateway, envResult.value),
-      );
+      return context.json(await withGatewayRestart(services.gateway, envResult.value));
     })
     .post("/env/batch", async (context) => {
       const input = await parseEnvBatchInput(context.req.json());
@@ -199,45 +163,29 @@ export function createApp(services: AppServices) {
         );
       }
 
-      const envResult = await mutateEnv(() =>
-        services.envVars.applyBatch(input),
-      );
+      const envResult = await mutateEnv(() => services.envVars.applyBatch(input));
       if (!envResult.ok) {
-        return context.json(
-          { error: `Failed to update env: ${envResult.error}` },
-          500,
-        );
+        return context.json({ error: `Failed to update env: ${envResult.error}` }, 500);
       }
 
-      return context.json(
-        await withGatewayRestart(services.gateway, envResult.value),
-      );
+      return context.json(await withGatewayRestart(services.gateway, envResult.value));
     })
     .delete("/env/:key", async (context) => {
       const key = context.req.param("key");
       const envResult = await mutateEnv(() => services.envVars.remove(key));
       if (!envResult.ok) {
-        return context.json(
-          { error: `Failed to delete env: ${envResult.error}` },
-          500,
-        );
+        return context.json({ error: `Failed to delete env: ${envResult.error}` }, 500);
       }
 
-      return context.json(
-        await withGatewayRestart(services.gateway, envResult.value),
-      );
+      return context.json(await withGatewayRestart(services.gateway, envResult.value));
     })
-    .get("/logs/tail", async (context) =>
-      context.json(await services.logs.tail(200)),
-    )
+    .get("/logs/tail", async (context) => context.json(await services.logs.tail(200)))
     .get("/logs/stream", (context) => {
       const { readable, writable } = new TransformStream<Uint8Array>();
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
       const unsubscribe = services.logs.subscribe((line) => {
-        void writer.write(
-          encoder.encode(`data: ${JSON.stringify({ line })}\n\n`),
-        );
+        void writer.write(encoder.encode(`data: ${JSON.stringify({ line })}\n\n`));
       });
 
       context.req.raw.signal.addEventListener("abort", () => {
@@ -268,9 +216,7 @@ async function runGatewayAction(
   }
 }
 
-async function parseConfigContent(
-  bodyPromise: Promise<unknown>,
-): Promise<string | null> {
+async function parseConfigContent(bodyPromise: Promise<unknown>): Promise<string | null> {
   try {
     const body = await bodyPromise;
 
@@ -291,9 +237,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 async function saveConfig(
   config: AppConfig,
   content: string,
-): Promise<
-  { ok: true; value: ConfigSaveResult } | { ok: false; error: string }
-> {
+): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
   try {
     return { ok: true, value: await config.save(content) };
   } catch (cause: unknown) {
@@ -306,11 +250,7 @@ async function parseEnvUpsertInput(
 ): Promise<{ key: string; value: string } | null> {
   try {
     const body = await bodyPromise;
-    if (
-      !isRecord(body) ||
-      typeof body.key !== "string" ||
-      typeof body.value !== "string"
-    ) {
+    if (!isRecord(body) || typeof body.key !== "string" || typeof body.value !== "string") {
       return null;
     }
     return {

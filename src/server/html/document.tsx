@@ -16,10 +16,7 @@ export function renderHtmlDocument(title: string, initialStatus: string): string
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
         <link rel="stylesheet" href="/assets/app.css" />
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css"
-        />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
         <script src="/assets/vendor/htmx.min.js" />
       </head>
       <body>
@@ -39,11 +36,7 @@ export function renderHtmlDocument(title: string, initialStatus: string): string
             </section>
           </section>
         </main>
-        <script
-          type="module"
-          src="/assets/main.js"
-          data-initial-status={initialStatus}
-        />
+        <script type="module" src="/assets/main.js" data-initial-status={initialStatus} />
       </body>
     </html>
   ).toString();

@@ -12,16 +12,11 @@ export function MessagingTabPanel() {
           Messaging Platform
         </p>
         <p class="mt-3 text-sm text-muted">
-          Hermes reads tokens from{" "}
-          <span class="text-text">data/.env</span>. Existing secrets cannot be shown here;
-          leave a field empty to keep its current value. Saving applies changes and restarts
-          the gateway (same as Env vars).
+          Hermes reads tokens from <span class="text-text">data/.env</span>. Existing secrets cannot
+          be shown here; leave a field empty to keep its current value. Saving applies changes and
+          restarts the gateway (same as Env vars).
         </p>
-        <p
-          id="messaging-env-hint"
-          class="mt-2 text-xs text-muted"
-          aria-live="polite"
-        >
+        <p id="messaging-env-hint" class="mt-2 text-xs text-muted" aria-live="polite">
           Loading…
         </p>
       </div>
@@ -44,7 +39,10 @@ export function MessagingTabPanel() {
               />
             </div>
             <div class="min-w-0">
-              <label class="mb-1 block text-sm font-medium text-text" for="messaging-discord-allowed">
+              <label
+                class="mb-1 block text-sm font-medium text-text"
+                for="messaging-discord-allowed"
+              >
                 Allowed user IDs, comma-separated (optional, DISCORD_ALLOWED_USERS)
               </label>
               <input

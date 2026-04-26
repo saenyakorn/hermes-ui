@@ -68,12 +68,7 @@ export function EnvTabPanel() {
           </div>
         </div>
       </div>
-      <p
-        id="env-status"
-        class="mt-3 shrink-0 text-xs text-muted"
-        role="status"
-        aria-live="polite"
-      >
+      <p id="env-status" class="mt-3 shrink-0 text-xs text-muted" role="status" aria-live="polite">
         Waiting for env editor...
       </p>
     </section>

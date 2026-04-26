@@ -70,7 +70,7 @@ function main(): void {
 }
 
 function parseInitialStatus(): GatewayStatus {
-  const script = document.querySelector<HTMLScriptElement>('script[data-initial-status]');
+  const script = document.querySelector<HTMLScriptElement>("script[data-initial-status]");
   const raw = script?.dataset.initialStatus;
   if (!raw) {
     return {
@@ -441,7 +441,9 @@ async function saveConfig(): Promise<void> {
     if (response.restart.attempted && response.restart.ok) {
       setConfigStatus("Config saved. Gateway restarted.");
     } else if (response.restart.attempted) {
-      setConfigStatus(`Config saved. Gateway restart failed: ${response.restart.error ?? "Unknown error"}`);
+      setConfigStatus(
+        `Config saved. Gateway restart failed: ${response.restart.error ?? "Unknown error"}`,
+      );
     } else {
       setConfigStatus("Config saved. Gateway was stopped, so no restart was needed.");
     }
@@ -763,10 +765,7 @@ function setMessagingBusy(busy: boolean): void {
   updateMessagingButtons();
 }
 
-function applyMessagingMutationResponse(
-  response: EnvMutationResponse,
-  doneMessage: string,
-): void {
+function applyMessagingMutationResponse(response: EnvMutationResponse, doneMessage: string): void {
   renderEnvMeta(response.env);
   renderEnvList(response.env.entries);
   renderGatewayStatus(response.gateway, null);
@@ -876,7 +875,9 @@ async function saveMessagingSettings(platform: MessagingPlatform): Promise<void>
   try {
     const response = await postEnvBatch({ set });
     const done =
-      platform === "discord" ? "Discord settings written to .env." : "Slack settings written to .env.";
+      platform === "discord"
+        ? "Discord settings written to .env."
+        : "Slack settings written to .env.";
     applyMessagingMutationResponse(response, done);
     clearMessagingInputs(platform);
   } catch (cause: unknown) {
@@ -901,10 +902,7 @@ async function clearMessagingPlatformKeys(
   setMessagingStatus("Removing keys and restarting gateway…");
   try {
     const response = await postEnvBatch({ remove: [...keys] });
-    applyMessagingMutationResponse(
-      response,
-      `${label} keys removed from .env.`,
-    );
+    applyMessagingMutationResponse(response, `${label} keys removed from .env.`);
     clearMessagingInputs(platform);
   } catch (cause: unknown) {
     setMessagingStatus(`Clear failed: ${getErrorMessage(cause)}`);
@@ -946,7 +944,11 @@ function setupMessagingPlatform(): void {
 type MonacoApi = typeof import("monaco-editor");
 type MonacoAmdRequire = {
   config: (options: { paths: { vs: string } }) => void;
-  (modules: readonly string[], onLoad: (monaco: MonacoApi) => void, onError?: (error: unknown) => void): void;
+  (
+    modules: readonly string[],
+    onLoad: (monaco: MonacoApi) => void,
+    onError?: (error: unknown) => void,
+  ): void;
 };
 type MonacoGlobal = typeof globalThis & {
   monaco?: MonacoApi;
@@ -992,7 +994,9 @@ function loadScript(src: string): Promise<void> {
     script.async = true;
     script.src = src;
     script.addEventListener("load", () => resolve(), { once: true });
-    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
+      once: true,
+    });
     document.head.append(script);
   });
 }

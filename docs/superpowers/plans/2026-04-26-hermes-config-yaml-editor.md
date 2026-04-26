@@ -641,7 +641,8 @@ it("surfaces restart failure after a successful save", async () => {
     pid: null,
     lastError: "spawn hermes ENOENT",
   };
-  services.gateway.status = vi.fn()
+  services.gateway.status = vi
+    .fn()
     .mockReturnValueOnce(runningStatus)
     .mockReturnValue(crashedStatus);
   services.gateway.restart = vi.fn(async () => {
@@ -982,7 +983,10 @@ function updateSaveButton(): void {
 
 function renderConfigMetadata(config: ConfigReadResult): void {
   setText("#config-path", config.path);
-  setText("#config-updated-at", config.updatedAt === null ? "Not saved yet" : `Last saved ${config.updatedAt}`);
+  setText(
+    "#config-updated-at",
+    config.updatedAt === null ? "Not saved yet" : `Last saved ${config.updatedAt}`,
+  );
 }
 ```
 
@@ -999,7 +1003,9 @@ async function loadConfigFromDisk(): Promise<void> {
   configEditor?.setValue(config.content);
   renderConfigMetadata(config);
   renderConfigErrors(config.validation.issues);
-  renderConfigStatus(config.validation.ok ? "Config loaded." : "Config loaded with validation errors.");
+  renderConfigStatus(
+    config.validation.ok ? "Config loaded." : "Config loaded with validation errors.",
+  );
   updateSaveButton();
 }
 
@@ -1038,7 +1044,9 @@ async function saveConfig(): Promise<void> {
     if (response.restart.attempted && response.restart.ok) {
       renderConfigStatus("Config saved. Gateway restarted.");
     } else if (response.restart.attempted) {
-      renderConfigStatus(`Config saved. Gateway restart failed: ${response.restart.error ?? "unknown error"}`);
+      renderConfigStatus(
+        `Config saved. Gateway restart failed: ${response.restart.error ?? "unknown error"}`,
+      );
     } else {
       renderConfigStatus("Config saved. Gateway was stopped, so no restart was needed.");
     }
@@ -1083,7 +1091,9 @@ async function initializeConfigEditor(): Promise<void> {
 
   configEditor.onDidChangeModelContent(() => {
     renderConfigErrors([]);
-    renderConfigStatus(configEditor?.getValue() === savedConfigContent ? "No unsaved changes." : "Unsaved changes.");
+    renderConfigStatus(
+      configEditor?.getValue() === savedConfigContent ? "No unsaved changes." : "Unsaved changes.",
+    );
     updateSaveButton();
   });
 

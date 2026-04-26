@@ -13,10 +13,7 @@ import { createPaths } from "./services/paths";
 import { TerminalManager } from "./services/terminal-manager";
 import { attachSocketServer } from "./socket";
 
-export function createRuntime(
-  source: NodeJS.ProcessEnv = process.env,
-  rootDir = process.cwd(),
-) {
+export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir = process.cwd()) {
   const env = loadEnv(source);
   const logger = createLogger(env.logLevel);
   const paths = createPaths(rootDir);
@@ -40,9 +37,7 @@ export function createRuntime(
 
 type RuntimeServices = ReturnType<typeof createRuntime>;
 
-export async function initializeRuntimeFilesystem(
-  runtime: RuntimeServices,
-): Promise<void> {
+export async function initializeRuntimeFilesystem(runtime: RuntimeServices): Promise<void> {
   await mkdir(runtime.paths.dataDir, { recursive: true });
   await mkdir(runtime.paths.logsDir, { recursive: true });
   await runtime.config.initialize();
@@ -65,10 +60,7 @@ export async function main(): Promise<void> {
   attachSocketServer(server, runtime.env, runtime.terminals);
   await listen(server, runtime.env.port);
 
-  runtime.logger.info(
-    { port: runtime.env.port },
-    "Hermes control plane listening",
-  );
+  runtime.logger.info({ port: runtime.env.port }, "Hermes control plane listening");
 }
 
 function listen(server: Server, port: number): Promise<void> {
@@ -81,10 +73,7 @@ function listen(server: Server, port: number): Promise<void> {
   });
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((cause: unknown) => {
     const logger = createLogger("error");
     logger.error({ cause }, "Failed to start Hermes control plane");
