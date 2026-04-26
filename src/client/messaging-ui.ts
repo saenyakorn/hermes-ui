@@ -1,7 +1,7 @@
 import type { EnvMutationResponse, EnvReadResult } from "../server/types";
 import type { ModelProvidersSavePayload } from "./api-fetcher";
 import { getErrorMessage } from "./lib/errors";
-import { applyModelProvidersMutationResponse } from "./model-providers-ui";
+import { applyModelProvidersMutationResponse } from "./model-providers-shared";
 import type { HermesWorkspaceDeps } from "./workspace-deps";
 import {
   isConfiguredSecretPlaceholder,
