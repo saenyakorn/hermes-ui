@@ -1,1 +1,57 @@
-export {};
+import { mkdir } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { pathToFileURL } from 'node:url';
+import { getRequestListener } from '@hono/node-server';
+import { createApp } from './app';
+import { loadEnv } from './config/env';
+import { createLogger } from './config/logger';
+import { GatewayManager } from './services/gateway-manager';
+import { LogStore } from './services/log-store';
+import { createPaths } from './services/paths';
+import { TerminalManager } from './services/terminal-manager';
+import { attachSocketServer } from './socket';
+
+export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir = process.cwd()) {
+  const env = loadEnv(source);
+  const logger = createLogger(env.logLevel);
+  const paths = createPaths(rootDir);
+  const logs = new LogStore(paths.logsDir);
+  const gateway = new GatewayManager(paths.dataDir, logs);
+  const terminals = new TerminalManager(paths.dataDir);
+
+  return {
+    env,
+    logger,
+    paths,
+    logs,
+    gateway,
+    terminals,
+  };
+}
+
+export async function main(): Promise<void> {
+  const runtime = createRuntime();
+
+  await mkdir(runtime.paths.dataDir, { recursive: true });
+  await mkdir(runtime.paths.logsDir, { recursive: true });
+
+  const app = createApp({
+    env: runtime.env,
+    gateway: runtime.gateway,
+    logs: runtime.logs,
+  });
+  const server = createServer(getRequestListener(app.fetch));
+
+  attachSocketServer(server, runtime.env, runtime.terminals);
+  server.listen(runtime.env.port);
+
+  runtime.logger.info({ port: runtime.env.port }, 'Hermes control plane listening');
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((cause: unknown) => {
+    const logger = createLogger('error');
+    logger.error({ cause }, 'Failed to start Hermes control plane');
+    process.exit(1);
+  });
+}
