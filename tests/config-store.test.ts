@@ -20,6 +20,10 @@ function createStore(): ConfigStore {
   return new ConfigStore(tmpDir, logs, () => "2026-04-26T10:30:00.000Z");
 }
 
+async function readAuditLog(): Promise<string> {
+  return readFile(path.join(tmpDir, "logs", "2026-04-26.log"), "utf8");
+}
+
 describe("ConfigStore", () => {
   it("creates a starter config when config.yaml is missing", async () => {
     const store = createStore();
@@ -31,6 +35,7 @@ describe("ConfigStore", () => {
     expect(result.content).toContain("{}");
     expect(result.updatedAt).not.toBeNull();
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(result.content);
+    await expect(readAuditLog()).resolves.toContain("Created starter config at data/config.yaml");
   });
 
   it("reads existing config content and metadata", async () => {
@@ -54,6 +59,26 @@ describe("ConfigStore", () => {
     expect(result.validation.ok).toBe(false);
     expect(result.validation.issues[0]?.message).toContain("YAML");
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe("gateway: {}\n");
+    await expect(readAuditLog()).resolves.toContain("Config validation failed");
+  });
+
+  it("rejects invalid config without creating a missing config file", async () => {
+    const store = createStore();
+
+    const result = await store.save("- invalid\n- root\n");
+
+    expect(result.saved).toBe(false);
+    expect(result.path).toBe("data/config.yaml");
+    expect(result.content).toBe("- invalid\n- root\n");
+    expect(result.updatedAt).toBeNull();
+    expect(result.validation).toEqual({
+      ok: false,
+      issues: [{ message: "Config root must be a YAML mapping.", path: null }],
+    });
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(readAuditLog()).resolves.toContain("Config validation failed");
   });
 
   it("rejects non-mapping YAML without writing", async () => {
@@ -81,6 +106,7 @@ describe("ConfigStore", () => {
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(
       "gateway:\n  port: 8080\n",
     );
+    await expect(readAuditLog()).resolves.toContain("Config saved");
   });
 
   it("allows unknown top-level keys for forward compatibility", async () => {

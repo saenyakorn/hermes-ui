@@ -33,11 +33,12 @@ export class ConfigStore {
 
     if (!validation.ok) {
       await this.logs.append("gateway", "Config validation failed");
-      const current = await this.read();
+      const updatedAt = await this.getExistingUpdatedAt();
 
       return {
-        ...current,
+        path: "data/config.yaml",
         content,
+        updatedAt,
         validation,
         saved: false,
       };
@@ -104,6 +105,20 @@ export class ConfigStore {
 
   private getConfigPath(): string {
     return path.join(this.dataDir, CONFIG_FILE_NAME);
+  }
+
+  private async getExistingUpdatedAt(): Promise<string | null> {
+    try {
+      const metadata = await stat(this.getConfigPath());
+
+      return metadata.mtime.toISOString();
+    } catch (cause: unknown) {
+      if (this.isMissingFileError(cause)) {
+        return null;
+      }
+
+      throw cause;
+    }
   }
 
   private isMissingFileError(cause: unknown): boolean {
