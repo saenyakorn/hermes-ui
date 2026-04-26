@@ -42,7 +42,7 @@ export function Dashboard({ status }: { status: GatewayStatus }) {
         </aside>
 
         <section className="grid min-h-screen grid-rows-[minmax(360px,1fr)_minmax(420px,0.9fr)] gap-4">
-          <section className="rounded-xl border border-[rgba(0,153,255,0.25)] bg-[#090909] p-3">
+          <section className="flex flex-col rounded-xl border border-[rgba(0,153,255,0.25)] bg-[#090909] p-3">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm text-[#a6a6a6]">Interactive shell</p>
               <Button
@@ -52,7 +52,7 @@ export function Dashboard({ status }: { status: GatewayStatus }) {
                 Clear
               </Button>
             </div>
-            <div id="terminal" className="h-full min-h-[320px] rounded-lg bg-black" />
+            <div id="terminal" className="min-h-[320px] flex-1 rounded-lg bg-black" />
           </section>
 
           <section className="rounded-xl border border-[rgba(0,153,255,0.25)] bg-[#090909] p-3">
@@ -86,10 +86,15 @@ export function Dashboard({ status }: { status: GatewayStatus }) {
               id="config-editor"
               className="h-[330px] overflow-hidden rounded-lg border border-white/10 bg-black"
             />
-            <div id="config-status" className="mt-3 text-xs text-[#a6a6a6]">
+            <div
+              id="config-status"
+              className="mt-3 text-xs text-[#a6a6a6]"
+              role="status"
+              aria-live="polite"
+            >
               Waiting for editor...
             </div>
-            <div id="config-errors" className="mt-2 text-xs text-red-300" />
+            <div id="config-errors" className="mt-2 text-xs text-red-300" role="alert" />
           </section>
         </section>
       </section>
