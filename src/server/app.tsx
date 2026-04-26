@@ -1,8 +1,8 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { renderToString } from "react-dom/server";
-import { Dashboard } from "../client/views/dashboard";
-import { Layout } from "../client/views/layout";
+import { Dashboard } from "../client/ssr/dashboard";
+import { Layout } from "../client/ssr/layout";
 import { basicAuthMiddleware } from "./services/auth";
 import type { AppEnv, ConfigReadResult, ConfigSaveResult, GatewayStatus, LogTail } from "./types";
 
