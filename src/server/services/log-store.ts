@@ -74,6 +74,13 @@ export class LogStore {
         warning: this.warning,
       };
     } catch (cause: unknown) {
+      if (this.isMissingFileError(cause)) {
+        return {
+          lines: [],
+          warning: this.warning,
+        };
+      }
+
       const warning = this.formatWarning(cause);
 
       return {
@@ -142,6 +149,10 @@ export class LogStore {
     }
 
     return String(cause);
+  }
+
+  private isMissingFileError(cause: unknown): boolean {
+    return cause instanceof Error && 'code' in cause && cause.code === 'ENOENT';
   }
 
   private emit(line: string): void {

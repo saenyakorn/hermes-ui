@@ -40,6 +40,15 @@ describe('LogStore', () => {
     });
   });
 
+  it('returns empty tail without warning when current log file is missing', async () => {
+    const store = new LogStore(tmpDir, () => '2026-04-26T10:30:00.000Z');
+
+    await expect(store.tail(20)).resolves.toEqual({
+      lines: [],
+      warning: null,
+    });
+  });
+
   it('tails requested lines from a large log file', async () => {
     const store = new LogStore(tmpDir, () => '2026-04-26T10:30:00.000Z');
     const longLine = `[2026-04-26T10:30:00.000Z] [stdout] ${'x'.repeat(70 * 1024)}`;
