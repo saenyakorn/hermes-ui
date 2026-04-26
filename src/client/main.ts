@@ -221,12 +221,21 @@ async function saveConfig(): Promise<void> {
   renderConfigStatus("Saving config...");
 
   try {
-    const response = await fetchConfigSaveResponse(configEditor.getValue());
-    renderConfigErrors(response.config.validation.issues);
+    const submittedContent = configEditor.getValue();
+    const response = await fetchConfigSaveResponse(submittedContent);
+    const currentContent = configEditor.getValue();
 
     if (!response.config.saved) {
       renderConfigMetadata(response.config);
       renderStatus(response.gateway);
+
+      if (currentContent !== submittedContent) {
+        renderConfigErrors([]);
+        renderConfigStatus("Config changed after save started. Review current edits before saving again.");
+        return;
+      }
+
+      renderConfigErrors(response.config.validation.issues);
       renderConfigStatus("Config validation failed. File was not changed.");
       return;
     }
@@ -234,9 +243,10 @@ async function saveConfig(): Promise<void> {
     const savedContent = response.config.content;
     savedConfigContent = savedContent;
     renderConfigMetadata(response.config);
+    renderConfigErrors(response.config.validation.issues);
     renderStatus(response.gateway);
 
-    if (configEditor.getValue() !== savedContent) {
+    if (currentContent !== savedContent) {
       renderConfigStatus("Unsaved changes.");
       return;
     }
