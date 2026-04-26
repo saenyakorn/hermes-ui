@@ -8,6 +8,7 @@ import type { LogStore } from "./log-store";
 import type { GatewayHealthState, GatewayProcessState, GatewayStatus } from "../types";
 
 const STOP_FORCE_TIMEOUT_MS = 5_000;
+const GATEWAY_ARGS = ["gateway"] as const;
 
 export type SpawnGateway = (
   command: string,
@@ -45,7 +46,7 @@ export class GatewayManager {
     this.lastError = null;
 
     try {
-      const child = this.spawnGateway("hermes", ["gateway"], { cwd: this.cwd });
+      const child = this.spawnGateway("hermes", [...GATEWAY_ARGS], { cwd: this.cwd });
 
       this.child = child;
       this.bindChild(child);
@@ -138,7 +139,7 @@ export class GatewayManager {
     });
 
     child.on("error", (cause: Error) => {
-      this.lastError = cause.message;
+      this.lastError = this.formatCause(cause);
       if (this.child === child) {
         this.clearStopTimer();
         this.controlledShutdownChild = null;
@@ -146,7 +147,7 @@ export class GatewayManager {
         this.startedAt = null;
         this.state = "crashed";
       }
-      void this.logs.append("gateway", `Gateway process error: ${cause.message}`);
+      void this.logs.append("gateway", `Gateway process error: ${this.lastError}`);
     });
 
     child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
@@ -214,9 +215,19 @@ export class GatewayManager {
 
   private formatCause(cause: unknown): string {
     if (cause instanceof Error) {
+      if (this.isMissingGatewayCommand(cause)) {
+        return 'Hermes CLI not found: unable to execute "hermes". Install Hermes Agent in this environment so the hermes command is available on PATH.';
+      }
+
       return cause.message;
     }
 
     return String(cause);
+  }
+
+  private isMissingGatewayCommand(cause: Error): boolean {
+    const error = cause as NodeJS.ErrnoException;
+
+    return error.code === "ENOENT" || cause.message.includes("spawn hermes ENOENT");
   }
 }

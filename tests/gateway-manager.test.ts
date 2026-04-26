@@ -182,7 +182,26 @@ describe("GatewayManager", () => {
       state: "crashed",
       pid: null,
       startedAt: null,
-      lastError: "spawn hermes ENOENT",
+      lastError:
+        'Hermes CLI not found: unable to execute "hermes". Install Hermes Agent in this environment so the hermes command is available on PATH.',
     });
+  });
+
+  it("reports an actionable error when the hermes command is missing", async () => {
+    const child = createFakeChild(undefined);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway);
+    const start = manager.start();
+    const error = Object.assign(new Error("spawn hermes ENOENT"), {
+      code: "ENOENT",
+      syscall: "spawn hermes",
+    });
+
+    child.emit("error", error);
+
+    await expect(start).rejects.toThrow("spawn hermes ENOENT");
+    expect(manager.status().lastError).toBe(
+      'Hermes CLI not found: unable to execute "hermes". Install Hermes Agent in this environment so the hermes command is available on PATH.',
+    );
   });
 });
