@@ -1,21 +1,13 @@
-import 'dotenv/config';
-import { z } from 'zod';
-import type { AppEnv } from '../types';
+import "dotenv/config";
+import { z } from "zod";
+import type { AppEnv } from "../types";
 
-const logLevels = [
-  'trace',
-  'debug',
-  'info',
-  'warn',
-  'error',
-  'fatal',
-  'silent',
-] as const;
+const logLevels = ["trace", "debug", "info", "warn", "error", "fatal", "silent"] as const;
 
 const envSchema = z.object({
   ADMIN_USERNAME: z.string().min(1),
   ADMIN_PASSWORD: z.string().min(1),
-  LOG_LEVEL: z.enum(logLevels).default('info'),
+  LOG_LEVEL: z.enum(logLevels).default("info"),
   PORT: z.coerce.number().int().positive().max(65535).default(3000),
 });
 

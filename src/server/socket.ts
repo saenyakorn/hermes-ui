@@ -1,8 +1,8 @@
-import type { Server as HttpServer } from 'node:http';
-import { Server } from 'socket.io';
-import { isAuthorizedBasicHeader } from './services/auth';
-import type { TerminalManager } from './services/terminal-manager';
-import type { AppEnv } from './types';
+import type { Server as HttpServer } from "node:http";
+import { Server } from "socket.io";
+import { isAuthorizedBasicHeader } from "./services/auth";
+import type { TerminalManager } from "./services/terminal-manager";
+import type { AppEnv } from "./types";
 
 export function attachSocketServer(
   server: HttpServer,
@@ -20,14 +20,14 @@ export function attachSocketServer(
     );
 
     if (!authorized) {
-      next(new Error('Unauthorized'));
+      next(new Error("Unauthorized"));
       return;
     }
 
     next();
   });
 
-  io.on('connection', (socket) => {
+  io.on("connection", (socket) => {
     let session = createSession(socket.id);
 
     const bindSession = (): void => {
@@ -35,27 +35,27 @@ export function attachSocketServer(
         return;
       }
 
-      session.onData((data) => socket.emit('terminal:output', data));
-      session.onExit((exitCode) => socket.emit('terminal:exit', { exitCode }));
+      session.onData((data) => socket.emit("terminal:output", data));
+      session.onExit((exitCode) => socket.emit("terminal:exit", { exitCode }));
     };
 
     bindSession();
 
-    socket.on('terminal:start', () => {
+    socket.on("terminal:start", () => {
       session?.kill();
       session = createSession(socket.id);
       bindSession();
     });
 
-    socket.on('terminal:input', (input: string) => {
+    socket.on("terminal:input", (input: string) => {
       session?.write(input);
     });
 
-    socket.on('terminal:resize', (size: { cols: number; rows: number }) => {
+    socket.on("terminal:resize", (size: { cols: number; rows: number }) => {
       session?.resize(size.cols, size.rows);
     });
 
-    socket.on('disconnect', () => {
+    socket.on("disconnect", () => {
       setTimeout(() => terminals.close(socket.id), 500).unref();
     });
 
@@ -64,8 +64,8 @@ export function attachSocketServer(
         return terminals.create(socketId);
       } catch (cause: unknown) {
         const message = cause instanceof Error ? cause.message : String(cause);
-        socket.emit('terminal:output', `\r\n[failed to start bash: ${message}]\r\n`);
-        socket.emit('terminal:exit', { exitCode: 1 });
+        socket.emit("terminal:output", `\r\n[failed to start bash: ${message}]\r\n`);
+        socket.emit("terminal:exit", { exitCode: 1 });
         return null;
       }
     }

@@ -15,18 +15,23 @@ A production-ready control plane and Web UI for the Hermes Agent, inspired by Fr
 ## Quick Start
 
 ### 1. Prerequisites
+
 - Docker and Docker Compose
 - Or Node.js 20+
 
 ### 2. Using Docker Compose (Recommended)
+
 ```bash
 docker-compose up -d
 ```
+
 Access the UI at [http://localhost:3000](http://localhost:3000)
+
 - **Username:** `admin`
 - **Password:** `hermes_secret`
 
 ### 3. Local Development
+
 ```bash
 export ADMIN_USERNAME=admin
 export ADMIN_PASSWORD=your_password
@@ -48,4 +53,5 @@ npm start
 - **Secrets:** Secret masking in the YAML editor is a planned enhancement requiring a JSON Schema for the configuration.
 
 ## License
+
 MIT

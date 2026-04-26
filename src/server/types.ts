@@ -1,24 +1,8 @@
-export type GatewayProcessState =
-  | 'stopped'
-  | 'starting'
-  | 'running'
-  | 'stopping'
-  | 'crashed';
+export type GatewayProcessState = "stopped" | "starting" | "running" | "stopping" | "crashed";
 
-export type GatewayHealthState =
-  | 'healthy'
-  | 'unhealthy'
-  | 'unreachable'
-  | 'unknown';
+export type GatewayHealthState = "healthy" | "unhealthy" | "unreachable" | "unknown";
 
-export type AppLogLevel =
-  | 'trace'
-  | 'debug'
-  | 'info'
-  | 'warn'
-  | 'error'
-  | 'fatal'
-  | 'silent';
+export type AppLogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal" | "silent";
 
 export type AppEnv = {
   adminUsername: string;

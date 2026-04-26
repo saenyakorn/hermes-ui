@@ -1,20 +1,24 @@
-import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process';
-import { checkGatewayHealth } from './health';
-import type { LogStore } from './log-store';
-import type { GatewayHealthState, GatewayProcessState, GatewayStatus } from '../types';
+import {
+  spawn,
+  type ChildProcessWithoutNullStreams,
+  type SpawnOptionsWithoutStdio,
+} from "node:child_process";
+import { checkGatewayHealth } from "./health";
+import type { LogStore } from "./log-store";
+import type { GatewayHealthState, GatewayProcessState, GatewayStatus } from "../types";
 
 const STOP_FORCE_TIMEOUT_MS = 5_000;
 
 export type SpawnGateway = (
   command: string,
   args: string[],
-  options: Pick<SpawnOptionsWithoutStdio, 'cwd'>,
+  options: Pick<SpawnOptionsWithoutStdio, "cwd">,
 ) => ChildProcessWithoutNullStreams;
 
 const defaultSpawnGateway: SpawnGateway = (command, args, options) => spawn(command, args, options);
 
 export class GatewayManager {
-  private state: GatewayProcessState = 'stopped';
+  private state: GatewayProcessState = "stopped";
   private child: ChildProcessWithoutNullStreams | null = null;
   private startedAt: string | null = null;
   private exitCode: number | null = null;
@@ -32,31 +36,31 @@ export class GatewayManager {
 
   async start(): Promise<GatewayStatus> {
     if (this.child !== null) {
-      throw new Error('Gateway already running');
+      throw new Error("Gateway already running");
     }
 
-    this.state = 'starting';
+    this.state = "starting";
     this.startedAt = this.clock();
     this.exitCode = null;
     this.lastError = null;
 
     try {
-      const child = this.spawnGateway('hermes', ['gateway'], { cwd: this.cwd });
+      const child = this.spawnGateway("hermes", ["gateway"], { cwd: this.cwd });
 
       this.child = child;
       this.bindChild(child);
       if (child.pid === undefined) {
         await this.waitForSpawn(child);
       }
-      this.state = 'running';
-      await this.logs.append('gateway', `Started hermes gateway pid=${child.pid ?? 'unknown'}`);
+      this.state = "running";
+      await this.logs.append("gateway", `Started hermes gateway pid=${child.pid ?? "unknown"}`);
 
       return this.status();
     } catch (cause: unknown) {
-      this.state = 'crashed';
+      this.state = "crashed";
       this.child = null;
       this.lastError = this.formatCause(cause);
-      await this.logs.append('gateway', `Failed to start hermes gateway: ${this.lastError}`);
+      await this.logs.append("gateway", `Failed to start hermes gateway: ${this.lastError}`);
       throw cause;
     }
   }
@@ -64,23 +68,26 @@ export class GatewayManager {
   async stop(): Promise<GatewayStatus> {
     if (this.child === null) {
       this.clearStopTimer();
-      this.state = 'stopped';
+      this.state = "stopped";
       this.startedAt = null;
       return this.status();
     }
 
     const child = this.child;
 
-    this.state = 'stopping';
+    this.state = "stopping";
     this.controlledShutdownChild = child;
-    await this.logs.append('gateway', `Stopping hermes gateway pid=${child.pid ?? 'unknown'}`);
-    child.kill('SIGTERM');
+    await this.logs.append("gateway", `Stopping hermes gateway pid=${child.pid ?? "unknown"}`);
+    child.kill("SIGTERM");
 
     this.clearStopTimer();
     this.stopTimer = setTimeout(() => {
       if (this.child === child) {
-        void this.logs.append('gateway', `Force stopping hermes gateway pid=${child.pid ?? 'unknown'}`);
-        child.kill('SIGKILL');
+        void this.logs.append(
+          "gateway",
+          `Force stopping hermes gateway pid=${child.pid ?? "unknown"}`,
+        );
+        child.kill("SIGKILL");
       }
     }, this.forceKillTimeoutMs);
     this.stopTimer.unref();
@@ -98,16 +105,16 @@ export class GatewayManager {
   }
 
   async refreshHealth(): Promise<GatewayStatus> {
-    const health = await checkGatewayHealth(this.state === 'running');
+    const health = await checkGatewayHealth(this.state === "running");
 
-    if (health === 'unhealthy' || health === 'unreachable') {
-      await this.logs.append('health', `Gateway health check failed: ${health}`);
+    if (health === "unhealthy" || health === "unreachable") {
+      await this.logs.append("health", `Gateway health check failed: ${health}`);
     }
 
     return this.status(health);
   }
 
-  status(health: GatewayHealthState = 'unknown'): GatewayStatus {
+  status(health: GatewayHealthState = "unknown"): GatewayStatus {
     return {
       state: this.state,
       health,
@@ -122,27 +129,27 @@ export class GatewayManager {
   }
 
   private bindChild(child: ChildProcessWithoutNullStreams): void {
-    child.stdout.on('data', (chunk: Buffer) => {
-      void this.logs.append('stdout', chunk.toString('utf8'));
+    child.stdout.on("data", (chunk: Buffer) => {
+      void this.logs.append("stdout", chunk.toString("utf8"));
     });
 
-    child.stderr.on('data', (chunk: Buffer) => {
-      void this.logs.append('stderr', chunk.toString('utf8'));
+    child.stderr.on("data", (chunk: Buffer) => {
+      void this.logs.append("stderr", chunk.toString("utf8"));
     });
 
-    child.on('error', (cause: Error) => {
+    child.on("error", (cause: Error) => {
       this.lastError = cause.message;
       if (this.child === child) {
         this.clearStopTimer();
         this.controlledShutdownChild = null;
         this.child = null;
         this.startedAt = null;
-        this.state = 'crashed';
+        this.state = "crashed";
       }
-      void this.logs.append('gateway', `Gateway process error: ${cause.message}`);
+      void this.logs.append("gateway", `Gateway process error: ${cause.message}`);
     });
 
-    child.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+    child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
       if (this.child !== child) {
         return;
       }
@@ -152,18 +159,22 @@ export class GatewayManager {
       this.controlledShutdownChild = null;
       this.child = null;
       this.exitCode = code;
-      this.state = controlledShutdown || code === 0 ? 'stopped' : 'crashed';
+      this.state = controlledShutdown || code === 0 ? "stopped" : "crashed";
 
-      if (this.state === 'crashed') {
-        this.lastError = signal === null
-          ? `Gateway exited with code ${code ?? 'unknown'}`
-          : `Gateway exited with signal ${signal}`;
+      if (this.state === "crashed") {
+        this.lastError =
+          signal === null
+            ? `Gateway exited with code ${code ?? "unknown"}`
+            : `Gateway exited with signal ${signal}`;
       } else {
         this.startedAt = null;
         this.lastError = null;
       }
 
-      void this.logs.append('gateway', `Gateway exited code=${code ?? 'null'} signal=${signal ?? 'null'}`);
+      void this.logs.append(
+        "gateway",
+        `Gateway exited code=${code ?? "null"} signal=${signal ?? "null"}`,
+      );
     });
   }
 
@@ -188,7 +199,7 @@ export class GatewayManager {
     }
 
     return new Promise((resolve) => {
-      child.once('exit', () => {
+      child.once("exit", () => {
         resolve();
       });
     });
@@ -196,8 +207,8 @@ export class GatewayManager {
 
   private waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {
     return new Promise((resolve, reject) => {
-      child.once('spawn', resolve);
-      child.once('error', reject);
+      child.once("spawn", resolve);
+      child.once("error", reject);
     });
   }
 

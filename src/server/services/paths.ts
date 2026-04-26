@@ -1,4 +1,4 @@
-import path from 'node:path';
+import path from "node:path";
 
 export type AppPaths = {
   rootDir: string;
@@ -7,11 +7,11 @@ export type AppPaths = {
 };
 
 export function createPaths(rootDir: string = process.cwd()): AppPaths {
-  const dataDir = path.join(rootDir, 'data');
+  const dataDir = path.join(rootDir, "data");
 
   return {
     rootDir,
     dataDir,
-    logsDir: path.join(dataDir, 'logs'),
+    logsDir: path.join(dataDir, "logs"),
   };
 }

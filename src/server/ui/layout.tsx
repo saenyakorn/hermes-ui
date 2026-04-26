@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
 
 export function Layout({ title, children }: { title: string; children: ReactNode }) {
   return (

@@ -1,15 +1,15 @@
-import { mkdir } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
-import { pathToFileURL } from 'node:url';
-import { getRequestListener } from '@hono/node-server';
-import { createApp } from './app';
-import { loadEnv } from './config/env';
-import { createLogger } from './config/logger';
-import { GatewayManager } from './services/gateway-manager';
-import { LogStore } from './services/log-store';
-import { createPaths } from './services/paths';
-import { TerminalManager } from './services/terminal-manager';
-import { attachSocketServer } from './socket';
+import { mkdir } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import { pathToFileURL } from "node:url";
+import { getRequestListener } from "@hono/node-server";
+import { createApp } from "./app";
+import { loadEnv } from "./config/env";
+import { createLogger } from "./config/logger";
+import { GatewayManager } from "./services/gateway-manager";
+import { LogStore } from "./services/log-store";
+import { createPaths } from "./services/paths";
+import { TerminalManager } from "./services/terminal-manager";
+import { attachSocketServer } from "./socket";
 
 export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir = process.cwd()) {
   const env = loadEnv(source);
@@ -45,14 +45,14 @@ export async function main(): Promise<void> {
   attachSocketServer(server, runtime.env, runtime.terminals);
   await listen(server, runtime.env.port);
 
-  runtime.logger.info({ port: runtime.env.port }, 'Hermes control plane listening');
+  runtime.logger.info({ port: runtime.env.port }, "Hermes control plane listening");
 }
 
 function listen(server: Server, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    server.once('error', reject);
+    server.once("error", reject);
     server.listen(port, () => {
-      server.off('error', reject);
+      server.off("error", reject);
       resolve();
     });
   });
@@ -60,8 +60,8 @@ function listen(server: Server, port: number): Promise<void> {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((cause: unknown) => {
-    const logger = createLogger('error');
-    logger.error({ cause }, 'Failed to start Hermes control plane');
+    const logger = createLogger("error");
+    logger.error({ cause }, "Failed to start Hermes control plane");
     process.exit(1);
   });
 }

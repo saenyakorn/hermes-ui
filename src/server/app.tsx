@@ -1,10 +1,10 @@
-import { serveStatic } from '@hono/node-server/serve-static';
-import { Hono } from 'hono';
-import { renderToString } from 'react-dom/server';
-import { basicAuthMiddleware } from './services/auth';
-import type { AppEnv, GatewayStatus, LogTail } from './types';
-import { Dashboard } from './ui/dashboard';
-import { Layout } from './ui/layout';
+import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
+import { renderToString } from "react-dom/server";
+import { basicAuthMiddleware } from "./services/auth";
+import type { AppEnv, GatewayStatus, LogTail } from "./types";
+import { Dashboard } from "./ui/dashboard";
+import { Layout } from "./ui/layout";
 
 export type AppGateway = {
   status: () => GatewayStatus;
@@ -27,12 +27,12 @@ export type AppServices = {
 
 export function createApp(services: AppServices): Hono {
   const app = new Hono();
-  app.use('*', basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword));
+  app.use("*", basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword));
 
-  app.get('/assets/*', serveStatic({ root: './dist' }));
-  app.get('/favicon.ico', (context) => context.body(null, 204));
+  app.get("/assets/*", serveStatic({ root: "./dist" }));
+  app.get("/favicon.ico", (context) => context.body(null, 204));
 
-  app.get('/', (context) => {
+  app.get("/", (context) => {
     const html = renderToString(
       <Layout title="Hermes Agent">
         <Dashboard status={services.gateway.status()} />
@@ -42,14 +42,22 @@ export function createApp(services: AppServices): Hono {
     return context.html(`<!doctype html>${html}`);
   });
 
-  app.get('/gateway/status', (context) => context.json(services.gateway.status()));
-  app.get('/gateway/health', async (context) => context.json(await services.gateway.refreshHealth()));
-  app.post('/gateway/start', async (context) => context.json(await runGatewayAction(services.gateway, () => services.gateway.start())));
-  app.post('/gateway/stop', async (context) => context.json(await runGatewayAction(services.gateway, () => services.gateway.stop())));
-  app.post('/gateway/restart', async (context) => context.json(await runGatewayAction(services.gateway, () => services.gateway.restart())));
-  app.get('/logs/tail', async (context) => context.json(await services.logs.tail(200)));
+  app.get("/gateway/status", (context) => context.json(services.gateway.status()));
+  app.get("/gateway/health", async (context) =>
+    context.json(await services.gateway.refreshHealth()),
+  );
+  app.post("/gateway/start", async (context) =>
+    context.json(await runGatewayAction(services.gateway, () => services.gateway.start())),
+  );
+  app.post("/gateway/stop", async (context) =>
+    context.json(await runGatewayAction(services.gateway, () => services.gateway.stop())),
+  );
+  app.post("/gateway/restart", async (context) =>
+    context.json(await runGatewayAction(services.gateway, () => services.gateway.restart())),
+  );
+  app.get("/logs/tail", async (context) => context.json(await services.logs.tail(200)));
 
-  app.get('/logs/stream', (context) => {
+  app.get("/logs/stream", (context) => {
     const { readable, writable } = new TransformStream<Uint8Array>();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
@@ -57,16 +65,16 @@ export function createApp(services: AppServices): Hono {
       void writer.write(encoder.encode(`data: ${JSON.stringify({ line })}\n\n`));
     });
 
-    context.req.raw.signal.addEventListener('abort', () => {
+    context.req.raw.signal.addEventListener("abort", () => {
       unsubscribe();
       void writer.close();
     });
 
     return new Response(readable, {
       headers: {
-        'content-type': 'text/event-stream',
-        'cache-control': 'no-cache',
-        connection: 'keep-alive',
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
       },
     });
   });

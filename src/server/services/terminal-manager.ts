@@ -1,4 +1,4 @@
-import { spawn, type IPty, type IPtyForkOptions, type IWindowsPtyForkOptions } from 'node-pty';
+import { spawn, type IPty, type IPtyForkOptions, type IWindowsPtyForkOptions } from "node-pty";
 
 type PtyOptions = IPtyForkOptions | IWindowsPtyForkOptions;
 
@@ -23,7 +23,7 @@ export class TerminalManager {
   create(socketId: string): TerminalSession {
     this.close(socketId);
 
-    const pty = this.spawnPty('bash', [], {
+    const pty = this.spawnPty("bash", [], {
       cwd: this.cwd,
       cols: 80,
       rows: 24,

@@ -1,15 +1,15 @@
-import { mkdir, open, writeFile } from 'node:fs/promises';
-import type { FileHandle } from 'node:fs/promises';
-import path from 'node:path';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
+import { mkdir, open, writeFile } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
+import path from "node:path";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 
 dayjs.extend(utc);
 
 const LOG_TAIL_CHUNK_SIZE = 64 * 1024;
 const LINE_BREAK_PATTERN = /\r\n|\n|\r/;
 
-export type LogChannel = 'gateway' | 'stdout' | 'stderr' | 'health' | 'warning';
+export type LogChannel = "gateway" | "stdout" | "stderr" | "health" | "warning";
 export type Clock = () => string;
 export type LogListener = (line: string) => void;
 
@@ -29,7 +29,9 @@ export class LogStore {
 
   async append(channel: LogChannel, message: string): Promise<void> {
     const timestamp = this.clock();
-    const lines = this.splitMessage(message).map((line) => this.formatLine(timestamp, channel, line));
+    const lines = this.splitMessage(message).map((line) =>
+      this.formatLine(timestamp, channel, line),
+    );
 
     if (lines.length === 0) {
       this.warning = null;
@@ -38,11 +40,11 @@ export class LogStore {
 
     try {
       await mkdir(this.logsDir, { recursive: true });
-      await writeFile(this.getLogFilePath(timestamp), `${lines.join('\n')}\n`, { flag: 'a' });
+      await writeFile(this.getLogFilePath(timestamp), `${lines.join("\n")}\n`, { flag: "a" });
       this.warning = null;
     } catch (cause: unknown) {
       this.warning = this.formatWarning(cause);
-      this.emit(this.formatLine(this.clock(), 'warning', this.warning));
+      this.emit(this.formatLine(this.clock(), "warning", this.warning));
       return;
     }
 
@@ -65,7 +67,7 @@ export class LogStore {
     let fileHandle: FileHandle | null = null;
 
     try {
-      fileHandle = await open(this.getLogFilePath(timestamp), 'r');
+      fileHandle = await open(this.getLogFilePath(timestamp), "r");
       const stats = await fileHandle.stat();
       const lines = await this.readTailLines(fileHandle, stats.size, normalizedLimit);
 
@@ -105,7 +107,7 @@ export class LogStore {
   }
 
   private getLogFilePath(timestamp: string): string {
-    return path.join(this.logsDir, `${dayjs(timestamp).utc().format('YYYY-MM-DD')}.log`);
+    return path.join(this.logsDir, `${dayjs(timestamp).utc().format("YYYY-MM-DD")}.log`);
   }
 
   private formatLine(timestamp: string, channel: LogChannel, message: string): string {
@@ -120,9 +122,13 @@ export class LogStore {
     return content.split(LINE_BREAK_PATTERN).filter((line) => line.length > 0);
   }
 
-  private async readTailLines(fileHandle: FileHandle, fileSize: number, limit: number): Promise<string[]> {
+  private async readTailLines(
+    fileHandle: FileHandle,
+    fileSize: number,
+    limit: number,
+  ): Promise<string[]> {
     let position = fileSize;
-    let content = '';
+    let content = "";
     let lines: string[] = [];
 
     while (position > 0 && lines.length <= limit) {
@@ -136,7 +142,7 @@ export class LogStore {
         break;
       }
 
-      content = `${buffer.subarray(0, result.bytesRead).toString('utf8')}${content}`;
+      content = `${buffer.subarray(0, result.bytesRead).toString("utf8")}${content}`;
       lines = this.splitLogContent(content);
     }
 
@@ -152,7 +158,7 @@ export class LogStore {
   }
 
   private isMissingFileError(cause: unknown): boolean {
-    return cause instanceof Error && 'code' in cause && cause.code === 'ENOENT';
+    return cause instanceof Error && "code" in cause && cause.code === "ENOENT";
   }
 
   private emit(line: string): void {
