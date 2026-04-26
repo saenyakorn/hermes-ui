@@ -58,7 +58,20 @@ const envRead: EnvReadResult = {
 
 const workspaceHints: WorkspaceConfigHints = {
   model: { default: null, provider: null, base_url: null },
-  discord: { allowed_users: null },
+  discord: {
+    allowed_users: null,
+    allowed_channels: null,
+    require_mention: null,
+    free_response_channels: null,
+    auto_thread: null,
+    reactions: null,
+    ignored_channels: null,
+    no_thread_channels: null,
+    allow_mentions_everyone: null,
+    allow_mentions_roles: null,
+    allow_mentions_users: null,
+    allow_mentions_replied_user: null,
+  },
 };
 
 function createServices(): AppServices {
@@ -513,7 +526,9 @@ describe("createApp", () => {
 
     expect(response.status).toBe(200);
     expect(services.config.patchModel).toHaveBeenCalledWith({ default: "anthropic/claude" });
-    expect(services.envVars.applyBatch).toHaveBeenCalledWith({ set: { OPENROUTER_API_KEY: "tok" } });
+    expect(services.envVars.applyBatch).toHaveBeenCalledWith({
+      set: { OPENROUTER_API_KEY: "tok" },
+    });
     expect(services.gateway.restart).toHaveBeenCalledOnce();
     await expect(response.json()).resolves.toEqual({
       env: afterBatch,
@@ -549,7 +564,7 @@ describe("createApp", () => {
     services.gateway.restart = vi.fn(async () => runningStatus);
     const afterDiscordPatch: ConfigSaveResult = {
       ...configRead,
-      content: "discord:\n  allowed_users: \"1,2\"\n",
+      content: 'discord:\n  allowed_users: "1,2"\n',
       saved: true,
     };
     services.config.patchDiscordAllowedUsers = vi.fn(async () => afterDiscordPatch);

@@ -180,7 +180,10 @@ export function createApp(services: AppServices) {
       try {
         return context.json(await services.config.getWorkspaceConfigHints());
       } catch (cause: unknown) {
-        return context.json({ error: `Failed to read config hints: ${getErrorMessage(cause)}` }, 500);
+        return context.json(
+          { error: `Failed to read config hints: ${getErrorMessage(cause)}` },
+          500,
+        );
       }
     })
     .post("/settings/model-providers", async (context) => {
@@ -234,7 +237,10 @@ export function createApp(services: AppServices) {
           }
         }
       } catch (cause: unknown) {
-        return context.json({ error: `Failed to read or patch config: ${getErrorMessage(cause)}` }, 500);
+        return context.json(
+          { error: `Failed to read or patch config: ${getErrorMessage(cause)}` },
+          500,
+        );
       }
 
       let envSnapshot: EnvReadResult;
@@ -395,7 +401,9 @@ async function parseEnvUpsertInput(
   }
 }
 
-function parseEnvBatchRecord(body: unknown): { set?: Record<string, string>; remove?: string[] } | null {
+function parseEnvBatchRecord(
+  body: unknown,
+): { set?: Record<string, string>; remove?: string[] } | null {
   if (!isRecord(body)) {
     return null;
   }
@@ -465,9 +473,7 @@ function hasEnvBatchMutation(env: { set?: Record<string, string>; remove?: strin
   return hasSet || hasRemove;
 }
 
-async function parseModelProvidersInput(
-  bodyPromise: Promise<unknown>,
-): Promise<{
+async function parseModelProvidersInput(bodyPromise: Promise<unknown>): Promise<{
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
   discord?: { allowed_users: string };

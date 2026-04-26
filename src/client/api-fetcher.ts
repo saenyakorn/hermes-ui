@@ -152,7 +152,9 @@ export class ApiFetcher {
     return response.json() as Promise<ConfigSaveResponse>;
   }
 
-  async postModelProvidersSettings(body: ModelProvidersSavePayload): Promise<ModelProvidersMutationResponse> {
+  async postModelProvidersSettings(
+    body: ModelProvidersSavePayload,
+  ): Promise<ModelProvidersMutationResponse> {
     const response = await this.authenticatedFetch(`${this.origin}/settings/model-providers`, {
       method: "POST",
       headers: { "content-type": "application/json" },

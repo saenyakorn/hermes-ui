@@ -15,6 +15,23 @@ import type { LogStore } from "./log-store";
 
 const CONFIG_FILE_NAME = "config.yaml";
 
+function emptyDiscordHints(): WorkspaceConfigHints["discord"] {
+  return {
+    allowed_users: null,
+    allowed_channels: null,
+    require_mention: null,
+    free_response_channels: null,
+    auto_thread: null,
+    reactions: null,
+    ignored_channels: null,
+    no_thread_channels: null,
+    allow_mentions_everyone: null,
+    allow_mentions_roles: null,
+    allow_mentions_users: null,
+    allow_mentions_replied_user: null,
+  };
+}
+
 export class ConfigStore {
   constructor(
     private readonly dataDir: string,
@@ -126,12 +143,12 @@ export class ConfigStore {
   }
 
   /**
-   * Reads `model.*` and `discord.allowed_users` for UI fields (best-effort if YAML is invalid).
+   * Reads `model.*` and `discord.*` keys used by the workspace Messaging UI (best-effort if YAML is invalid).
    */
   async getWorkspaceConfigHints(): Promise<WorkspaceConfigHints> {
     const empty: WorkspaceConfigHints = {
       model: { default: null, provider: null, base_url: null },
-      discord: { allowed_users: null },
+      discord: emptyDiscordHints(),
     };
     const { content } = await this.read();
     const document = parseDocument(content);
@@ -146,7 +163,36 @@ export class ConfigStore {
         base_url: this.yamlScalarToString(document.getIn(["model", "base_url"])),
       },
       discord: {
-        allowed_users: this.yamlDiscordAllowedUsers(document),
+        allowed_users: this.yamlNodeToListOrScalarDisplay(
+          document.getIn(["discord", "allowed_users"]),
+        ),
+        allowed_channels: this.yamlNodeToListOrScalarDisplay(
+          document.getIn(["discord", "allowed_channels"]),
+        ),
+        require_mention: this.yamlScalarToString(document.getIn(["discord", "require_mention"])),
+        free_response_channels: this.yamlNodeToListOrScalarDisplay(
+          document.getIn(["discord", "free_response_channels"]),
+        ),
+        auto_thread: this.yamlScalarToString(document.getIn(["discord", "auto_thread"])),
+        reactions: this.yamlScalarToString(document.getIn(["discord", "reactions"])),
+        ignored_channels: this.yamlNodeToListOrScalarDisplay(
+          document.getIn(["discord", "ignored_channels"]),
+        ),
+        no_thread_channels: this.yamlNodeToListOrScalarDisplay(
+          document.getIn(["discord", "no_thread_channels"]),
+        ),
+        allow_mentions_everyone: this.yamlScalarToString(
+          document.getIn(["discord", "allow_mentions", "everyone"]),
+        ),
+        allow_mentions_roles: this.yamlScalarToString(
+          document.getIn(["discord", "allow_mentions", "roles"]),
+        ),
+        allow_mentions_users: this.yamlScalarToString(
+          document.getIn(["discord", "allow_mentions", "users"]),
+        ),
+        allow_mentions_replied_user: this.yamlScalarToString(
+          document.getIn(["discord", "allow_mentions", "replied_user"]),
+        ),
       },
     };
   }
@@ -223,8 +269,10 @@ export class ConfigStore {
     return null;
   }
 
-  private yamlDiscordAllowedUsers(document: Document): string | null {
-    const node = document.getIn(["discord", "allowed_users"]);
+  /**
+   * String, scalar, or YAML sequence of IDs → comma-separated text for workspace inputs.
+   */
+  private yamlNodeToListOrScalarDisplay(node: unknown): string | null {
     if (node === null || node === undefined) {
       return null;
     }

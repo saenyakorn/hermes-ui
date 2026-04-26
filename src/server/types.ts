@@ -103,6 +103,21 @@ export type WorkspaceConfigHints = {
   };
   discord: {
     allowed_users: string | null;
+    /** Comma-separated IDs; mirrors `DISCORD_ALLOWED_CHANNELS`. */
+    allowed_channels: string | null;
+    /** `"true"` | `"false"`; mirrors `DISCORD_REQUIRE_MENTION`. */
+    require_mention: string | null;
+    free_response_channels: string | null;
+    /** `"true"` | `"false"`; mirrors `DISCORD_AUTO_THREAD`. */
+    auto_thread: string | null;
+    /** `"true"` | `"false"`; mirrors `DISCORD_REACTIONS`. */
+    reactions: string | null;
+    ignored_channels: string | null;
+    no_thread_channels: string | null;
+    allow_mentions_everyone: string | null;
+    allow_mentions_roles: string | null;
+    allow_mentions_users: string | null;
+    allow_mentions_replied_user: string | null;
   };
 };
 

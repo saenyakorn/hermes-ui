@@ -177,7 +177,9 @@ describe("ConfigStore", () => {
     expect(result.saved).toBe(true);
     expect(result.validation.ok).toBe(true);
     expect(result.content).toContain("openai/gpt-4o");
-    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toContain("openai/gpt-4o");
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toContain(
+      "openai/gpt-4o",
+    );
   });
 
   it("patchModel returns saved false when no fields to apply", async () => {
@@ -223,11 +225,40 @@ describe("ConfigStore", () => {
     const store = createStore();
     await writeFile(
       path.join(tmpDir, "config.yaml"),
-      "discord:\n  allowed_users:\n    - \"a\"\n    - b\n",
+      'discord:\n  allowed_users:\n    - "a"\n    - b\n',
       "utf8",
     );
 
     const hints = await store.getWorkspaceConfigHints();
     expect(hints.discord.allowed_users).toBe("a,b");
+  });
+
+  it("getWorkspaceConfigHints reads discord booleans, lists, and allow_mentions", async () => {
+    const store = createStore();
+    await writeFile(
+      path.join(tmpDir, "config.yaml"),
+      [
+        "discord:",
+        "  require_mention: false",
+        "  ignored_channels:",
+        '    - "111"',
+        '    - "222"',
+        "  allow_mentions:",
+        "    everyone: true",
+        "    roles: false",
+        "    users: true",
+        "    replied_user: false",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const hints = await store.getWorkspaceConfigHints();
+    expect(hints.discord.require_mention).toBe("false");
+    expect(hints.discord.ignored_channels).toBe("111,222");
+    expect(hints.discord.allow_mentions_everyone).toBe("true");
+    expect(hints.discord.allow_mentions_roles).toBe("false");
+    expect(hints.discord.allow_mentions_users).toBe("true");
+    expect(hints.discord.allow_mentions_replied_user).toBe("false");
   });
 });

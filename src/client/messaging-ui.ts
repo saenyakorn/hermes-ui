@@ -10,10 +10,12 @@ import {
 
 /**
  * Discord keys stored in data/.env (Clear removes these).
- * Allowed user IDs live in config.yaml (`discord.allowed_users`), not .env.
+ * Allowed user IDs: `DISCORD_ALLOWED_USERS` in .env overrides `discord.allowed_users`
+ * in config.yaml (Hermes env wins over yaml).
  */
 export const MESSAGING_DISCORD_ENV_KEYS: readonly string[] = [
   "DISCORD_BOT_TOKEN",
+  "DISCORD_ALLOWED_USERS",
   "DISCORD_ALLOWED_ROLES",
   "DISCORD_ALLOWED_CHANNELS",
   "DISCORD_FREE_RESPONSE_CHANNELS",
@@ -228,7 +230,9 @@ async function saveDiscordMessagingSettings(deps: HermesWorkspaceDeps): Promise<
       payload.env = { set };
     }
     const response = await deps.api.postModelProvidersSettings(payload);
-    applyModelProvidersMutationResponse(deps, response, doneMessage, { setStatus: setMessagingStatus });
+    applyModelProvidersMutationResponse(deps, response, doneMessage, {
+      setStatus: setMessagingStatus,
+    });
     clearMessagingInputs("discord");
   } catch (cause: unknown) {
     setMessagingStatus(`Save failed: ${getErrorMessage(cause)}`);
@@ -237,7 +241,10 @@ async function saveDiscordMessagingSettings(deps: HermesWorkspaceDeps): Promise<
   }
 }
 
-async function saveMessagingSettings(deps: HermesWorkspaceDeps, platform: MessagingPlatform): Promise<void> {
+async function saveMessagingSettings(
+  deps: HermesWorkspaceDeps,
+  platform: MessagingPlatform,
+): Promise<void> {
   if (messagingBusy) {
     return;
   }
@@ -290,9 +297,14 @@ async function clearMessagingPlatformKeys(
         env: { remove: [...keys] },
         discord: { allowed_users: "" },
       });
-      applyModelProvidersMutationResponse(deps, response, `${label} .env keys removed; allowlist cleared in config.yaml.`, {
-        setStatus: setMessagingStatus,
-      });
+      applyModelProvidersMutationResponse(
+        deps,
+        response,
+        `${label} .env keys removed; allowlist cleared in config.yaml.`,
+        {
+          setStatus: setMessagingStatus,
+        },
+      );
       clearMessagingInputs(platform);
     } catch (cause: unknown) {
       setMessagingStatus(`Clear failed: ${getErrorMessage(cause)}`);

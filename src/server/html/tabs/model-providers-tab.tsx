@@ -12,8 +12,8 @@ export function ModelProvidersTabPanel() {
           Model providers
         </p>
         <p class="mt-3 text-sm text-muted">
-          API keys are written to <span class="text-text">data/.env</span>. Optional default
-          model fields update <span class="text-text">data/config.yaml</span> under{" "}
+          API keys are written to <span class="text-text">data/.env</span>. Optional default model
+          fields update <span class="text-text">data/config.yaml</span> under{" "}
           <span class="text-text">model:</span>. Secrets are never shown; leave a field empty to
           keep its current value. Saving restarts the gateway when it is running (one restart per
           save).
@@ -32,11 +32,7 @@ export function ModelProvidersTabPanel() {
           <span class="text-text">GOOGLE_API_KEY</span>; this UI uses{" "}
           <span class="text-text">GOOGLE_API_KEY</span>.
         </p>
-        <p
-          id="model-providers-env-hint"
-          class="mt-2 text-xs text-muted"
-          aria-live="polite"
-        >
+        <p id="model-providers-env-hint" class="mt-2 text-xs text-muted" aria-live="polite">
           Loading…
         </p>
       </div>

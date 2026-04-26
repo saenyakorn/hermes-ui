@@ -12,42 +12,135 @@ export function isConfiguredSecretPlaceholder(value: string): boolean {
   return value.trim() === UI_CONFIGURED_SECRET_PLACEHOLDER;
 }
 
-type EnvFieldKind = "secret" | "maskedText" | "select";
+type EnvFieldKind = "secret" | "maskedText" | "select" | "plainText";
 
 type MessagingDiscordFieldSpec =
   | { source: "config"; configPath: string }
   | { source: "env"; envKey: string; kind: EnvFieldKind };
 
+/**
+ * Single spec or ordered list (Hermes: .env overrides config.yaml when both are set).
+ * YAML mirrors: https://hermes-agent.nousresearch.com/docs/user-guide/messaging/discord#config-file-configyaml
+ */
+export type MessagingDiscordFieldEntry =
+  | MessagingDiscordFieldSpec
+  | readonly MessagingDiscordFieldSpec[];
+
 /** Discord card + advanced (ids match messaging-tab.tsx). */
-export const MESSAGING_DISCORD_FIELD_SOURCES: Record<string, MessagingDiscordFieldSpec> = {
-  "messaging-discord-token": { source: "env", envKey: "DISCORD_BOT_TOKEN", kind: "secret" },
-  "messaging-discord-allowed": { source: "config", configPath: "discord.allowed_users" },
-  "d-adv-roles": { source: "env", envKey: "DISCORD_ALLOWED_ROLES", kind: "maskedText" },
-  "d-adv-allow-ch": { source: "env", envKey: "DISCORD_ALLOWED_CHANNELS", kind: "maskedText" },
-  "d-adv-free": { source: "env", envKey: "DISCORD_FREE_RESPONSE_CHANNELS", kind: "maskedText" },
-  "d-adv-home": { source: "env", envKey: "DISCORD_HOME_CHANNEL", kind: "maskedText" },
-  "d-adv-homen": { source: "env", envKey: "DISCORD_HOME_CHANNEL_NAME", kind: "maskedText" },
+export const MESSAGING_DISCORD_FIELD_SOURCES: Record<string, MessagingDiscordFieldEntry> = {
+  /** Credential: .env only (no config.yaml mirror). */
+  "messaging-discord-token": {
+    source: "env",
+    envKey: "DISCORD_BOT_TOKEN",
+    kind: "secret",
+  },
+  /** DISCORD_ALLOWED_USERS (.env) wins over discord.allowed_users (config.yaml). */
+  "messaging-discord-allowed": [
+    { source: "config", configPath: "discord.allowed_users" },
+    { source: "env", envKey: "DISCORD_ALLOWED_USERS", kind: "plainText" },
+  ],
+  /** Role allowlist: .env only. */
+  "d-adv-roles": {
+    source: "env",
+    envKey: "DISCORD_ALLOWED_ROLES",
+    kind: "maskedText",
+  },
+  "d-adv-allow-ch": [
+    { source: "config", configPath: "discord.allowed_channels" },
+    { source: "env", envKey: "DISCORD_ALLOWED_CHANNELS", kind: "maskedText" },
+  ],
+  "d-adv-free": [
+    { source: "config", configPath: "discord.free_response_channels" },
+    {
+      source: "env",
+      envKey: "DISCORD_FREE_RESPONSE_CHANNELS",
+      kind: "maskedText",
+    },
+  ],
+  /** Home channel: .env only. */
+  "d-adv-home": {
+    source: "env",
+    envKey: "DISCORD_HOME_CHANNEL",
+    kind: "maskedText",
+  },
+  "d-adv-homen": {
+    source: "env",
+    envKey: "DISCORD_HOME_CHANNEL_NAME",
+    kind: "maskedText",
+  },
   "d-adv-proxy": { source: "env", envKey: "DISCORD_PROXY", kind: "maskedText" },
-  "d-adv-cmd": { source: "env", envKey: "DISCORD_COMMAND_SYNC_POLICY", kind: "select" },
-  "d-adv-reply": { source: "env", envKey: "DISCORD_REPLY_TO_MODE", kind: "select" },
-  "d-adv-reqm": { source: "env", envKey: "DISCORD_REQUIRE_MENTION", kind: "select" },
-  "d-adv-autoth": { source: "env", envKey: "DISCORD_AUTO_THREAD", kind: "select" },
-  "d-adv-rxn": { source: "env", envKey: "DISCORD_REACTIONS", kind: "select" },
-  "d-adv-ign": { source: "env", envKey: "DISCORD_IGNORED_CHANNELS", kind: "maskedText" },
-  "d-adv-nothr": { source: "env", envKey: "DISCORD_NO_THREAD_CHANNELS", kind: "maskedText" },
-  "d-adv-alle": { source: "env", envKey: "DISCORD_ALLOW_MENTION_EVERYONE", kind: "select" },
-  "d-adv-alr": { source: "env", envKey: "DISCORD_ALLOW_MENTION_ROLES", kind: "select" },
-  "d-adv-alu": { source: "env", envKey: "DISCORD_ALLOW_MENTION_USERS", kind: "select" },
-  "d-adv-alk": { source: "env", envKey: "DISCORD_ALLOW_MENTION_REPLIED_USER", kind: "select" },
-  "d-adv-ignm": { source: "env", envKey: "DISCORD_IGNORE_NO_MENTION", kind: "select" },
+  "d-adv-cmd": {
+    source: "env",
+    envKey: "DISCORD_COMMAND_SYNC_POLICY",
+    kind: "select",
+  },
+  "d-adv-reply": {
+    source: "env",
+    envKey: "DISCORD_REPLY_TO_MODE",
+    kind: "select",
+  },
+  "d-adv-reqm": [
+    { source: "config", configPath: "discord.require_mention" },
+    { source: "env", envKey: "DISCORD_REQUIRE_MENTION", kind: "select" },
+  ],
+  "d-adv-autoth": [
+    { source: "config", configPath: "discord.auto_thread" },
+    { source: "env", envKey: "DISCORD_AUTO_THREAD", kind: "select" },
+  ],
+  "d-adv-rxn": [
+    { source: "config", configPath: "discord.reactions" },
+    { source: "env", envKey: "DISCORD_REACTIONS", kind: "select" },
+  ],
+  "d-adv-ign": [
+    { source: "config", configPath: "discord.ignored_channels" },
+    { source: "env", envKey: "DISCORD_IGNORED_CHANNELS", kind: "maskedText" },
+  ],
+  "d-adv-nothr": [
+    { source: "config", configPath: "discord.no_thread_channels" },
+    { source: "env", envKey: "DISCORD_NO_THREAD_CHANNELS", kind: "maskedText" },
+  ],
+  "d-adv-alle": [
+    { source: "config", configPath: "discord.allow_mentions.everyone" },
+    { source: "env", envKey: "DISCORD_ALLOW_MENTION_EVERYONE", kind: "select" },
+  ],
+  "d-adv-alr": [
+    { source: "config", configPath: "discord.allow_mentions.roles" },
+    { source: "env", envKey: "DISCORD_ALLOW_MENTION_ROLES", kind: "select" },
+  ],
+  "d-adv-alu": [
+    { source: "config", configPath: "discord.allow_mentions.users" },
+    { source: "env", envKey: "DISCORD_ALLOW_MENTION_USERS", kind: "select" },
+  ],
+  "d-adv-alk": [
+    { source: "config", configPath: "discord.allow_mentions.replied_user" },
+    {
+      source: "env",
+      envKey: "DISCORD_ALLOW_MENTION_REPLIED_USER",
+      kind: "select",
+    },
+  ],
+  /** Documented as .env toggle; no discord.* mirror in Hermes config.yaml. */
+  "d-adv-ignm": {
+    source: "env",
+    envKey: "DISCORD_IGNORE_NO_MENTION",
+    kind: "select",
+  },
 };
 
 export const MESSAGING_SLACK_FIELD_SOURCES: Record<
   string,
   { source: "env"; envKey: string; kind: "secret" }
 > = {
-  "messaging-slack-bot": { source: "env", envKey: "SLACK_BOT_TOKEN", kind: "secret" },
-  "messaging-slack-app": { source: "env", envKey: "SLACK_APP_TOKEN", kind: "secret" },
+  "messaging-slack-bot": {
+    source: "env",
+    envKey: "SLACK_BOT_TOKEN",
+    kind: "secret",
+  },
+  "messaging-slack-app": {
+    source: "env",
+    envKey: "SLACK_APP_TOKEN",
+    kind: "secret",
+  },
 };
 
 /** One backing source; earlier entries in the field's array win over later ones. */
@@ -95,10 +188,116 @@ function selectValueFromEnv(env: EnvReadResult, key: string): string {
   return "";
 }
 
+function isDiscordFieldSpecList(
+  entry: MessagingDiscordFieldEntry,
+): entry is readonly MessagingDiscordFieldSpec[] {
+  return Array.isArray(entry);
+}
+
+function normalizeDiscordFieldEntry(
+  entry: MessagingDiscordFieldEntry,
+): readonly MessagingDiscordFieldSpec[] {
+  if (isDiscordFieldSpecList(entry)) {
+    return entry;
+  }
+  return [entry];
+}
+
+/**
+ * Hermes precedence: env vars override config.yaml. Env-backed values are applied first.
+ */
+function resolveDiscordWorkspaceFieldValue(
+  env: EnvReadResult,
+  hints: WorkspaceConfigHints | null,
+  specs: readonly MessagingDiscordFieldSpec[],
+): string | undefined {
+  const envSpecs = specs.filter(
+    (s): s is Extract<MessagingDiscordFieldSpec, { source: "env" }> => s.source === "env",
+  );
+  const configSpecs = specs.filter(
+    (s): s is Extract<MessagingDiscordFieldSpec, { source: "config" }> => s.source === "config",
+  );
+
+  for (const spec of envSpecs) {
+    if (spec.kind === "secret" || spec.kind === "maskedText") {
+      if (envKeyHasNonEmptyValue(env, spec.envKey)) {
+        return placeholderIfEnvKeySet(env, spec.envKey);
+      }
+    } else if (spec.kind === "plainText") {
+      const v = selectValueFromEnv(env, spec.envKey);
+      if (v !== "") {
+        return v;
+      }
+    } else {
+      const v = selectValueFromEnv(env, spec.envKey);
+      if (v !== "") {
+        return v;
+      }
+    }
+  }
+
+  for (const spec of configSpecs) {
+    const v = resolveConfigBackedInput(hints, spec.configPath);
+    if (v !== undefined) {
+      return v;
+    }
+  }
+
+  const loneEnvSpec = envSpecs.length === 1 ? envSpecs[0] : undefined;
+  if (loneEnvSpec?.kind === "select") {
+    return selectValueFromEnv(env, loneEnvSpec.envKey);
+  }
+
+  if (envSpecs.some((s) => s.kind === "maskedText" || s.kind === "secret")) {
+    if (configSpecs.length === 0) {
+      return "";
+    }
+    if (hints === null) {
+      return undefined;
+    }
+    return "";
+  }
+
+  if (loneEnvSpec?.kind === "plainText") {
+    if (configSpecs.length > 0 && hints === null) {
+      return undefined;
+    }
+    return selectValueFromEnv(env, loneEnvSpec.envKey);
+  }
+
+  if (configSpecs.length > 0 && hints === null) {
+    return undefined;
+  }
+
+  return undefined;
+}
+
 function configScalarFromHints(hints: WorkspaceConfigHints, path: string): string | null {
   switch (path) {
     case "discord.allowed_users":
       return hints.discord.allowed_users;
+    case "discord.allowed_channels":
+      return hints.discord.allowed_channels;
+    case "discord.require_mention":
+      return hints.discord.require_mention;
+    case "discord.free_response_channels":
+      return hints.discord.free_response_channels;
+    case "discord.auto_thread":
+      return hints.discord.auto_thread;
+    case "discord.reactions":
+      return hints.discord.reactions;
+    case "discord.ignored_channels":
+      return hints.discord.ignored_channels;
+    case "discord.no_thread_channels":
+      return hints.discord.no_thread_channels;
+    case "discord.allow_mentions.everyone":
+      return hints.discord.allow_mentions_everyone;
+    case "discord.allow_mentions.roles":
+      return hints.discord.allow_mentions_roles;
+    case "discord.allow_mentions.users":
+      return hints.discord.allow_mentions_users;
+    case "discord.allow_mentions.replied_user":
+      return hints.discord.allow_mentions_replied_user;
     case "model.default":
       return hints.model.default;
     case "model.provider":
@@ -158,19 +357,15 @@ export function resolveMessagingIntegrationFieldValues(
   hints: WorkspaceConfigHints | null,
 ): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
-  for (const [elementId, spec] of Object.entries(MESSAGING_DISCORD_FIELD_SOURCES)) {
-    if (spec.source === "config") {
-      const v = resolveConfigBackedInput(hints, spec.configPath);
-      if (v !== undefined) {
-        out[elementId] = v;
-      }
-      continue;
+  for (const [elementId, entry] of Object.entries(MESSAGING_DISCORD_FIELD_SOURCES)) {
+    const resolved = resolveDiscordWorkspaceFieldValue(
+      env,
+      hints,
+      normalizeDiscordFieldEntry(entry),
+    );
+    if (resolved !== undefined) {
+      out[elementId] = resolved;
     }
-    if (spec.kind === "secret" || spec.kind === "maskedText") {
-      out[elementId] = placeholderIfEnvKeySet(env, spec.envKey);
-      continue;
-    }
-    out[elementId] = selectValueFromEnv(env, spec.envKey);
   }
   for (const [elementId, spec] of Object.entries(MESSAGING_SLACK_FIELD_SOURCES)) {
     out[elementId] = placeholderIfEnvKeySet(env, spec.envKey);

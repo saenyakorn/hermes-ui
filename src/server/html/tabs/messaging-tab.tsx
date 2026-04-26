@@ -12,16 +12,11 @@ export function MessagingTabPanel() {
           Messaging Platform
         </p>
         <p class="mt-3 text-sm text-muted">
-          Hermes reads tokens from <span class="text-text">data/.env</span>.
-          Existing secrets cannot be shown here; leave a field empty to keep its
-          current value. Saving applies changes and restarts the gateway (same
-          as Env vars).
+          Hermes reads tokens from <span class="text-text">data/.env</span>. Existing secrets cannot
+          be shown here; leave a field empty to keep its current value. Saving applies changes and
+          restarts the gateway (same as Env vars).
         </p>
-        <p
-          id="messaging-env-hint"
-          class="mt-2 text-xs text-muted"
-          aria-live="polite"
-        >
+        <p id="messaging-env-hint" class="mt-2 text-xs text-muted" aria-live="polite">
           Loading…
         </p>
       </div>
@@ -32,10 +27,7 @@ export function MessagingTabPanel() {
           </h3>
           <div class="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
             <div class="min-w-0">
-              <label
-                class="mb-1 block text-sm font-medium text-text"
-                for="messaging-discord-token"
-              >
+              <label class="mb-1 block text-sm font-medium text-text" for="messaging-discord-token">
                 Bot token (DISCORD_BOT_TOKEN)
               </label>
               <input
@@ -46,8 +38,7 @@ export function MessagingTabPanel() {
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
               <p class="mt-1 text-xs text-muted leading-relaxed">
-                From the Discord Developer Portal. Leave empty to keep the current
-                token on disk.
+                From the Discord Developer Portal. Leave empty to keep the current token on disk.
               </p>
             </div>
             <div class="min-w-0">
@@ -55,7 +46,7 @@ export function MessagingTabPanel() {
                 class="mb-1 block text-sm font-medium text-text"
                 for="messaging-discord-allowed"
               >
-                Allowed user IDs, comma-separated (optional,
+                Allowed user IDs, comma-separated (optional; DISCORD_ALLOWED_USERS in .env overrides
                 config.yaml → discord.allowed_users)
               </label>
               <input
@@ -66,10 +57,11 @@ export function MessagingTabPanel() {
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
               <p class="mt-1 text-xs text-muted leading-relaxed">
-                Stored in <span class="text-text">data/config.yaml</span> under{" "}
-                <span class="text-text">discord.allowed_users</span>. If set, only
-                these Discord user IDs may use the bot. Leave empty to allow all
-                users in allowed channels.
+                Hermes uses <span class="text-text">DISCORD_ALLOWED_USERS</span> in{" "}
+                <span class="text-text">data/.env</span> when set; otherwise this field maps to{" "}
+                <span class="text-text">discord.allowed_users</span> in{" "}
+                <span class="text-text">data/config.yaml</span>. If set, only these user IDs may use
+                the bot (see the Discord guide).
               </p>
             </div>
           </div>
@@ -99,8 +91,7 @@ export function MessagingTabPanel() {
               >
                 environment variable reference
               </a>
-              . Empty fields are left unchanged; booleans use Unchanged / true /
-              false.
+              . Empty fields are left unchanged; booleans use Unchanged / true / false.
             </p>
             <div class="mt-4 grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
               <div>
@@ -119,8 +110,8 @@ export function MessagingTabPanel() {
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  Comma-separated role IDs. If set, members need one of these roles
-                  (in addition to channel rules).
+                  Comma-separated role IDs. If set, members need one of these roles (in addition to
+                  channel rules).
                 </p>
               </div>
               <div>
@@ -139,8 +130,8 @@ export function MessagingTabPanel() {
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  Comma-separated channel IDs where the bot is allowed to read and
-                  reply. Leave empty to use Hermes defaults.
+                  Comma-separated channel IDs where the bot is allowed to read and reply. Leave
+                  empty to use Hermes defaults.
                 </p>
               </div>
               <div class="sm:col-span-2">
@@ -159,8 +150,7 @@ export function MessagingTabPanel() {
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  Channels where the bot may respond without an @mention (comma-separated
-                  IDs).
+                  Channels where the bot may respond without an @mention (comma-separated IDs).
                 </p>
               </div>
               <div>
@@ -179,8 +169,7 @@ export function MessagingTabPanel() {
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  Channel ID used for cron jobs, notifications, and similar “home”
-                  traffic.
+                  Channel ID used for cron jobs, notifications, and similar “home” traffic.
                 </p>
               </div>
               <div>
@@ -222,13 +211,10 @@ export function MessagingTabPanel() {
                 </p>
               </div>
               <div>
-                <label
-                  class="mb-1 block text-sm font-medium normal-case text-text"
-                  for="d-adv-cmd"
-                >
+                <label class="mb-1 block text-sm font-medium normal-case text-text" for="d-adv-cmd">
                   Command Sync Policy
                 </label>
-<select
+                <select
                   id="d-adv-cmd"
                   data-discord-key="DISCORD_COMMAND_SYNC_POLICY"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -239,8 +225,8 @@ export function MessagingTabPanel() {
                   <option value="off">off</option>
                 </select>
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  How slash commands are synced with Discord: safe (incremental),
-                  bulk (full replace), or off.
+                  How slash commands are synced with Discord: safe (incremental), bulk (full
+                  replace), or off.
                 </p>
               </div>
               <div>
@@ -250,7 +236,7 @@ export function MessagingTabPanel() {
                 >
                   Reply-To Mode
                 </label>
-<select
+                <select
                   id="d-adv-reply"
                   data-discord-key="DISCORD_REPLY_TO_MODE"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -261,8 +247,8 @@ export function MessagingTabPanel() {
                   <option value="all">all</option>
                 </select>
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  Controls reply threading: off, link only the first assistant message,
-                  or link all replies in the chain.
+                  Controls reply threading: off, link only the first assistant message, or link all
+                  replies in the chain.
                 </p>
               </div>
               <div>
@@ -272,7 +258,7 @@ export function MessagingTabPanel() {
                 >
                   Require Mention
                 </label>
-<select
+                <select
                   id="d-adv-reqm"
                   data-discord-key="DISCORD_REQUIRE_MENTION"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -282,8 +268,7 @@ export function MessagingTabPanel() {
                   <option value="false">false</option>
                 </select>
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  When true, the bot only responds if @mentioned (except in free-response
-                  channels).
+                  When true, the bot only responds if @mentioned (except in free-response channels).
                 </p>
               </div>
               <div>
@@ -293,7 +278,7 @@ export function MessagingTabPanel() {
                 >
                   Auto Thread
                 </label>
-<select
+                <select
                   id="d-adv-autoth"
                   data-discord-key="DISCORD_AUTO_THREAD"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -303,18 +288,14 @@ export function MessagingTabPanel() {
                   <option value="false">false</option>
                 </select>
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  When true, assistant replies start a new thread instead of posting
-                  inline.
+                  When true, assistant replies start a new thread instead of posting inline.
                 </p>
               </div>
               <div>
-                <label
-                  class="mb-1 block text-sm font-medium normal-case text-text"
-                  for="d-adv-rxn"
-                >
+                <label class="mb-1 block text-sm font-medium normal-case text-text" for="d-adv-rxn">
                   Reactions
                 </label>
-<select
+                <select
                   id="d-adv-rxn"
                   data-discord-key="DISCORD_REACTIONS"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -328,10 +309,7 @@ export function MessagingTabPanel() {
                 </p>
               </div>
               <div class="sm:col-span-2">
-                <label
-                  class="mb-1 block text-sm font-medium normal-case text-text"
-                  for="d-adv-ign"
-                >
+                <label class="mb-1 block text-sm font-medium normal-case text-text" for="d-adv-ign">
                   Ignored Channels
                 </label>
                 <input
@@ -363,8 +341,8 @@ export function MessagingTabPanel() {
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
                 />
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  When auto-thread is on, these channels still get inline replies
-                  (comma-separated IDs).
+                  When auto-thread is on, these channels still get inline replies (comma-separated
+                  IDs).
                 </p>
               </div>
               <div>
@@ -374,7 +352,7 @@ export function MessagingTabPanel() {
                 >
                   Allow Mention Everyone
                 </label>
-<select
+                <select
                   id="d-adv-alle"
                   data-discord-key="DISCORD_ALLOW_MENTION_EVERYONE"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -388,13 +366,10 @@ export function MessagingTabPanel() {
                 </p>
               </div>
               <div>
-                <label
-                  class="mb-1 block text-sm font-medium normal-case text-text"
-                  for="d-adv-alr"
-                >
+                <label class="mb-1 block text-sm font-medium normal-case text-text" for="d-adv-alr">
                   Allow Mention Roles
                 </label>
-<select
+                <select
                   id="d-adv-alr"
                   data-discord-key="DISCORD_ALLOW_MENTION_ROLES"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -408,13 +383,10 @@ export function MessagingTabPanel() {
                 </p>
               </div>
               <div>
-                <label
-                  class="mb-1 block text-sm font-medium normal-case text-text"
-                  for="d-adv-alu"
-                >
+                <label class="mb-1 block text-sm font-medium normal-case text-text" for="d-adv-alu">
                   Allow Mention Users
                 </label>
-<select
+                <select
                   id="d-adv-alu"
                   data-discord-key="DISCORD_ALLOW_MENTION_USERS"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -428,13 +400,10 @@ export function MessagingTabPanel() {
                 </p>
               </div>
               <div>
-                <label
-                  class="mb-1 block text-sm font-medium normal-case text-text"
-                  for="d-adv-alk"
-                >
+                <label class="mb-1 block text-sm font-medium normal-case text-text" for="d-adv-alk">
                   Allow Mention Replied User
                 </label>
-<select
+                <select
                   id="d-adv-alk"
                   data-discord-key="DISCORD_ALLOW_MENTION_REPLIED_USER"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -454,7 +423,7 @@ export function MessagingTabPanel() {
                 >
                   Ignore Without Mention
                 </label>
-<select
+                <select
                   id="d-adv-ignm"
                   data-discord-key="DISCORD_IGNORE_NO_MENTION"
                   class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none"
@@ -493,10 +462,7 @@ export function MessagingTabPanel() {
           </h3>
           <div class="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
             <div class="min-w-0">
-              <label
-                class="mb-1 block text-sm font-medium text-text"
-                for="messaging-slack-bot"
-              >
+              <label class="mb-1 block text-sm font-medium text-text" for="messaging-slack-bot">
                 Bot token (SLACK_BOT_TOKEN, xoxb-…)
               </label>
               <input
@@ -507,15 +473,12 @@ export function MessagingTabPanel() {
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
               <p class="mt-1 text-xs text-muted leading-relaxed">
-                OAuth bot token from your Slack app (starts with xoxb-). Used for Web
-                API calls. Leave empty to keep the current value.
+                OAuth bot token from your Slack app (starts with xoxb-). Used for Web API calls.
+                Leave empty to keep the current value.
               </p>
             </div>
             <div class="min-w-0">
-              <label
-                class="mb-1 block text-sm font-medium text-text"
-                for="messaging-slack-app"
-              >
+              <label class="mb-1 block text-sm font-medium text-text" for="messaging-slack-app">
                 App-level token (SLACK_APP_TOKEN, xapp-…)
               </label>
               <input
@@ -526,8 +489,8 @@ export function MessagingTabPanel() {
                 class="mt-1 w-full rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none"
               />
               <p class="mt-1 text-xs text-muted leading-relaxed">
-                App-level token with connections:write for Socket Mode (starts with
-                xapp-). Leave empty to keep the current value.
+                App-level token with connections:write for Socket Mode (starts with xapp-). Leave
+                empty to keep the current value.
               </p>
             </div>
           </div>

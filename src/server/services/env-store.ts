@@ -9,6 +9,7 @@ const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
 
 /** Non-secret Discord .env keys whose raw value may be sent to the workspace UI (selects). */
 const ENV_KEYS_WITH_PUBLIC_VALUE_IN_API = new Set([
+  "DISCORD_ALLOWED_USERS",
   "DISCORD_COMMAND_SYNC_POLICY",
   "DISCORD_REPLY_TO_MODE",
   "DISCORD_REQUIRE_MENTION",

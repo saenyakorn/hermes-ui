@@ -3,7 +3,14 @@ import type { HermesWorkspaceDeps } from "./workspace-deps";
 import { refreshMessagingEnvHint } from "./messaging-ui";
 import { refreshModelProvidersEnvHint } from "./model-providers-ui";
 
-export type TabKey = "control" | "logs" | "shell" | "config" | "env" | "messaging" | "model-providers";
+export type TabKey =
+  | "control"
+  | "logs"
+  | "shell"
+  | "config"
+  | "env"
+  | "messaging"
+  | "model-providers";
 
 const LAST_OPEN_TAB_STORAGE_KEY = "hermes.workspace.lastOpenTab";
 

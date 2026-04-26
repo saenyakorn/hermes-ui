@@ -201,10 +201,8 @@ function clearGeminiInputs(): void {
 function modelProvidersPayloadHasWork(payload: ModelProvidersSavePayload): boolean {
   const hasModel = payload.model !== undefined && Object.keys(payload.model).length > 0;
   const hasDiscord = payload.discord !== undefined;
-  const hasEnvSet =
-    payload.env?.set !== undefined && Object.keys(payload.env.set).length > 0;
-  const hasEnvRemove =
-    payload.env?.remove !== undefined && payload.env.remove.length > 0;
+  const hasEnvSet = payload.env?.set !== undefined && Object.keys(payload.env.set).length > 0;
+  const hasEnvRemove = payload.env?.remove !== undefined && payload.env.remove.length > 0;
   return hasModel || hasDiscord || hasEnvSet || hasEnvRemove;
 }
 
@@ -245,9 +243,7 @@ async function clearModelProviderKeys(
     return;
   }
   if (
-    !window.confirm(
-      `Remove ${label} keys from data/.env and restart the gateway if it is running?`,
-    )
+    !window.confirm(`Remove ${label} keys from data/.env and restart the gateway if it is running?`)
   ) {
     return;
   }
@@ -298,7 +294,12 @@ export function setupModelProviders(deps: HermesWorkspaceDeps): void {
   const clearOr = document.getElementById("mp-clear-or");
   if (clearOr instanceof HTMLButtonElement) {
     clearOr.addEventListener("click", () => {
-      void clearModelProviderKeys(deps, [...MODEL_OPENROUTER_KEYS], "OpenRouter", clearOpenRouterInputs);
+      void clearModelProviderKeys(
+        deps,
+        [...MODEL_OPENROUTER_KEYS],
+        "OpenRouter",
+        clearOpenRouterInputs,
+      );
     });
   }
 
