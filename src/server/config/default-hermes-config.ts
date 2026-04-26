@@ -221,6 +221,46 @@ agent:
   # Reasoning effort.
   reasoning_effort: "medium"
 
+# Discord-specific settings
+discord:
+  # Require @mention in server channels
+  require_mention: true
+
+  # Comma-separated channel IDs (or YAML list)
+  free_response_channels: ""
+
+  # Auto-create threads on @mention
+  auto_thread: true
+
+  # Add emoji reactions during processing
+  reactions: true
+
+  # Channel IDs where bot never responds
+  ignored_channels: []
+
+  # Channel IDs where bot responds without threading
+  no_thread_channels: []
+
+  # Per-channel ephemeral system prompts
+  channel_prompts: {}
+
+  # What the bot is allowed to ping (safe defaults)
+  allow_mentions:
+    # @everyone / @here pings (default: false)
+    everyone: false
+
+    # @role pings (default: false)
+    roles: false
+
+    # @user pings (default: true)
+    users: true
+
+    # reply-reference pings the author (default: true)
+    replied_user: true
+
+# Session isolation (applies to all gateway platforms, not just Discord)
+group_sessions_per_user: true
+
 platform_toolsets:
   # CLI tools.
   cli: ["hermes-cli"]
