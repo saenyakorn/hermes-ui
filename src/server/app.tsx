@@ -30,6 +30,7 @@ export function createApp(services: AppServices): Hono {
   app.use('*', basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword));
 
   app.get('/assets/*', serveStatic({ root: './dist' }));
+  app.get('/favicon.ico', (context) => context.body(null, 204));
 
   app.get('/', (context) => {
     const html = renderToString(

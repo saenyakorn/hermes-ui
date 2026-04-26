@@ -4,6 +4,9 @@
   "description": "Hermes Agent Web UI & Control Plane",
   "type": "module",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=20 <25"
+  },
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
     "typecheck": "tsc --noEmit",
