@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_HERMES_CONFIG_YAML } from "../src/server/config/default-hermes-config";
 import { ConfigStore } from "../src/server/services/config-store";
 import { LogStore } from "../src/server/services/log-store";
 
@@ -31,10 +32,11 @@ describe("ConfigStore", () => {
     const result = await store.read();
 
     expect(result.path).toBe("data/config.yaml");
-    expect(result.content).toContain("# Hermes Agent config");
-    expect(result.content).toContain("{}");
+    expect(result.content).toBe(DEFAULT_HERMES_CONFIG_YAML);
     expect(result.updatedAt).not.toBeNull();
-    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(result.content);
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(
+      DEFAULT_HERMES_CONFIG_YAML,
+    );
     await expect(readAuditLog()).resolves.toContain("Created starter config at data/config.yaml");
   });
 
@@ -45,12 +47,13 @@ describe("ConfigStore", () => {
 
     for (const result of results) {
       expect(result.path).toBe("data/config.yaml");
-      expect(result.content).toContain("# Hermes Agent config");
-      expect(result.content).toContain("{}");
+      expect(result.content).toBe(DEFAULT_HERMES_CONFIG_YAML);
       expect(result.updatedAt).not.toBeNull();
       expect(result.validation).toEqual({ ok: true, issues: [] });
     }
-    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(results[0]?.content);
+    await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(
+      DEFAULT_HERMES_CONFIG_YAML,
+    );
   });
 
   it("reads existing config content and metadata", async () => {

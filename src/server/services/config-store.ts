@@ -3,9 +3,9 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isMap, parseDocument } from "yaml";
 import type { ConfigReadResult, ConfigSaveResult, ConfigValidationIssue } from "../types";
+import { DEFAULT_HERMES_CONFIG_YAML } from "../config/default-hermes-config";
 import type { LogStore } from "./log-store";
 
-const STARTER_CONFIG = "# Hermes Agent config\n# Add Hermes settings here.\n{}\n";
 const CONFIG_FILE_NAME = "config.yaml";
 
 export class ConfigStore {
@@ -75,7 +75,7 @@ export class ConfigStore {
       }
 
       try {
-        await writeFile(this.getConfigPath(), STARTER_CONFIG, { flag: "wx" });
+        await writeFile(this.getConfigPath(), DEFAULT_HERMES_CONFIG_YAML, { flag: "wx" });
         await this.logs.append("gateway", "Created starter config at data/config.yaml");
       } catch (writeCause: unknown) {
         if (!this.isFileErrorCode(writeCause, "EEXIST")) {
