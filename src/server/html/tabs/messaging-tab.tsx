@@ -12,22 +12,30 @@ export function MessagingTabPanel() {
           Messaging Platform
         </p>
         <p class="mt-3 text-sm text-muted">
-          Hermes reads tokens from <span class="text-text">data/.env</span>. Existing secrets cannot
-          be shown here; leave a field empty to keep its current value. Saving applies changes and
-          restarts the gateway (same as Env vars).
+          Hermes reads tokens from <span class="text-text">data/.env</span>.
+          Existing secrets cannot be shown here; leave a field empty to keep its
+          current value. Saving applies changes and restarts the gateway (same
+          as Env vars).
         </p>
-        <p id="messaging-env-hint" class="mt-2 text-xs text-muted" aria-live="polite">
+        <p
+          id="messaging-env-hint"
+          class="mt-2 text-xs text-muted"
+          aria-live="polite"
+        >
           Loading…
         </p>
       </div>
       <div class="flex w-full min-w-0 flex-col gap-8">
         <div class="flex w-full min-w-0 flex-col rounded-lg border border-frosted bg-background p-5">
-          <h3 class="text-2xl font-bold leading-snug tracking-tight text-text sm:text-3xl">
+          <h3 class="text-lg font-bold leading-snug tracking-tight text-text sm:text-xl">
             Discord
           </h3>
           <div class="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
             <div class="min-w-0">
-              <label class="mb-1 block text-sm font-medium text-text" for="messaging-discord-token">
+              <label
+                class="mb-1 block text-sm font-medium text-text"
+                for="messaging-discord-token"
+              >
                 Bot token (DISCORD_BOT_TOKEN)
               </label>
               <input
@@ -43,7 +51,8 @@ export function MessagingTabPanel() {
                 class="mb-1 block text-sm font-medium text-text"
                 for="messaging-discord-allowed"
               >
-                Allowed user IDs, comma-separated (optional, DISCORD_ALLOWED_USERS)
+                Allowed user IDs, comma-separated (optional,
+                DISCORD_ALLOWED_USERS)
               </label>
               <input
                 id="messaging-discord-allowed"
@@ -62,7 +71,8 @@ export function MessagingTabPanel() {
               Advanced options
             </summary>
             <p class="mt-2 text-xs text-muted">
-              Optional <span class="text-text/90">DISCORD_*</span> variables from the{" "}
+              Optional <span class="text-text/90">DISCORD_*</span> variables
+              from the{" "}
               <a
                 class="text-accent underline"
                 href="https://hermes-agent.nousresearch.com/docs/user-guide/messaging/discord"
@@ -80,11 +90,15 @@ export function MessagingTabPanel() {
               >
                 environment variable reference
               </a>
-              . Empty fields are left unchanged; booleans use Unchanged / true / false.
+              . Empty fields are left unchanged; booleans use Unchanged / true /
+              false.
             </p>
             <div class="mt-4 grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-roles">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-roles"
+                >
                   DISCORD_ALLOWED_ROLES
                 </label>
                 <input
@@ -97,7 +111,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-allow-ch">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-allow-ch"
+                >
                   DISCORD_ALLOWED_CHANNELS
                 </label>
                 <input
@@ -110,7 +127,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-free">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-free"
+                >
                   DISCORD_FREE_RESPONSE_CHANNELS
                 </label>
                 <input
@@ -123,7 +143,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-home">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-home"
+                >
                   DISCORD_HOME_CHANNEL
                 </label>
                 <input
@@ -136,7 +159,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-homen">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-homen"
+                >
                   DISCORD_HOME_CHANNEL_NAME
                 </label>
                 <input
@@ -149,7 +175,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-proxy">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-proxy"
+                >
                   DISCORD_PROXY
                 </label>
                 <input
@@ -162,7 +191,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-cmd">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-cmd"
+                >
                   DISCORD_COMMAND_SYNC_POLICY
                 </label>
                 <select
@@ -177,7 +209,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-reply">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-reply"
+                >
                   DISCORD_REPLY_TO_MODE
                 </label>
                 <select
@@ -192,7 +227,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-reqm">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-reqm"
+                >
                   DISCORD_REQUIRE_MENTION
                 </label>
                 <select
@@ -206,7 +244,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-autoth">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-autoth"
+                >
                   DISCORD_AUTO_THREAD
                 </label>
                 <select
@@ -220,7 +261,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-rxn">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-rxn"
+                >
                   DISCORD_REACTIONS
                 </label>
                 <select
@@ -234,7 +278,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-ign">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-ign"
+                >
                   DISCORD_IGNORED_CHANNELS
                 </label>
                 <input
@@ -247,7 +294,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-nothr">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-nothr"
+                >
                   DISCORD_NO_THREAD_CHANNELS
                 </label>
                 <input
@@ -260,7 +310,10 @@ export function MessagingTabPanel() {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-alle">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-alle"
+                >
                   DISCORD_ALLOW_MENTION_EVERYONE
                 </label>
                 <select
@@ -274,7 +327,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-alr">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-alr"
+                >
                   DISCORD_ALLOW_MENTION_ROLES
                 </label>
                 <select
@@ -288,7 +344,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-alu">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-alu"
+                >
                   DISCORD_ALLOW_MENTION_USERS
                 </label>
                 <select
@@ -302,7 +361,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-alk">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-alk"
+                >
                   DISCORD_ALLOW_MENTION_REPLIED_USER
                 </label>
                 <select
@@ -316,7 +378,10 @@ export function MessagingTabPanel() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-text" for="d-adv-ignm">
+                <label
+                  class="mb-1 block text-sm font-medium text-text"
+                  for="d-adv-ignm"
+                >
                   DISCORD_IGNORE_NO_MENTION
                 </label>
                 <select
@@ -349,12 +414,15 @@ export function MessagingTabPanel() {
           </div>
         </div>
         <div class="flex w-full min-w-0 flex-col rounded-lg border border-frosted bg-background p-5">
-          <h3 class="text-2xl font-bold leading-snug tracking-tight text-text sm:text-3xl">
+          <h3 class="text-lg font-bold leading-snug tracking-tight text-text sm:text-xl">
             Slack (Socket Mode)
           </h3>
           <div class="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
             <div class="min-w-0">
-              <label class="mb-1 block text-sm font-medium text-text" for="messaging-slack-bot">
+              <label
+                class="mb-1 block text-sm font-medium text-text"
+                for="messaging-slack-bot"
+              >
                 Bot token (SLACK_BOT_TOKEN, xoxb-…)
               </label>
               <input
@@ -366,7 +434,10 @@ export function MessagingTabPanel() {
               />
             </div>
             <div class="min-w-0">
-              <label class="mb-1 block text-sm font-medium text-text" for="messaging-slack-app">
+              <label
+                class="mb-1 block text-sm font-medium text-text"
+                for="messaging-slack-app"
+              >
                 App-level token (SLACK_APP_TOKEN, xapp-…)
               </label>
               <input
