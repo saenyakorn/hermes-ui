@@ -62,13 +62,13 @@ function wireTabs(): void {
   const panels = document.querySelectorAll<HTMLElement>("[data-tab-panel]");
 
   const setActiveTab = (tab: TabKey): void => {
-    for (const trigger of triggers) {
+    for (const trigger of Array.from(triggers)) {
       const active = trigger.dataset.tabTrigger === tab;
       trigger.classList.toggle("bg-frosted", active);
       trigger.classList.toggle("text-text", active);
       trigger.classList.toggle("text-muted", !active);
     }
-    for (const panel of panels) {
+    for (const panel of Array.from(panels)) {
       panel.classList.toggle("hidden", panel.dataset.tabPanel !== tab);
       panel.classList.toggle("flex", panel.dataset.tabPanel === tab);
     }
@@ -80,7 +80,7 @@ function wireTabs(): void {
     }
   };
 
-  for (const trigger of triggers) {
+  for (const trigger of Array.from(triggers)) {
     trigger.addEventListener("click", () => {
       const key = trigger.dataset.tabTrigger;
       if (key === "logs" || key === "shell" || key === "config") {
