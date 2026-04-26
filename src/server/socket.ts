@@ -28,9 +28,13 @@ export function attachSocketServer(
   });
 
   io.on('connection', (socket) => {
-    let session = terminals.create(socket.id);
+    let session = createSession(socket.id);
 
     const bindSession = (): void => {
+      if (!session) {
+        return;
+      }
+
       session.onData((data) => socket.emit('terminal:output', data));
       session.onExit((exitCode) => socket.emit('terminal:exit', { exitCode }));
     };
@@ -38,22 +42,33 @@ export function attachSocketServer(
     bindSession();
 
     socket.on('terminal:start', () => {
-      session.kill();
-      session = terminals.create(socket.id);
+      session?.kill();
+      session = createSession(socket.id);
       bindSession();
     });
 
     socket.on('terminal:input', (input: string) => {
-      session.write(input);
+      session?.write(input);
     });
 
     socket.on('terminal:resize', (size: { cols: number; rows: number }) => {
-      session.resize(size.cols, size.rows);
+      session?.resize(size.cols, size.rows);
     });
 
     socket.on('disconnect', () => {
       setTimeout(() => terminals.close(socket.id), 500).unref();
     });
+
+    function createSession(socketId: string) {
+      try {
+        return terminals.create(socketId);
+      } catch (cause: unknown) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        socket.emit('terminal:output', `\r\n[failed to start bash: ${message}]\r\n`);
+        socket.emit('terminal:exit', { exitCode: 1 });
+        return null;
+      }
+    }
   });
 
   return io;
