@@ -9,18 +9,20 @@
     "lint": "oxlint .",
     "format": "oxfmt .",
     "typecheck": "tsc --noEmit",
-    "build": "rolldown -c && tailwindcss -i src/styles/app.css -o dist/assets/app.css --minify",
+    "build": "rolldown -c && tailwindcss -i src/styles/app.css -o dist/assets/app.css --minify && rm -rf dist/assets/monaco/vs && mkdir -p dist/assets/monaco && cp -R node_modules/monaco-editor/min/vs dist/assets/monaco/vs",
     "start": "node dist/index.js",
     "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
     "@hono/node-server": "^2.0.0",
+    "@monaco-editor/loader": "^1.7.0",
     "@tailwindcss/cli": "^4.2.4",
     "@xterm/addon-fit": "^0.11.0",
     "dayjs": "^1.11.20",
     "dotenv": "^16.6.1",
     "hono": "^4.12.15",
+    "monaco-editor": "^0.55.1",
     "node-pty": "^1.1.0",
     "pino": "^10.3.1",
     "react": "^19.2.5",
@@ -29,6 +31,7 @@
     "socket.io-client": "^4.8.3",
     "tailwindcss": "^4.2.4",
     "xterm": "^5.3.0",
+    "yaml": "^2.8.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -44,5 +47,8 @@
   },
   "engines": {
     "node": ">=20 <25"
+  },
+  "overrides": {
+    "dompurify": "3.4.1"
   }
 }
