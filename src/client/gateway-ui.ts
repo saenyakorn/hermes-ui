@@ -57,7 +57,7 @@ function mapButtonToAction(id: string): GatewayAction | null {
   return null;
 }
 
-export function wireGatewayActions(): void {
+export function wireGatewayActions(fetcher: ApiFetcher, client: QueryClient): void {
   document.body.addEventListener("htmx:afterRequest", (event) => {
     const detail = (event as CustomEvent<{ elt?: Element; xhr?: XMLHttpRequest }>).detail;
     const elt = detail?.elt;
@@ -79,7 +79,7 @@ export function wireGatewayActions(): void {
 
     try {
       const status = JSON.parse(detail.xhr.responseText) as GatewayStatus;
-      queryClient.setQueryData(gatewayQueryKey, status);
+      client.setQueryData(gatewayQueryKey, status);
       renderGatewayStatus(status, null);
     } catch {
       renderGatewayError("Gateway action returned invalid JSON.");
@@ -96,16 +96,8 @@ export function wireGatewayActions(): void {
   }
 
   window.setInterval(() => {
-    void refreshGatewayStatus(api, queryClient);
+    void refreshGatewayStatus(fetcher, client);
   }, 3000);
-}
-
-let api: ApiFetcher;
-let queryClient: QueryClient;
-
-export function initGatewayUi(fetcher: ApiFetcher, client: QueryClient): void {
-  api = fetcher;
-  queryClient = client;
 }
 
 export async function refreshGatewayStatus(

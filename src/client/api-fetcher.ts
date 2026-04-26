@@ -11,7 +11,19 @@ import type {
   ModelYamlPatch,
   WorkspaceConfigHints,
 } from "../server/types";
-import { getErrorMessage, getResponseErrorMessage, isErrorResponse } from "./lib/errors";
+import { getResponseErrorMessage, isErrorResponse } from "./lib/errors";
+
+function messageFromJsonErrorBody(raw: string, fallback: string): string {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (isErrorResponse(parsed)) {
+      return parsed.error;
+    }
+    return fallback;
+  } catch {
+    return raw.length > 0 ? raw : fallback;
+  }
+}
 
 export type ModelProvidersSavePayload = {
   model?: ModelYamlPatch;
@@ -36,7 +48,9 @@ export class ApiFetcher {
 
   constructor(origin: string = window.location.origin) {
     this.origin = origin;
-    this.rpc = hc<AppType>(origin, { fetch: (input, init) => this.authenticatedFetch(input, init) });
+    this.rpc = hc<AppType>(origin, {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => this.authenticatedFetch(input, init),
+    });
   }
 
   authenticatedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -94,25 +108,8 @@ export class ApiFetcher {
     });
     const raw = await response.text();
     if (!response.ok) {
-      let message = `${String(response.status)} ${response.statusText}`;
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as unknown;
-          if (
-            typeof parsed === "object" &&
-            parsed !== null &&
-            "error" in parsed &&
-            typeof (parsed as { error: unknown }).error === "string"
-          ) {
-            message = (parsed as { error: string }).error;
-          } else {
-            message = raw;
-          }
-        } catch {
-          message = raw;
-        }
-      }
-      throw new Error(message);
+      const fallback = `${String(response.status)} ${response.statusText}`;
+      throw new Error(raw ? messageFromJsonErrorBody(raw, fallback) : fallback);
     }
     if (!raw) {
       throw new Error("Empty response from server.");
@@ -163,53 +160,12 @@ export class ApiFetcher {
     });
     const raw = await response.text();
     if (!response.ok) {
-      let message = `${String(response.status)} ${response.statusText}`;
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as unknown;
-          if (
-            typeof parsed === "object" &&
-            parsed !== null &&
-            "error" in parsed &&
-            typeof (parsed as { error: unknown }).error === "string"
-          ) {
-            message = (parsed as { error: string }).error;
-          } else {
-            message = raw;
-          }
-        } catch {
-          message = raw;
-        }
-      }
-      throw new Error(message);
+      const fallback = `${String(response.status)} ${response.statusText}`;
+      throw new Error(raw ? messageFromJsonErrorBody(raw, fallback) : fallback);
     }
     if (!raw) {
       throw new Error("Empty response from server.");
     }
     return JSON.parse(raw) as ModelProvidersMutationResponse;
-  }
-
-  static parseJsonErrorBody(raw: string, fallback: string): string {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (isErrorResponse(parsed)) {
-        return parsed.error;
-      }
-      return raw;
-    } catch {
-      return raw;
-    }
-  }
-
-  static wrapFetchError(response: Response, raw: string): Error {
-    let message = `${String(response.status)} ${response.statusText}`;
-    if (raw) {
-      message = ApiFetcher.parseJsonErrorBody(raw, message);
-    }
-    return new Error(message);
-  }
-
-  static fromUnknown(cause: unknown): Error {
-    return new Error(getErrorMessage(cause));
   }
 }
