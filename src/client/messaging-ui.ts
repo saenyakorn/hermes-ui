@@ -5,7 +5,7 @@ import { applyModelProvidersMutationResponse } from "./model-providers-ui";
 import type { HermesWorkspaceDeps } from "./workspace-deps";
 import {
   isConfiguredSecretPlaceholder,
-  populateMessagingIntegrationFields,
+  populateMessagingIntegrationFieldsWithSecondPass,
 } from "./workspace-field-sources";
 
 /**
@@ -333,10 +333,7 @@ export async function refreshMessagingEnvHint(deps: HermesWorkspaceDeps): Promis
       //
     }
     renderMessagingEnvHint(env);
-    populateMessagingIntegrationFields(env, hints);
-    requestAnimationFrame(() => {
-      populateMessagingIntegrationFields(env, hints);
-    });
+    populateMessagingIntegrationFieldsWithSecondPass(env, hints);
   } catch (cause: unknown) {
     hint.textContent = `Could not load .env: ${getErrorMessage(cause)}`;
   }

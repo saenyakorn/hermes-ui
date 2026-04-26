@@ -64,10 +64,7 @@ export async function refreshModelProvidersEnvHint(deps: HermesWorkspaceDeps): P
       //
     }
     renderModelProvidersEnvHint(env);
-    deps.integrationSync.populateAllFromEnv(env, workspaceHints);
-    requestAnimationFrame(() => {
-      deps.integrationSync.populateAllFromEnv(env, workspaceHints);
-    });
+    deps.integrationSync.populateAllFromEnvWithSecondPass(env, workspaceHints);
   } catch (cause: unknown) {
     hint.textContent = `Could not load .env: ${getErrorMessage(cause)}`;
   }

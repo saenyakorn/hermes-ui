@@ -1,8 +1,8 @@
 import type { EnvReadResult, WorkspaceConfigHints } from "../server/types";
 import type { ApiFetcher } from "./api-fetcher";
 import {
-  populateMessagingIntegrationFields,
-  populateModelProvidersIntegrationFields,
+  populateAllWorkspaceIntegrationFields,
+  runIntegrationPopulateWithSecondPass,
 } from "./workspace-field-sources";
 
 /**
@@ -12,8 +12,11 @@ export class WorkspaceIntegrationSync {
   constructor(private readonly api: ApiFetcher) {}
 
   populateAllFromEnv(env: EnvReadResult, hints: WorkspaceConfigHints | null): void {
-    populateMessagingIntegrationFields(env, hints);
-    populateModelProvidersIntegrationFields(env, hints);
+    populateAllWorkspaceIntegrationFields(env, hints);
+  }
+
+  populateAllFromEnvWithSecondPass(env: EnvReadResult, hints: WorkspaceConfigHints | null): void {
+    runIntegrationPopulateWithSecondPass(() => this.populateAllFromEnv(env, hints));
   }
 
   schedulePopulateAfterEnv(env: EnvReadResult): void {
@@ -24,10 +27,7 @@ export class WorkspaceIntegrationSync {
       } catch {
         // Leave hints null; do not overwrite config-driven fields without server data.
       }
-      this.populateAllFromEnv(env, hints);
-      requestAnimationFrame(() => {
-        this.populateAllFromEnv(env, hints);
-      });
+      this.populateAllFromEnvWithSecondPass(env, hints);
     })();
   }
 }
