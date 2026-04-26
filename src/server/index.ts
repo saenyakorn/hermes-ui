@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises';
-import { createServer } from 'node:http';
+import { createServer, type Server } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { getRequestListener } from '@hono/node-server';
 import { createApp } from './app';
@@ -43,9 +43,19 @@ export async function main(): Promise<void> {
   const server = createServer(getRequestListener(app.fetch));
 
   attachSocketServer(server, runtime.env, runtime.terminals);
-  server.listen(runtime.env.port);
+  await listen(server, runtime.env.port);
 
   runtime.logger.info({ port: runtime.env.port }, 'Hermes control plane listening');
+}
+
+function listen(server: Server, port: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
