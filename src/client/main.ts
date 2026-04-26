@@ -16,7 +16,7 @@ type LogTail = {
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await fetch(new URL(url, window.location.origin), init);
 
   if (!response.ok) {
     throw new Error(await response.text());
@@ -87,7 +87,7 @@ function bindActions(): void {
 }
 
 function bindLogStream(): void {
-  const source = new EventSource('/logs/stream');
+  const source = new EventSource(new URL('/logs/stream', window.location.origin));
   source.addEventListener('message', () => {
     void refreshLogs();
   });
