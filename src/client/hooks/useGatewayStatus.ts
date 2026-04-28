@@ -52,9 +52,12 @@ export function useGatewayStatus(initialStatus: GatewayStatus): {
     },
   });
 
-  const runAction = useCallback(async (action: "start" | "stop" | "restart") => {
-    await actionMutation.mutateAsync(action);
-  }, [actionMutation]);
+  const runAction = useCallback(
+    async (action: "start" | "stop" | "restart") => {
+      await actionMutation.mutateAsync(action);
+    },
+    [actionMutation],
+  );
 
   return {
     status: externalStatus ?? statusQuery.data ?? initialStatus,

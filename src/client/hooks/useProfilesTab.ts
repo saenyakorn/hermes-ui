@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
-import type { ProfileActivateResult, ProfileCreateMode, ProfileListResult, ProfileSummary } from "../../server/types";
+import type {
+  ProfileActivateResult,
+  ProfileCreateMode,
+  ProfileListResult,
+  ProfileSummary,
+} from "../../server/types";
 import { ApiFetcher } from "../api-fetcher";
 import { getErrorMessage } from "../lib/errors";
 import {
@@ -46,14 +51,17 @@ export function useProfilesTab(): {
   }, [api, setStatus]);
 
   useSyncExternalStore(
-    useCallback((onStoreChange) => {
-      void refresh().finally(onStoreChange);
-      const onTabShown = () => void refresh().finally(onStoreChange);
-      window.addEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
-      return () => {
-        window.removeEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
-      };
-    }, [refresh]),
+    useCallback(
+      (onStoreChange) => {
+        void refresh().finally(onStoreChange);
+        const onTabShown = () => void refresh().finally(onStoreChange);
+        window.addEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
+        return () => {
+          window.removeEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
+        };
+      },
+      [refresh],
+    ),
     () => 0,
     () => 0,
   );
@@ -88,7 +96,8 @@ export function useProfilesTab(): {
   const create = useCallback(async () => {
     const name = window.prompt("New profile name");
     if (name === null) return;
-    const mode = (window.prompt('Mode: "blank" | "clone" | "clone-all"', "blank") ?? "blank") as ProfileCreateMode;
+    const mode = (window.prompt('Mode: "blank" | "clone" | "clone-all"', "blank") ??
+      "blank") as ProfileCreateMode;
     const cloneFrom = window.prompt("Clone from (optional)");
     try {
       const payload: { name: string; mode: ProfileCreateMode; cloneFrom?: string } = {
@@ -97,36 +106,50 @@ export function useProfilesTab(): {
       };
       if (cloneFrom && cloneFrom.trim()) payload.cloneFrom = cloneFrom.trim();
       const result = await api.postProfile(payload);
-      setState((prev) => ({ ...prev, list: result.list, status: `Created profile "${name.trim()}".` }));
+      setState((prev) => ({
+        ...prev,
+        list: result.list,
+        status: `Created profile "${name.trim()}".`,
+      }));
     } catch (cause: unknown) {
       setStatus(`Failed to create: ${getErrorMessage(cause)}`);
     }
   }, [api, setStatus]);
 
-  const rename = useCallback(async (name: string) => {
-    const to = window.prompt(`Rename "${name}" to`);
-    if (to === null) return;
-    try {
-      const result = await api.putProfileRename(name, to.trim());
-      setState((prev) => ({ ...prev, list: result.list, status: `Renamed "${name}" -> "${to.trim()}".` }));
-    } catch (cause: unknown) {
-      setStatus(`Failed to rename: ${getErrorMessage(cause)}`);
-    }
-  }, [api, setStatus]);
+  const rename = useCallback(
+    async (name: string) => {
+      const to = window.prompt(`Rename "${name}" to`);
+      if (to === null) return;
+      try {
+        const result = await api.putProfileRename(name, to.trim());
+        setState((prev) => ({
+          ...prev,
+          list: result.list,
+          status: `Renamed "${name}" -> "${to.trim()}".`,
+        }));
+      } catch (cause: unknown) {
+        setStatus(`Failed to rename: ${getErrorMessage(cause)}`);
+      }
+    },
+    [api, setStatus],
+  );
 
-  const remove = useCallback(async (name: string) => {
-    const typed = window.prompt(`Type profile name "${name}" to confirm delete.`);
-    if (typed === null || typed.trim() !== name) {
-      setStatus("Profile name mismatch. Delete cancelled.");
-      return;
-    }
-    try {
-      const result = await api.deleteProfile(name);
-      setState((prev) => ({ ...prev, list: result.list, status: `Deleted profile "${name}".` }));
-    } catch (cause: unknown) {
-      setStatus(`Failed to delete: ${getErrorMessage(cause)}`);
-    }
-  }, [api, setStatus]);
+  const remove = useCallback(
+    async (name: string) => {
+      const typed = window.prompt(`Type profile name "${name}" to confirm delete.`);
+      if (typed === null || typed.trim() !== name) {
+        setStatus("Profile name mismatch. Delete cancelled.");
+        return;
+      }
+      try {
+        const result = await api.deleteProfile(name);
+        setState((prev) => ({ ...prev, list: result.list, status: `Deleted profile "${name}".` }));
+      } catch (cause: unknown) {
+        setStatus(`Failed to delete: ${getErrorMessage(cause)}`);
+      }
+    },
+    [api, setStatus],
+  );
 
   return {
     list: state.list,

@@ -54,37 +54,40 @@ export function useSessionsTab(): {
   }, [api, setStatus, state.profile]);
 
   useSyncExternalStore(
-    useCallback((onStoreChange) => {
-      void refresh().finally(onStoreChange);
-      const onProfileChanged = (event: Event) => {
-        const customEvent = event as CustomEvent<string | null>;
-        const nextProfile = customEvent.detail ?? null;
-        setState((prev) => ({ ...prev, profile: nextProfile, selectedSessionId: null }));
-        void (async () => {
-          try {
-            const list = await api.getProfileSessions(nextProfile);
-            setState((prev) => ({
-              ...prev,
-              profile: nextProfile,
-              list,
-              selectedLabel: "Selected: none",
-              transcript: "Click session row to view entire chat.",
-            }));
-          } catch (cause: unknown) {
-            setStatus(`Failed to load sessions: ${getErrorMessage(cause)}`);
-          } finally {
-            onStoreChange();
-          }
-        })();
-      };
-      const onTabShown = () => void refresh().finally(onStoreChange);
-      window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
-      window.addEventListener(SESSIONS_TAB_SHOWN_EVENT, onTabShown);
-      return () => {
-        window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
-        window.removeEventListener(SESSIONS_TAB_SHOWN_EVENT, onTabShown);
-      };
-    }, [api, refresh, setStatus]),
+    useCallback(
+      (onStoreChange) => {
+        void refresh().finally(onStoreChange);
+        const onProfileChanged = (event: Event) => {
+          const customEvent = event as CustomEvent<string | null>;
+          const nextProfile = customEvent.detail ?? null;
+          setState((prev) => ({ ...prev, profile: nextProfile, selectedSessionId: null }));
+          void (async () => {
+            try {
+              const list = await api.getProfileSessions(nextProfile);
+              setState((prev) => ({
+                ...prev,
+                profile: nextProfile,
+                list,
+                selectedLabel: "Selected: none",
+                transcript: "Click session row to view entire chat.",
+              }));
+            } catch (cause: unknown) {
+              setStatus(`Failed to load sessions: ${getErrorMessage(cause)}`);
+            } finally {
+              onStoreChange();
+            }
+          })();
+        };
+        const onTabShown = () => void refresh().finally(onStoreChange);
+        window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+        window.addEventListener(SESSIONS_TAB_SHOWN_EVENT, onTabShown);
+        return () => {
+          window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+          window.removeEventListener(SESSIONS_TAB_SHOWN_EVENT, onTabShown);
+        };
+      },
+      [api, refresh, setStatus],
+    ),
     () => 0,
     () => 0,
   );

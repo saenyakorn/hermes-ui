@@ -1,5 +1,9 @@
-import type { InputHTMLAttributes } from "react";
+import { Input as BaseInput } from "@base-ui/react";
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "../lib/cn";
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} />;
+type InputProps = ComponentPropsWithoutRef<typeof BaseInput>;
+
+export function Input({ className, ...props }: InputProps) {
+  return <BaseInput className={cn(className)} {...props} />;
 }

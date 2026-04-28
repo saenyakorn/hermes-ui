@@ -54,7 +54,8 @@ export function useEnvTab(): {
 
   const applySnapshot = useCallback((env: EnvReadResult, gateway?: GatewayStatus) => {
     setState((prev) => {
-      const selectedExists = prev.selectedKey && env.entries.some((entry) => entry.key === prev.selectedKey);
+      const selectedExists =
+        prev.selectedKey && env.entries.some((entry) => entry.key === prev.selectedKey);
       const selectedKey = selectedExists ? prev.selectedKey : "";
       const nextKey = selectedExists ? prev.key : "";
       return {
@@ -79,37 +80,43 @@ export function useEnvTab(): {
       applySnapshot(env);
       setState((prev) => ({ ...prev, status: "Select key to update. Values are masked." }));
     } catch (cause: unknown) {
-      setState((prev) => ({ ...prev, status: `Failed to load env vars: ${getErrorMessage(cause)}` }));
+      setState((prev) => ({
+        ...prev,
+        status: `Failed to load env vars: ${getErrorMessage(cause)}`,
+      }));
     }
   }, [api, applySnapshot]);
 
   useSyncExternalStore(
-    useCallback((onStoreChange) => {
-      void reload().finally(onStoreChange);
-      const onSnapshot = (event: Event) => {
-        const customEvent = event as CustomEvent<EnvSnapshotDetail>;
-        if (!customEvent.detail) {
-          return;
-        }
-        applySnapshot(customEvent.detail.env, customEvent.detail.gateway);
-        setState((prev) => ({ ...prev, status: "Env updated. Gateway restarted." }));
-        onStoreChange();
-      };
-      const onReload = () => {
+    useCallback(
+      (onStoreChange) => {
         void reload().finally(onStoreChange);
-      };
-      const onProfileChanged = () => {
-        void reload().finally(onStoreChange);
-      };
-      window.addEventListener(ENV_SNAPSHOT_EVENT, onSnapshot);
-      window.addEventListener(ENV_RELOAD_REQUEST_EVENT, onReload);
-      window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
-      return () => {
-        window.removeEventListener(ENV_SNAPSHOT_EVENT, onSnapshot);
-        window.removeEventListener(ENV_RELOAD_REQUEST_EVENT, onReload);
-        window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
-      };
-    }, [applySnapshot, reload]),
+        const onSnapshot = (event: Event) => {
+          const customEvent = event as CustomEvent<EnvSnapshotDetail>;
+          if (!customEvent.detail) {
+            return;
+          }
+          applySnapshot(customEvent.detail.env, customEvent.detail.gateway);
+          setState((prev) => ({ ...prev, status: "Env updated. Gateway restarted." }));
+          onStoreChange();
+        };
+        const onReload = () => {
+          void reload().finally(onStoreChange);
+        };
+        const onProfileChanged = () => {
+          void reload().finally(onStoreChange);
+        };
+        window.addEventListener(ENV_SNAPSHOT_EVENT, onSnapshot);
+        window.addEventListener(ENV_RELOAD_REQUEST_EVENT, onReload);
+        window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+        return () => {
+          window.removeEventListener(ENV_SNAPSHOT_EVENT, onSnapshot);
+          window.removeEventListener(ENV_RELOAD_REQUEST_EVENT, onReload);
+          window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+        };
+      },
+      [applySnapshot, reload],
+    ),
     () => 0,
     () => 0,
   );
@@ -128,7 +135,11 @@ export function useEnvTab(): {
       setState((prev) => ({ ...prev, status: "Invalid key. Use A-Z, 0-9, and underscore." }));
       return;
     }
-    setState((prev) => ({ ...prev, busy: true, status: "Saving env var and restarting gateway..." }));
+    setState((prev) => ({
+      ...prev,
+      busy: true,
+      status: "Saving env var and restarting gateway...",
+    }));
     try {
       const response = await api.postEnvUpsert(key, value);
       applySnapshot(response.env, response.gateway);
@@ -161,7 +172,11 @@ export function useEnvTab(): {
     if (!window.confirm(`Remove ${key}?`)) {
       return;
     }
-    setState((prev) => ({ ...prev, busy: true, status: "Removing env var and restarting gateway..." }));
+    setState((prev) => ({
+      ...prev,
+      busy: true,
+      status: "Removing env var and restarting gateway...",
+    }));
     try {
       const response = await api.deleteEnvKey(key);
       applySnapshot(response.env, response.gateway);

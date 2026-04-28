@@ -129,8 +129,12 @@ function modelProviderNameFromEnvKey(envKey: string): ModelProviderName | null {
   return null;
 }
 
-function buildModelProviderEnvKeysByProvider(): Readonly<Record<ModelProviderName, readonly string[]>> {
-  const perProvider = new Map<ModelProviderName, string[]>(MODEL_PROVIDER_ORDER.map((provider) => [provider, []]));
+function buildModelProviderEnvKeysByProvider(): Readonly<
+  Record<ModelProviderName, readonly string[]>
+> {
+  const perProvider = new Map<ModelProviderName, string[]>(
+    MODEL_PROVIDER_ORDER.map((provider) => [provider, []]),
+  );
   for (const specs of Object.values(MODEL_PROVIDER_FIELD_SOURCES)) {
     for (const spec of specs) {
       if (spec.source !== "env") continue;
@@ -142,7 +146,10 @@ function buildModelProviderEnvKeysByProvider(): Readonly<Record<ModelProviderNam
     }
   }
   return Object.fromEntries(
-    MODEL_PROVIDER_ORDER.map((provider) => [provider, Object.freeze([...(perProvider.get(provider) ?? [])])]),
+    MODEL_PROVIDER_ORDER.map((provider) => [
+      provider,
+      Object.freeze([...(perProvider.get(provider) ?? [])]),
+    ]),
   ) as Readonly<Record<ModelProviderName, readonly string[]>>;
 }
 
@@ -260,7 +267,10 @@ function configScalarFromHints(hints: WorkspaceConfigHints, path: string): strin
   }
 }
 
-function resolveConfigBackedInput(hints: WorkspaceConfigHints | null, configPath: string): string | undefined {
+function resolveConfigBackedInput(
+  hints: WorkspaceConfigHints | null,
+  configPath: string,
+): string | undefined {
   if (hints === null) return undefined;
   return configScalarFromHints(hints, configPath) ?? "";
 }
@@ -295,7 +305,11 @@ export function resolveMessagingIntegrationFieldValues(
 ): Record<string, string | undefined> {
   const output: Record<string, string | undefined> = {};
   for (const [elementId, entry] of Object.entries(MESSAGING_DISCORD_FIELD_SOURCES)) {
-    const resolved = resolveDiscordWorkspaceFieldValue(env, hints, normalizeDiscordFieldEntry(entry));
+    const resolved = resolveDiscordWorkspaceFieldValue(
+      env,
+      hints,
+      normalizeDiscordFieldEntry(entry),
+    );
     if (resolved !== undefined) output[elementId] = resolved;
   }
   for (const [elementId, spec] of Object.entries(MESSAGING_SLACK_FIELD_SOURCES)) {

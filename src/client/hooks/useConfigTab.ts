@@ -61,14 +61,17 @@ export function useConfigTab(): {
   }, [api]);
 
   useSyncExternalStore(
-    useCallback((onStoreChange) => {
-      void loadFromServer().finally(onStoreChange);
-      const onProfileChanged = () => {
+    useCallback(
+      (onStoreChange) => {
         void loadFromServer().finally(onStoreChange);
-      };
-      window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
-      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
-    }, [loadFromServer]),
+        const onProfileChanged = () => {
+          void loadFromServer().finally(onStoreChange);
+        };
+        window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+        return () => window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+      },
+      [loadFromServer],
+    ),
     () => 0,
     () => 0,
   );

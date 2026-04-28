@@ -1,11 +1,7 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import type { ModelProvidersSavePayload } from "../api-fetcher";
 import { ApiFetcher } from "../api-fetcher";
-import {
-  dispatchEnvReloadRequest,
-  dispatchEnvSnapshot,
-  dispatchGatewayStatus,
-} from "../lib/event";
+import { dispatchEnvReloadRequest, dispatchEnvSnapshot, dispatchGatewayStatus } from "../lib/event";
 import {
   isConfiguredSecretPlaceholder,
   MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER,
@@ -61,7 +57,9 @@ export function useMessagingModelProviders(): {
       }`,
     );
     const providerLine = (label: string, keys: readonly string[]) => {
-      const count = keys.filter((key) => result.env.entries.some((entry) => entry.key === key)).length;
+      const count = keys.filter((key) =>
+        result.env.entries.some((entry) => entry.key === key),
+      ).length;
       return count > 0 ? `${label}: ${String(count)} key(s)` : `${label}: no tracked keys`;
     };
     setModelProvidersHint(
@@ -75,16 +73,23 @@ export function useMessagingModelProviders(): {
   }, [refresh]);
 
   useSyncExternalStore(
-    useCallback((onStoreChange) => {
-      void refreshHints().finally(onStoreChange);
-      return () => undefined;
-    }, [refreshHints]),
+    useCallback(
+      (onStoreChange) => {
+        void refreshHints().finally(onStoreChange);
+        return () => undefined;
+      },
+      [refreshHints],
+    ),
     () => 0,
     () => 0,
   );
 
   const applyMutation = useCallback(
-    async (payload: ModelProvidersSavePayload, doneMessage: string, setStatus: (message: string) => void) => {
+    async (
+      payload: ModelProvidersSavePayload,
+      doneMessage: string,
+      setStatus: (message: string) => void,
+    ) => {
       const response = await api.postModelProvidersSettings(payload);
       dispatchGatewayStatus(response.gateway);
       dispatchEnvSnapshot({ env: response.env, gateway: response.gateway });
@@ -98,7 +103,9 @@ export function useMessagingModelProviders(): {
         setStatus(`${doneMessage} Gateway was stopped; no restart performed.`);
         return;
       }
-      setStatus(`${doneMessage} Gateway restart failed: ${response.restart.error ?? "Unknown error"}`);
+      setStatus(
+        `${doneMessage} Gateway restart failed: ${response.restart.error ?? "Unknown error"}`,
+      );
     },
     [api, refreshHints],
   );
@@ -278,7 +285,11 @@ export function useMessagingModelProviders(): {
   }, [clearKeys, messagingBusy, setFieldValues]);
 
   const saveProvider = useCallback(
-    async (doneMessage: string, set: Record<string, string>, setStatus: (message: string) => void) => {
+    async (
+      doneMessage: string,
+      set: Record<string, string>,
+      setStatus: (message: string) => void,
+    ) => {
       if (Object.keys(set).length === 0) {
         setStatus("Nothing to save.");
         return;
@@ -308,7 +319,9 @@ export function useMessagingModelProviders(): {
     try {
       await applyMutation({ model }, "Default model written.", setModelProvidersStatus);
     } catch (error) {
-      setModelProvidersStatus(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -334,7 +347,9 @@ export function useMessagingModelProviders(): {
         setModelProvidersStatus,
       );
     } catch (error) {
-      setModelProvidersStatus(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -345,9 +360,15 @@ export function useMessagingModelProviders(): {
     setModelProvidersBusy(true);
     setModelProvidersStatus("Removing keys…");
     try {
-      await clearKeys("OpenRouter", [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openrouter], setModelProvidersStatus);
+      await clearKeys(
+        "OpenRouter",
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openrouter],
+        setModelProvidersStatus,
+      );
     } catch (error) {
-      setModelProvidersStatus(`Clear failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Clear failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -369,7 +390,9 @@ export function useMessagingModelProviders(): {
         setModelProvidersStatus,
       );
     } catch (error) {
-      setModelProvidersStatus(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -380,9 +403,15 @@ export function useMessagingModelProviders(): {
     setModelProvidersBusy(true);
     setModelProvidersStatus("Removing keys…");
     try {
-      await clearKeys("Claude", [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.anthropic], setModelProvidersStatus);
+      await clearKeys(
+        "Claude",
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.anthropic],
+        setModelProvidersStatus,
+      );
     } catch (error) {
-      setModelProvidersStatus(`Clear failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Clear failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -408,7 +437,9 @@ export function useMessagingModelProviders(): {
         setModelProvidersStatus,
       );
     } catch (error) {
-      setModelProvidersStatus(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -419,9 +450,15 @@ export function useMessagingModelProviders(): {
     setModelProvidersBusy(true);
     setModelProvidersStatus("Removing keys…");
     try {
-      await clearKeys("OpenAI", [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openai], setModelProvidersStatus);
+      await clearKeys(
+        "OpenAI",
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openai],
+        setModelProvidersStatus,
+      );
     } catch (error) {
-      setModelProvidersStatus(`Clear failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Clear failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -447,7 +484,9 @@ export function useMessagingModelProviders(): {
         setModelProvidersStatus,
       );
     } catch (error) {
-      setModelProvidersStatus(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }
@@ -458,9 +497,15 @@ export function useMessagingModelProviders(): {
     setModelProvidersBusy(true);
     setModelProvidersStatus("Removing keys…");
     try {
-      await clearKeys("Gemini", [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.gemini], setModelProvidersStatus);
+      await clearKeys(
+        "Gemini",
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.gemini],
+        setModelProvidersStatus,
+      );
     } catch (error) {
-      setModelProvidersStatus(`Clear failed: ${error instanceof Error ? error.message : String(error)}`);
+      setModelProvidersStatus(
+        `Clear failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setModelProvidersBusy(false);
     }

@@ -133,10 +133,13 @@ export function useProfileFilesTab(activeProfile: string | null): {
   }, [reload]);
 
   useSyncExternalStore(
-    useCallback((onStoreChange) => {
-      void reloadAll().finally(onStoreChange);
-      return () => undefined;
-    }, [reloadAll]),
+    useCallback(
+      (onStoreChange) => {
+        void reloadAll().finally(onStoreChange);
+        return () => undefined;
+      },
+      [reloadAll],
+    ),
     () => activeProfile ?? "default",
     () => "default",
   );
