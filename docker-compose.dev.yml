@@ -12,6 +12,8 @@ services:
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=hermes_secret
       - PORT=3000
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=300
     volumes:
       - ./:/app
       - /app/node_modules
