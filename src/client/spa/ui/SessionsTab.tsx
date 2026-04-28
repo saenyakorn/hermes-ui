@@ -34,82 +34,84 @@ export function SessionsTab() {
         </div>
       </div>
       <Card variant="soft" className="mb-3 overflow-auto">
-      <table className="w-full border-collapse text-xs">
-      <tbody id="sessions-list">
-        {sessions.sessions.length === 0 ? (
-          <tr>
-            <td className="px-3 py-3 text-muted" colSpan={5}>
-              No sessions yet.
-            </td>
-          </tr>
-        ) : (
-          sessions.sessions.map((session) => (
-            <tr
-              key={session.id}
-              className={`border-b border-frosted last:border-b-0 cursor-pointer ${sessions.selectedSessionId === session.id ? "bg-frosted/40" : ""}`.trim()}
-              onClick={() => void sessions.openSession(session.id)}
-            >
-              <td className="px-3 py-2 text-text">{session.name}</td>
-              <td className="px-3 py-2 text-muted">{session.id}</td>
-              <td className="px-3 py-2 text-muted">{session.archived ? "archived" : "active"}</td>
-              <td className="px-3 py-2 text-muted">{session.updatedAt}</td>
-              <td className="px-3 py-2 text-right">
-                <div className="flex justify-end gap-1">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="px-2 py-1 text-[11px]"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void sessions.openSession(session.id);
-                    }}
-                  >
-                    Open
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="px-2 py-1 text-[11px]"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void sessions.renameSession(session.id);
-                    }}
-                  >
-                    Rename
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="px-2 py-1 text-[11px]"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (session.archived) {
-                        void sessions.restoreSession(session.id);
-                      } else {
-                        void sessions.archiveSession(session.id);
-                      }
-                    }}
-                  >
-                    {session.archived ? "Restore" : "Archive"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    className="px-2 py-1 text-[11px]"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void sessions.deleteSession(session.id);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </td>
-            </tr>
-          ))
-        )}
-      </tbody>
-      </table>
+        <table className="w-full border-collapse text-xs">
+          <tbody id="sessions-list">
+            {sessions.sessions.length === 0 ? (
+              <tr>
+                <td className="px-3 py-3 text-muted" colSpan={5}>
+                  No sessions yet.
+                </td>
+              </tr>
+            ) : (
+              sessions.sessions.map((session) => (
+                <tr
+                  key={session.id}
+                  className={`border-b border-frosted last:border-b-0 cursor-pointer ${sessions.selectedSessionId === session.id ? "bg-frosted/40" : ""}`.trim()}
+                  onClick={() => void sessions.openSession(session.id)}
+                >
+                  <td className="px-3 py-2 text-text">{session.name}</td>
+                  <td className="px-3 py-2 text-muted">{session.id}</td>
+                  <td className="px-3 py-2 text-muted">
+                    {session.archived ? "archived" : "active"}
+                  </td>
+                  <td className="px-3 py-2 text-muted">{session.updatedAt}</td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="px-2 py-1 text-[11px]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void sessions.openSession(session.id);
+                        }}
+                      >
+                        Open
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="px-2 py-1 text-[11px]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void sessions.renameSession(session.id);
+                        }}
+                      >
+                        Rename
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="px-2 py-1 text-[11px]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (session.archived) {
+                            void sessions.restoreSession(session.id);
+                          } else {
+                            void sessions.archiveSession(session.id);
+                          }
+                        }}
+                      >
+                        {session.archived ? "Restore" : "Archive"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        className="px-2 py-1 text-[11px]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void sessions.deleteSession(session.id);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </Card>
       <p id="sessions-selection" className="mt-3 text-xs text-muted">
         {sessions.selectedLabel}

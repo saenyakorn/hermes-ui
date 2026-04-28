@@ -15,7 +15,11 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
   const isOnline = gateway.status.state.toLowerCase() === "running";
 
   return (
-    <section id="gateway-panel" data-tab-panel="control" className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-auto">
+    <section
+      id="gateway-panel"
+      data-tab-panel="control"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-auto"
+    >
       <div className="grid min-h-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
         <Card className="p-4">
           <div className="flex items-center justify-between">
@@ -24,7 +28,11 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
               {isOnline ? "Live" : "Idle"}
             </StatusChip>
           </div>
-          <div id="gateway-status" data-state={gateway.status.state} className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div
+            id="gateway-status"
+            data-state={gateway.status.state}
+            className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3"
+          >
             <div className="rounded-lg border border-frosted bg-background p-3">
               <p className="text-[11px] uppercase text-muted">State</p>
               <p className="mt-2 text-xl font-semibold text-text">{gateway.status.state}</p>
@@ -48,30 +56,55 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
               <p className="mt-2 text-xs text-text">{gateway.status.lastError ?? "-"}</p>
             </div>
           </div>
-          <p id="gateway-error" className={`mt-3 text-xs text-danger ${gateway.error ? "" : "hidden"}`}>
+          <p
+            id="gateway-error"
+            className={`mt-3 text-xs text-danger ${gateway.error ? "" : "hidden"}`}
+          >
             {gateway.error ?? ""}
           </p>
         </Card>
         <Card className="h-fit p-4">
           <p className="text-xs uppercase tracking-[0.15em] text-muted">System controls</p>
           <div className="mt-3 flex flex-col gap-2">
-            <Button id="start-button" variant="secondary" size="md" disabled={gateway.busy} onClick={() => void gateway.start()}>
+            <Button
+              id="start-button"
+              variant="secondary"
+              size="md"
+              disabled={gateway.busy}
+              onClick={() => void gateway.start()}
+            >
               Start
             </Button>
-            <Button id="stop-button" variant="danger" size="md" disabled={gateway.busy} onClick={() => void gateway.stop()}>
+            <Button
+              id="stop-button"
+              variant="danger"
+              size="md"
+              disabled={gateway.busy}
+              onClick={() => void gateway.stop()}
+            >
               Stop
             </Button>
-            <Button id="restart-button" variant="primary" size="md" disabled={gateway.busy} onClick={() => void gateway.restart()}>
+            <Button
+              id="restart-button"
+              variant="primary"
+              size="md"
+              disabled={gateway.busy}
+              onClick={() => void gateway.restart()}
+            >
               Restart
             </Button>
           </div>
-          <p className="mt-3 text-[11px] text-muted">Note: active sessions terminate during restart.</p>
+          <p className="mt-3 text-[11px] text-muted">
+            Note: active sessions terminate during restart.
+          </p>
         </Card>
       </div>
       <Card className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <SectionLabel>Recent system activity</SectionLabel>
-          <Button type="button" variant="ghost" className="px-0 py-0 text-xs">View all logs</Button>
+          <Button type="button" variant="ghost" className="px-0 py-0 text-xs">
+            View all logs
+          </Button>
         </div>
         <div className="space-y-2 rounded-lg border border-frosted bg-background p-3 font-mono text-xs text-muted">
           <p>[INFO] Heartbeat received from node us-east-gateway-01. Response time 12ms.</p>
@@ -90,10 +123,18 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
             <StatusChip>Streaming</StatusChip>
           </div>
           <div className="mb-3 flex flex-wrap gap-2">
-            <Button type="button" variant="secondary">Autoscroll</Button>
-            <Button type="button" variant="secondary">Wrap lines</Button>
-            <Button type="button" variant="secondary">Clear logs</Button>
-            <Button type="button" variant="primary">Export session</Button>
+            <Button type="button" variant="secondary">
+              Autoscroll
+            </Button>
+            <Button type="button" variant="secondary">
+              Wrap lines
+            </Button>
+            <Button type="button" variant="secondary">
+              Clear logs
+            </Button>
+            <Button type="button" variant="primary">
+              Export session
+            </Button>
           </div>
           <pre
             id="log-lines"
@@ -101,7 +142,10 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
           >
             {logs.lines}
           </pre>
-          <p id="log-error" className={`mt-2 shrink-0 text-xs text-danger ${logs.error ? "" : "hidden"}`}>
+          <p
+            id="log-error"
+            className={`mt-2 shrink-0 text-xs text-danger ${logs.error ? "" : "hidden"}`}
+          >
             {logs.error ?? ""}
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-muted">

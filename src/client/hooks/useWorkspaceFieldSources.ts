@@ -118,16 +118,26 @@ export const MODEL_PROVIDER_FIELD_SOURCES: Record<string, readonly ModelProvider
   "model-provider-default-model-id": [{ source: "config", configPath: "model.default" }],
   "model-provider-default-model-provider": [{ source: "config", configPath: "model.provider" }],
   "model-provider-default-model-base-url": [{ source: "config", configPath: "model.base_url" }],
-  "model-provider-openrouter-api-key": [{ source: "env", kind: "secret", envKey: "OPENROUTER_API_KEY" }],
-  "model-provider-openrouter-base-url": [{ source: "env", kind: "maskedText", envKey: "OPENROUTER_BASE_URL" }],
-  "model-provider-anthropic-api-key": [{ source: "env", kind: "secret", envKey: "ANTHROPIC_API_KEY" }],
+  "model-provider-openrouter-api-key": [
+    { source: "env", kind: "secret", envKey: "OPENROUTER_API_KEY" },
+  ],
+  "model-provider-openrouter-base-url": [
+    { source: "env", kind: "maskedText", envKey: "OPENROUTER_BASE_URL" },
+  ],
+  "model-provider-anthropic-api-key": [
+    { source: "env", kind: "secret", envKey: "ANTHROPIC_API_KEY" },
+  ],
   "model-provider-openai-api-key": [{ source: "env", kind: "secret", envKey: "OPENAI_API_KEY" }],
-  "model-provider-openai-base-url": [{ source: "env", kind: "maskedText", envKey: "OPENAI_BASE_URL" }],
+  "model-provider-openai-base-url": [
+    { source: "env", kind: "maskedText", envKey: "OPENAI_BASE_URL" },
+  ],
   "model-provider-google-api-key": [
     { source: "env", kind: "secret", envKey: "GOOGLE_API_KEY" },
     { source: "env", kind: "secret", envKey: "GEMINI_API_KEY" },
   ],
-  "model-provider-gemini-base-url": [{ source: "env", kind: "maskedText", envKey: "GEMINI_BASE_URL" }],
+  "model-provider-gemini-base-url": [
+    { source: "env", kind: "maskedText", envKey: "GEMINI_BASE_URL" },
+  ],
 };
 
 const MODEL_PROVIDER_ORDER: readonly ModelProviderName[] = [

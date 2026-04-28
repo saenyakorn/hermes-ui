@@ -42,7 +42,10 @@ export function FieldSet({ className, ...props }: ComponentPropsWithoutRef<"fiel
 
 export function FieldLegend({ className, ...props }: ComponentPropsWithoutRef<"legend">) {
   return (
-    <legend className={cn("text-xs font-semibold tracking-[0.02em] text-text", className)} {...props} />
+    <legend
+      className={cn("text-xs font-semibold tracking-[0.02em] text-text", className)}
+      {...props}
+    />
   );
 }
 
@@ -62,7 +65,8 @@ export function FieldError({ errors, className, ...props }: FieldErrorProps) {
   const first = errors[0];
   if (!first) return null;
 
-  const text = typeof first === "string" ? first : first instanceof Error ? first.message : String(first);
+  const text =
+    typeof first === "string" ? first : first instanceof Error ? first.message : String(first);
   return (
     <p className={cn("text-[11px] text-danger", className)} {...props}>
       {text}

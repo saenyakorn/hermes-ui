@@ -30,7 +30,9 @@ function FieldDescription(props: ComponentPropsWithoutRef<typeof FieldDescriptio
 
 function FieldError(props: Omit<ComponentPropsWithoutRef<typeof FieldErrorPrimitive>, "errors">) {
   const field = useFieldContext();
-  return <FieldErrorPrimitive id={`${field.name}-error`} errors={field.state.meta.errors} {...props} />;
+  return (
+    <FieldErrorPrimitive id={`${field.name}-error`} errors={field.state.meta.errors} {...props} />
+  );
 }
 
 function Input(props: ComponentPropsWithoutRef<typeof InputPrimitive>) {
@@ -78,7 +80,13 @@ type SubmitButtonProps = ComponentPropsWithoutRef<typeof Button> & {
   isLoading?: boolean;
 };
 
-function SubmitButton({ leftIcon, rightIcon, isLoading: isLoadingProp, children, ...props }: SubmitButtonProps) {
+function SubmitButton({
+  leftIcon,
+  rightIcon,
+  isLoading: isLoadingProp,
+  children,
+  ...props
+}: SubmitButtonProps) {
   const form = useFormContext();
   return (
     <form.Subscribe
@@ -86,7 +94,12 @@ function SubmitButton({ leftIcon, rightIcon, isLoading: isLoadingProp, children,
       children={(isSubmitting) => {
         const isLoading = isLoadingProp ?? isSubmitting;
         return (
-          <Button {...props} type="submit" form={form.formId} disabled={isLoading || props.disabled}>
+          <Button
+            {...props}
+            type="submit"
+            form={form.formId}
+            disabled={isLoading || props.disabled}
+          >
             {isLoading ? "Saving..." : leftIcon}
             {children}
             {isLoading ? null : rightIcon}
@@ -142,4 +155,12 @@ const { useAppForm, withForm } = createFormHook({
   },
 });
 
-export { fieldContext, formContext, formControl, useAppForm, useFieldContext, useFormContext, withForm };
+export {
+  fieldContext,
+  formContext,
+  formControl,
+  useAppForm,
+  useFieldContext,
+  useFormContext,
+  withForm,
+};

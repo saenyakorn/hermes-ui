@@ -99,10 +99,18 @@ export function ShellTab() {
   );
 
   return (
-    <section data-tab-panel="shell" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <section
+      data-tab-panel="shell"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    >
       <div className="mb-3 flex shrink-0 items-center justify-between">
         <p className="text-sm font-semibold text-text">Interactive Shell</p>
-        <Button id="shell-clear" type="button" variant="secondary" onClick={() => instance?.clear()}>
+        <Button
+          id="shell-clear"
+          type="button"
+          variant="secondary"
+          onClick={() => instance?.clear()}
+        >
           Clear
         </Button>
       </div>

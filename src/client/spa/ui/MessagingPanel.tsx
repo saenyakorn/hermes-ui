@@ -326,183 +326,188 @@ export function MessagingPanel() {
       </p>
       <form.AppForm key={messagingFormKey}>
         <div className="mt-3 flex w-full min-w-0 flex-col gap-8">
-        <Card className="flex w-full min-w-0 flex-col p-5">
-          <h3 className="text-lg font-bold leading-snug tracking-tight text-text sm:text-xl">
-            Discord
-          </h3>
-          <div className="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-            {discordBaseFields.map((config) => (
-              <form.AppField
-                key={config.id}
-                name={config.id as MessagingFieldId}
-                children={(field) => (
-                  <field.Field className={config.className}>
-                    <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
-                      {config.label}
-                    </field.FieldLabel>
-                    <field.Input
-                      id={config.id}
-                      data-discord-key={config.dataDiscordKey}
-                      type={config.type ?? "text"}
-                      autoComplete={config.autoComplete}
-                      placeholder={config.placeholder ?? `Enter ${config.label.toLowerCase()}`}
-                      value={field.state.value}
-                      onChange={(event) => {
-                        const next = event.target.value;
-                        field.handleChange(next);
-                        integrations.setFieldValue(config.id, next);
-                      }}
-                    />
-                  </field.Field>
-                )}
-              />
-            ))}
-          </div>
-          <Accordion.Root defaultValue={["advanced"]} className="mt-6">
-            <Accordion.Item value="advanced" className="rounded-lg border border-frosted bg-surface/40 p-4">
-              <Accordion.Header>
-                <Accordion.Trigger
-                  id="messaging-discord-advanced"
-                  className="flex w-full cursor-pointer items-center justify-between text-left text-sm font-normal normal-case text-text"
-                >
-                  Advanced options
-                  <span aria-hidden>▾</span>
-                </Accordion.Trigger>
-              </Accordion.Header>
-              <Accordion.Panel className="pt-4">
-                <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-                  {discordAdvancedTextFields.map((config) => (
-                    <form.AppField
-                      key={config.id}
-                      name={config.id as MessagingFieldId}
-                      children={(field) => (
-                        <field.Field className={config.className}>
-                          <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
-                            {config.label}
-                          </field.FieldLabel>
-                          <field.Input
-                            id={config.id}
-                            data-discord-key={config.dataDiscordKey}
-                            type={config.type ?? "text"}
-                            autoComplete={config.autoComplete}
-                            placeholder={config.placeholder ?? `Enter ${config.label.toLowerCase()}`}
-                            className="py-1.5"
-                            value={field.state.value}
-                            onChange={(event) => {
-                              const next = event.target.value;
-                              field.handleChange(next);
-                              integrations.setFieldValue(config.id, next);
-                            }}
-                          />
-                        </field.Field>
-                      )}
-                    />
-                  ))}
-                  {discordAdvancedSelectFields.map((config) => (
-                    <form.AppField
-                      key={config.id}
-                      name={config.id as MessagingFieldId}
-                      children={(field) => (
-                        <field.Field className={config.className}>
-                          <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
-                            {config.label}
-                          </field.FieldLabel>
-                          <Select
-                            value={field.state.value}
-                            onValueChange={(nextValue) => {
-                              const next = String(nextValue ?? "");
-                              field.handleChange(next);
-                              integrations.setFieldValue(config.id, next);
-                            }}
-                          >
-                            <SelectTrigger data-discord-key={config.dataDiscordKey}>
-                              <SelectValue />
-                              <SelectIcon aria-hidden>▾</SelectIcon>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">
-                                <SelectItemText>Unchanged</SelectItemText>
-                              </SelectItem>
-                              {config.options.map((option) => (
-                                <SelectItem key={option} value={option}>
-                                  <SelectItemText>{option}</SelectItemText>
+          <Card className="flex w-full min-w-0 flex-col p-5">
+            <h3 className="text-lg font-bold leading-snug tracking-tight text-text sm:text-xl">
+              Discord
+            </h3>
+            <div className="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+              {discordBaseFields.map((config) => (
+                <form.AppField
+                  key={config.id}
+                  name={config.id as MessagingFieldId}
+                  children={(field) => (
+                    <field.Field className={config.className}>
+                      <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
+                        {config.label}
+                      </field.FieldLabel>
+                      <field.Input
+                        id={config.id}
+                        data-discord-key={config.dataDiscordKey}
+                        type={config.type ?? "text"}
+                        autoComplete={config.autoComplete}
+                        placeholder={config.placeholder ?? `Enter ${config.label.toLowerCase()}`}
+                        value={field.state.value}
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          field.handleChange(next);
+                          integrations.setFieldValue(config.id, next);
+                        }}
+                      />
+                    </field.Field>
+                  )}
+                />
+              ))}
+            </div>
+            <Accordion.Root defaultValue={["advanced"]} className="mt-6">
+              <Accordion.Item
+                value="advanced"
+                className="rounded-lg border border-frosted bg-surface/40 p-4"
+              >
+                <Accordion.Header>
+                  <Accordion.Trigger
+                    id="messaging-discord-advanced"
+                    className="flex w-full cursor-pointer items-center justify-between text-left text-sm font-normal normal-case text-text"
+                  >
+                    Advanced options
+                    <span aria-hidden>▾</span>
+                  </Accordion.Trigger>
+                </Accordion.Header>
+                <Accordion.Panel className="pt-4">
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+                    {discordAdvancedTextFields.map((config) => (
+                      <form.AppField
+                        key={config.id}
+                        name={config.id as MessagingFieldId}
+                        children={(field) => (
+                          <field.Field className={config.className}>
+                            <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
+                              {config.label}
+                            </field.FieldLabel>
+                            <field.Input
+                              id={config.id}
+                              data-discord-key={config.dataDiscordKey}
+                              type={config.type ?? "text"}
+                              autoComplete={config.autoComplete}
+                              placeholder={
+                                config.placeholder ?? `Enter ${config.label.toLowerCase()}`
+                              }
+                              className="py-1.5"
+                              value={field.state.value}
+                              onChange={(event) => {
+                                const next = event.target.value;
+                                field.handleChange(next);
+                                integrations.setFieldValue(config.id, next);
+                              }}
+                            />
+                          </field.Field>
+                        )}
+                      />
+                    ))}
+                    {discordAdvancedSelectFields.map((config) => (
+                      <form.AppField
+                        key={config.id}
+                        name={config.id as MessagingFieldId}
+                        children={(field) => (
+                          <field.Field className={config.className}>
+                            <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
+                              {config.label}
+                            </field.FieldLabel>
+                            <Select
+                              value={field.state.value}
+                              onValueChange={(nextValue) => {
+                                const next = String(nextValue ?? "");
+                                field.handleChange(next);
+                                integrations.setFieldValue(config.id, next);
+                              }}
+                            >
+                              <SelectTrigger data-discord-key={config.dataDiscordKey}>
+                                <SelectValue />
+                                <SelectIcon aria-hidden>▾</SelectIcon>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">
+                                  <SelectItemText>Unchanged</SelectItemText>
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </field.Field>
-                      )}
-                    />
-                  ))}
-                </div>
-              </Accordion.Panel>
-            </Accordion.Item>
-          </Accordion.Root>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {actions.slice(0, 2).map((config) => (
-              <ActionButton
-                key={config.actionId}
-                actionId={config.actionId}
-                kind={config.kind}
-                disabled={integrations.messagingBusy}
-                onClick={() => {
-                  void handlers[config.action]();
-                }}
-              >
-                {config.label}
-              </ActionButton>
-            ))}
-          </div>
-        </Card>
+                                {config.options.map((option) => (
+                                  <SelectItem key={option} value={option}>
+                                    <SelectItemText>{option}</SelectItemText>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </field.Field>
+                        )}
+                      />
+                    ))}
+                  </div>
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion.Root>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {actions.slice(0, 2).map((config) => (
+                <ActionButton
+                  key={config.actionId}
+                  actionId={config.actionId}
+                  kind={config.kind}
+                  disabled={integrations.messagingBusy}
+                  onClick={() => {
+                    void handlers[config.action]();
+                  }}
+                >
+                  {config.label}
+                </ActionButton>
+              ))}
+            </div>
+          </Card>
 
-        <Card className="flex w-full min-w-0 flex-col p-5">
-          <h3 className="text-lg font-bold leading-snug tracking-tight text-text sm:text-xl">
-            Slack (Socket Mode)
-          </h3>
-          <div className="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-            {slackFields.map((config) => (
-              <form.AppField
-                key={config.id}
-                name={config.id as MessagingFieldId}
-                children={(field) => (
-                  <field.Field className={config.className}>
-                    <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
-                      {config.label}
-                    </field.FieldLabel>
-                    <field.Input
-                      id={config.id}
-                      data-discord-key={config.dataDiscordKey}
-                      type={config.type ?? "text"}
-                      autoComplete={config.autoComplete}
-                      placeholder={config.placeholder ?? `Enter ${config.label.toLowerCase()}`}
-                      value={field.state.value}
-                      onChange={(event) => {
-                        const next = event.target.value;
-                        field.handleChange(next);
-                        integrations.setFieldValue(config.id, next);
-                      }}
-                    />
-                  </field.Field>
-                )}
-              />
-            ))}
-          </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {actions.slice(2).map((config) => (
-              <ActionButton
-                key={config.actionId}
-                actionId={config.actionId}
-                kind={config.kind}
-                disabled={integrations.messagingBusy}
-                onClick={() => {
-                  void handlers[config.action]();
-                }}
-              >
-                {config.label}
-              </ActionButton>
-            ))}
-          </div>
-        </Card>
+          <Card className="flex w-full min-w-0 flex-col p-5">
+            <h3 className="text-lg font-bold leading-snug tracking-tight text-text sm:text-xl">
+              Slack (Socket Mode)
+            </h3>
+            <div className="mt-5 grid w-full min-w-0 grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+              {slackFields.map((config) => (
+                <form.AppField
+                  key={config.id}
+                  name={config.id as MessagingFieldId}
+                  children={(field) => (
+                    <field.Field className={config.className}>
+                      <field.FieldLabel className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
+                        {config.label}
+                      </field.FieldLabel>
+                      <field.Input
+                        id={config.id}
+                        data-discord-key={config.dataDiscordKey}
+                        type={config.type ?? "text"}
+                        autoComplete={config.autoComplete}
+                        placeholder={config.placeholder ?? `Enter ${config.label.toLowerCase()}`}
+                        value={field.state.value}
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          field.handleChange(next);
+                          integrations.setFieldValue(config.id, next);
+                        }}
+                      />
+                    </field.Field>
+                  )}
+                />
+              ))}
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {actions.slice(2).map((config) => (
+                <ActionButton
+                  key={config.actionId}
+                  actionId={config.actionId}
+                  kind={config.kind}
+                  disabled={integrations.messagingBusy}
+                  onClick={() => {
+                    void handlers[config.action]();
+                  }}
+                >
+                  {config.label}
+                </ActionButton>
+              ))}
+            </div>
+          </Card>
         </div>
       </form.AppForm>
       <p

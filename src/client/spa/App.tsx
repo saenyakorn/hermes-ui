@@ -12,10 +12,7 @@ import {
   SelectValue,
 } from "../components/Select";
 import { useProfilesTab } from "../hooks/useProfilesTab";
-import {
-  dispatchProfilesTabShown,
-  dispatchSessionsTabShown,
-} from "../lib/event";
+import { dispatchProfilesTabShown, dispatchSessionsTabShown } from "../lib/event";
 import type { TabKey } from "../tabs";
 import { ConfigTab } from "./ui/ConfigTab";
 import { ControlTab } from "./ui/ControlTab";
@@ -80,10 +77,7 @@ export function App({ initialStatus }: AppProps) {
 
   return (
     <main className="h-screen overflow-y-auto bg-[radial-gradient(circle_at_85%_-10%,rgba(0,122,255,0.16),transparent_38%),radial-gradient(circle_at_20%_-20%,rgba(98,129,199,0.2),transparent_45%),var(--color-background)] text-text">
-      <section
-        id="workspace"
-        className="mx-auto flex h-full min-w-0 max-w-[1700px] p-3 lg:p-4"
-      >
+      <section id="workspace" className="mx-auto flex h-full min-w-0 max-w-[1700px] p-3 lg:p-4">
         <Tabs.Root
           value={activeTab}
           onValueChange={(value) => {
@@ -99,9 +93,7 @@ export function App({ initialStatus }: AppProps) {
                 value={profiles.pickerValue}
                 onValueChange={(value) => {
                   const nextValue = String(value ?? "default");
-                  void profiles.activate(
-                    nextValue === "default" ? null : nextValue,
-                  );
+                  void profiles.activate(nextValue === "default" ? null : nextValue);
                 }}
               >
                 <SelectTrigger>
@@ -115,10 +107,7 @@ export function App({ initialStatus }: AppProps) {
                     </SelectItem>
                   ) : (
                     profiles.pickerOptions.map((profile) => (
-                      <SelectItem
-                        key={profile.label}
-                        value={profile.name ?? "default"}
-                      >
+                      <SelectItem key={profile.label} value={profile.name ?? "default"}>
                         <SelectItemText>{profile.label}</SelectItemText>
                       </SelectItem>
                     ))
@@ -130,12 +119,8 @@ export function App({ initialStatus }: AppProps) {
           <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
             <Card className="flex items-center justify-between px-5 py-3">
               <div className="flex flex-col gap-1">
-                <h1 className="text-2xl font-semibold tracking-tight text-text">
-                  Hermes Agent
-                </h1>
-                <p className="mt-1 text-base font-semibold text-text">
-                  AI Gateway Control
-                </p>
+                <h1 className="text-2xl font-semibold tracking-tight text-text">Hermes Agent</h1>
+                <p className="mt-1 text-base font-semibold text-text">AI Gateway Control</p>
               </div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <StatusChip>

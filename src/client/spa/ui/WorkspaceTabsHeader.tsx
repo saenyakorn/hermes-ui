@@ -44,7 +44,11 @@ export function WorkspaceTabsHeader({ activeTab, profilePicker }: WorkspaceTabsH
             Env vars
           </Tabs.Tab>
           <SectionLabel className="mb-1 mt-3">Infrastructure</SectionLabel>
-          <Tabs.Tab value="messaging" data-tab-trigger="messaging" className={tabClass("messaging")}>
+          <Tabs.Tab
+            value="messaging"
+            data-tab-trigger="messaging"
+            className={tabClass("messaging")}
+          >
             Messaging Platform
           </Tabs.Tab>
           <Tabs.Tab

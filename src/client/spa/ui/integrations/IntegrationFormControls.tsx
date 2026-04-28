@@ -137,7 +137,9 @@ export function ActionButton({
       type="button"
       className={cn(
         "px-3 py-2 text-xs",
-        kind === "primary" ? "border-accent bg-accent text-background" : "border-accent-border bg-surface text-text",
+        kind === "primary"
+          ? "border-accent bg-accent text-background"
+          : "border-accent-border bg-surface text-text",
       )}
       variant={kind === "primary" ? "primary" : "secondary"}
       disabled={disabled}

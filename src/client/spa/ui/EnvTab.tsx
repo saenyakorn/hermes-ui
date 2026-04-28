@@ -37,30 +37,25 @@ export function EnvTab() {
             {env.updatedAt ? `Updated ${env.updatedAt}` : "Not saved yet"}
           </p>
         </div>
-        <Button
-          id="env-reload"
-          type="button"
-          variant="secondary"
-          onClick={() => void env.reload()}
-        >
+        <Button id="env-reload" type="button" variant="secondary" onClick={() => void env.reload()}>
           Reload
         </Button>
       </div>
       <form.AppForm key={envFormKey}>
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
-        <select
-          id="env-list"
-          size={12}
-          className="min-h-[280px] w-full rounded-lg border border-accent-border/70 bg-background p-2 text-xs text-text"
-          value={env.entries.some((entry) => entry.key === env.key) ? env.key : ""}
-          onChange={(event) => env.setSelectedKey(event.target.value)}
-        >
-          {env.entries.map((entry: EnvReadResult["entries"][number]) => (
-            <option key={entry.key} value={entry.key}>
-              {`${entry.key}=${entry.maskedValue}`}
-            </option>
-          ))}
-        </select>
+          <select
+            id="env-list"
+            size={12}
+            className="min-h-[280px] w-full rounded-lg border border-accent-border/70 bg-background p-2 text-xs text-text"
+            value={env.entries.some((entry) => entry.key === env.key) ? env.key : ""}
+            onChange={(event) => env.setSelectedKey(event.target.value)}
+          >
+            {env.entries.map((entry: EnvReadResult["entries"][number]) => (
+              <option key={entry.key} value={entry.key}>
+                {`${entry.key}=${entry.maskedValue}`}
+              </option>
+            ))}
+          </select>
           <Card variant="soft" className="flex min-h-0 flex-col gap-2 p-3">
             <form.Form>
               <form.AppField name="key">

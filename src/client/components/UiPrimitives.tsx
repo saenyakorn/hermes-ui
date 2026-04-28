@@ -3,7 +3,9 @@ import { cn } from "../lib/cn";
 
 export function SectionLabel({ children, className }: PropsWithChildren<{ className?: string }>) {
   return (
-    <p className={cn("text-[11px] uppercase tracking-[0.14em] text-muted", className)}>{children}</p>
+    <p className={cn("text-[11px] uppercase tracking-[0.14em] text-muted", className)}>
+      {children}
+    </p>
   );
 }
 

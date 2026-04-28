@@ -26,10 +26,7 @@ export function ModelProvidersPanel() {
   const defaultsQuery = useQuery({
     queryKey: ["model-providers-default-values"],
     queryFn: async () => {
-      const [env, hints] = await Promise.all([
-        api.getEnvRead(),
-        api.getWorkspaceConfigHints(),
-      ]);
+      const [env, hints] = await Promise.all([api.getEnvRead(), api.getWorkspaceConfigHints()]);
       return resolveAllWorkspaceIntegrationFieldValues(env, hints);
     },
   });
@@ -53,11 +50,7 @@ export function ModelProvidersPanel() {
       <p className="text-sm font-semibold uppercase tracking-wide text-text sm:text-base">
         Model providers
       </p>
-      <p
-        id="model-providers-env-hint"
-        className="mt-2 text-xs text-muted"
-        aria-live="polite"
-      >
+      <p id="model-providers-env-hint" className="mt-2 text-xs text-muted" aria-live="polite">
         {defaultsQuery.isLoading
           ? "Loading provider settings..."
           : defaultsQuery.isError
@@ -149,9 +142,7 @@ function DefaultModelForm({
     ) as Record<string, string>,
     validators: { onSubmit: DefaultModelFormSchema },
     onSubmit: async ({ value }) => {
-      await saveMutation.mutateAsync(
-        value as z.infer<typeof DefaultModelFormSchema>,
-      );
+      await saveMutation.mutateAsync(value as z.infer<typeof DefaultModelFormSchema>);
     },
   });
 
@@ -173,8 +164,7 @@ function DefaultModelForm({
                     type={providerField.type ?? "text"}
                     autoComplete={providerField.autoComplete}
                     placeholder={
-                      providerField.placeholder ??
-                      `Enter ${providerField.label.toLowerCase()}`
+                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
                     }
                   />
                 </field.Field>
@@ -224,14 +214,12 @@ function OpenRouterForm(props: {
           set: {
             ...(values["model-provider-openrouter-api-key"]
               ? {
-                  OPENROUTER_API_KEY:
-                    values["model-provider-openrouter-api-key"],
+                  OPENROUTER_API_KEY: values["model-provider-openrouter-api-key"],
                 }
               : {}),
             ...(values["model-provider-openrouter-base-url"]
               ? {
-                  OPENROUTER_BASE_URL:
-                    values["model-provider-openrouter-base-url"],
+                  OPENROUTER_BASE_URL: values["model-provider-openrouter-base-url"],
                 }
               : {}),
           },
@@ -251,18 +239,14 @@ function OpenRouterForm(props: {
     ) as Record<string, string>,
     validators: { onSubmit: OpenRouterFormSchema },
     onSubmit: async ({ value }) => {
-      await saveMutation.mutateAsync(
-        value as z.infer<typeof OpenRouterFormSchema>,
-      );
+      await saveMutation.mutateAsync(value as z.infer<typeof OpenRouterFormSchema>);
     },
   });
   return (
     <form.AppForm>
       <Card className="p-4">
         <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            OpenRouter
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">OpenRouter</p>
           {OpenRouterFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -272,8 +256,7 @@ function OpenRouterForm(props: {
                     type={providerField.type ?? "text"}
                     autoComplete={providerField.autoComplete}
                     placeholder={
-                      providerField.placeholder ??
-                      `Enter ${providerField.label.toLowerCase()}`
+                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
                     }
                   />
                 </field.Field>
@@ -284,9 +267,7 @@ function OpenRouterForm(props: {
             <form.SubmitButton
               variant="primary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
             >
               Save OpenRouter
@@ -295,9 +276,7 @@ function OpenRouterForm(props: {
               type="button"
               variant="secondary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
               onClick={() => void clearMutation.mutateAsync()}
             >
@@ -342,8 +321,7 @@ function ClaudeForm(props: {
     },
   });
   const clearMutation = useMutation({
-    mutationFn: async () =>
-      props.onMutate({ env: { remove: ["ANTHROPIC_API_KEY"] } }),
+    mutationFn: async () => props.onMutate({ env: { remove: ["ANTHROPIC_API_KEY"] } }),
   });
   const fieldIds = ClaudeFields.map((field) => field.name);
   const form = useAppForm({
@@ -359,9 +337,7 @@ function ClaudeForm(props: {
     <form.AppForm>
       <Card className="p-4">
         <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            Claude
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Claude</p>
           {ClaudeFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -371,8 +347,7 @@ function ClaudeForm(props: {
                     type={providerField.type ?? "text"}
                     autoComplete={providerField.autoComplete}
                     placeholder={
-                      providerField.placeholder ??
-                      `Enter ${providerField.label.toLowerCase()}`
+                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
                     }
                   />
                 </field.Field>
@@ -383,9 +358,7 @@ function ClaudeForm(props: {
             <form.SubmitButton
               variant="primary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
             >
               Save Claude
@@ -394,9 +367,7 @@ function ClaudeForm(props: {
               type="button"
               variant="secondary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
               onClick={() => void clearMutation.mutateAsync()}
             >
@@ -469,9 +440,7 @@ function OpenAiForm(props: {
     <form.AppForm>
       <Card className="p-4">
         <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            OpenAI
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">OpenAI</p>
           {OpenAiFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -481,8 +450,7 @@ function OpenAiForm(props: {
                     type={providerField.type ?? "text"}
                     autoComplete={providerField.autoComplete}
                     placeholder={
-                      providerField.placeholder ??
-                      `Enter ${providerField.label.toLowerCase()}`
+                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
                     }
                   />
                 </field.Field>
@@ -493,9 +461,7 @@ function OpenAiForm(props: {
             <form.SubmitButton
               variant="primary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
             >
               Save OpenAI
@@ -504,9 +470,7 @@ function OpenAiForm(props: {
               type="button"
               variant="secondary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
               onClick={() => void clearMutation.mutateAsync()}
             >
@@ -579,9 +543,7 @@ function GeminiForm(props: {
     <form.AppForm>
       <Card className="p-4">
         <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            Gemini
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Gemini</p>
           {GeminiFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -591,8 +553,7 @@ function GeminiForm(props: {
                     type={providerField.type ?? "text"}
                     autoComplete={providerField.autoComplete}
                     placeholder={
-                      providerField.placeholder ??
-                      `Enter ${providerField.label.toLowerCase()}`
+                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
                     }
                   />
                 </field.Field>
@@ -603,9 +564,7 @@ function GeminiForm(props: {
             <form.SubmitButton
               variant="primary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
             >
               Save Gemini
@@ -614,9 +573,7 @@ function GeminiForm(props: {
               type="button"
               variant="secondary"
               disabled={
-                props.isDefaultsLoading ||
-                saveMutation.isPending ||
-                clearMutation.isPending
+                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
               }
               onClick={() => void clearMutation.mutateAsync()}
             >
