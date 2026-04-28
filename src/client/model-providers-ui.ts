@@ -2,13 +2,12 @@ import type { EnvReadResult, ModelYamlPatch } from "../server/types";
 import { getErrorMessage } from "./lib/errors";
 import type { ModelProvidersSavePayload } from "./api-fetcher";
 import type { HermesWorkspaceDeps } from "./workspace-deps";
-import { isConfiguredSecretPlaceholder } from "./workspace-field-sources";
+import {
+  isConfiguredSecretPlaceholder,
+  MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER,
+} from "./workspace-field-sources";
 import {
   applyModelProvidersMutationResponse,
-  MODEL_ANTHROPIC_KEYS,
-  MODEL_GEMINI_KEYS,
-  MODEL_OPENAI_KEYS,
-  MODEL_OPENROUTER_KEYS,
   renderModelProvidersEnvHint,
   setModelProvidersStatus,
 } from "./model-providers-shared";
@@ -296,7 +295,7 @@ export function setupModelProviders(deps: HermesWorkspaceDeps): void {
     clearOr.addEventListener("click", () => {
       void clearModelProviderKeys(
         deps,
-        [...MODEL_OPENROUTER_KEYS],
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openrouter],
         "OpenRouter",
         clearOpenRouterInputs,
       );
@@ -319,7 +318,12 @@ export function setupModelProviders(deps: HermesWorkspaceDeps): void {
   const clearAnthropic = document.getElementById("mp-clear-anthropic");
   if (clearAnthropic instanceof HTMLButtonElement) {
     clearAnthropic.addEventListener("click", () => {
-      void clearModelProviderKeys(deps, [...MODEL_ANTHROPIC_KEYS], "Claude", clearAnthropicInputs);
+      void clearModelProviderKeys(
+        deps,
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.anthropic],
+        "Claude",
+        clearAnthropicInputs,
+      );
     });
   }
 
@@ -339,7 +343,12 @@ export function setupModelProviders(deps: HermesWorkspaceDeps): void {
   const clearOpenai = document.getElementById("mp-clear-openai");
   if (clearOpenai instanceof HTMLButtonElement) {
     clearOpenai.addEventListener("click", () => {
-      void clearModelProviderKeys(deps, [...MODEL_OPENAI_KEYS], "OpenAI", clearOpenAiInputs);
+      void clearModelProviderKeys(
+        deps,
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openai],
+        "OpenAI",
+        clearOpenAiInputs,
+      );
     });
   }
 
@@ -359,7 +368,12 @@ export function setupModelProviders(deps: HermesWorkspaceDeps): void {
   const clearGemini = document.getElementById("mp-clear-gemini");
   if (clearGemini instanceof HTMLButtonElement) {
     clearGemini.addEventListener("click", () => {
-      void clearModelProviderKeys(deps, [...MODEL_GEMINI_KEYS], "Gemini", clearGeminiInputs);
+      void clearModelProviderKeys(
+        deps,
+        [...MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.gemini],
+        "Gemini",
+        clearGeminiInputs,
+      );
     });
   }
 }

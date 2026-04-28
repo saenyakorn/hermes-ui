@@ -149,6 +149,8 @@ export type ModelProviderFieldSource =
   | { source: "env"; kind: "secret"; envKey: string }
   | { source: "env"; kind: "maskedText"; envKey: string };
 
+export type ModelProviderName = "openrouter" | "anthropic" | "openai" | "gemini";
+
 /** Model providers tab (ids match model-providers-tab.tsx). */
 export const MODEL_PROVIDER_FIELD_SOURCES: Record<string, readonly ModelProviderFieldSource[]> = {
   "mp-yaml-default": [{ source: "config", configPath: "model.default" }],
@@ -165,6 +167,60 @@ export const MODEL_PROVIDER_FIELD_SOURCES: Record<string, readonly ModelProvider
   ],
   "mp-gemini-base": [{ source: "env", kind: "maskedText", envKey: "GEMINI_BASE_URL" }],
 };
+
+const MODEL_PROVIDER_ORDER: readonly ModelProviderName[] = [
+  "openrouter",
+  "anthropic",
+  "openai",
+  "gemini",
+];
+
+function modelProviderNameFromEnvKey(envKey: string): ModelProviderName | null {
+  if (envKey.startsWith("OPENROUTER_")) {
+    return "openrouter";
+  }
+  if (envKey.startsWith("ANTHROPIC_")) {
+    return "anthropic";
+  }
+  if (envKey.startsWith("OPENAI_")) {
+    return "openai";
+  }
+  if (envKey.startsWith("GOOGLE_") || envKey.startsWith("GEMINI_")) {
+    return "gemini";
+  }
+  return null;
+}
+
+function buildModelProviderEnvKeysByProvider(): Readonly<Record<ModelProviderName, readonly string[]>> {
+  const perProvider = new Map<ModelProviderName, string[]>(
+    MODEL_PROVIDER_ORDER.map((provider) => [provider, []]),
+  );
+  for (const specs of Object.values(MODEL_PROVIDER_FIELD_SOURCES)) {
+    for (const spec of specs) {
+      if (spec.source !== "env") {
+        continue;
+      }
+      const provider = modelProviderNameFromEnvKey(spec.envKey);
+      if (provider === null) {
+        continue;
+      }
+      const providerKeys = perProvider.get(provider);
+      if (!providerKeys || providerKeys.includes(spec.envKey)) {
+        continue;
+      }
+      providerKeys.push(spec.envKey);
+    }
+  }
+  return Object.fromEntries(
+    MODEL_PROVIDER_ORDER.map((provider) => [provider, Object.freeze([...(perProvider.get(provider) ?? [])])]),
+  ) as Readonly<Record<ModelProviderName, readonly string[]>>;
+}
+
+/**
+ * Provider-level env key groups derived from MODEL_PROVIDER_FIELD_SOURCES.
+ * Used by model-providers UI flows (hints, clear actions) so field mapping stays canonical.
+ */
+export const MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER = buildModelProviderEnvKeysByProvider();
 
 export type IntegrationFieldValues = Readonly<Record<string, string | undefined>>;
 

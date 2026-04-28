@@ -1,10 +1,9 @@
 import type { EnvReadResult, ModelProvidersMutationResponse } from "../server/types";
 import type { HermesWorkspaceDeps } from "./workspace-deps";
-
-export const MODEL_OPENROUTER_KEYS = ["OPENROUTER_API_KEY", "OPENROUTER_BASE_URL"] as const;
-export const MODEL_ANTHROPIC_KEYS = ["ANTHROPIC_API_KEY"] as const;
-export const MODEL_OPENAI_KEYS = ["OPENAI_API_KEY", "OPENAI_BASE_URL"] as const;
-export const MODEL_GEMINI_KEYS = ["GOOGLE_API_KEY", "GEMINI_API_KEY", "GEMINI_BASE_URL"] as const;
+import {
+  MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER,
+  type ModelProviderName,
+} from "./workspace-field-sources";
 
 function countEnvKeysPresent(env: EnvReadResult, keys: readonly string[]): number {
   return keys.filter((key) => env.entries.some((e) => e.key === key)).length;
@@ -26,12 +25,17 @@ export function renderModelProvidersEnvHint(env: EnvReadResult): void {
     const n = countEnvKeysPresent(env, keys);
     return n > 0 ? `${label}: ${String(n)} key(s)` : `${label}: no tracked keys`;
   };
-  hint.textContent = [
-    line("OpenRouter", MODEL_OPENROUTER_KEYS),
-    line("Claude", MODEL_ANTHROPIC_KEYS),
-    line("OpenAI", MODEL_OPENAI_KEYS),
-    line("Gemini", MODEL_GEMINI_KEYS),
-  ].join(" · ");
+  const labelsByProvider: Readonly<Record<ModelProviderName, string>> = {
+    openrouter: "OpenRouter",
+    anthropic: "Claude",
+    openai: "OpenAI",
+    gemini: "Gemini",
+  };
+  hint.textContent = (Object.keys(labelsByProvider) as ModelProviderName[])
+    .map((provider) =>
+      line(labelsByProvider[provider], MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER[provider]),
+    )
+    .join(" · ");
 }
 
 export function applyModelProvidersMutationResponse(
