@@ -228,22 +228,16 @@ describe("createApp", () => {
     expect(response.status).toBe(401);
   });
 
-  it("renders plain HTML shell with htmx and vanilla app script", async () => {
+  it("renders plain HTML shell with React root and SPA script", async () => {
     const response = await createApp(createServices()).request("/", {
       headers: { authorization: auth },
     });
 
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain('src="/assets/vendor/htmx.min.js"');
-    expect(html).toContain('id="gateway-panel"');
-    expect(html).toContain('id="workspace"');
+    expect(html).toContain('id="root"');
     expect(html).toContain('src="/assets/main.js"');
-    expect(html).toContain('data-tab-trigger="messaging"');
-    expect(html).toContain("Messaging Platform");
-    expect(html).toContain('data-tab-trigger="model-providers"');
-    expect(html).toContain("Model providers");
-    expect(html).toContain("Advanced options");
+    expect(html).toContain("window.__HERMES_INITIAL_STATUS__");
   });
 
   it("returns gateway status JSON", async () => {

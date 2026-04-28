@@ -9,7 +9,7 @@ export default defineConfig([
   },
   {
     input: {
-      main: "src/client/main.ts",
+      main: "src/client/main.tsx",
     },
     platform: "browser",
     output: { dir: "dist/assets", format: "esm", entryFileNames: "[name].js" },

@@ -90,6 +90,16 @@ export class ApiFetcher {
     return response.json() as Promise<GatewayStatus>;
   }
 
+  async postGatewayAction(action: "start" | "stop" | "restart"): Promise<GatewayStatus> {
+    const response = await this.authenticatedFetch(`${this.origin}/gateway/${action}`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<GatewayStatus>;
+  }
+
   async getLogTail(): Promise<LogTail> {
     const response = await this.rpc.logs.tail.$get();
     if (!response.ok) {
