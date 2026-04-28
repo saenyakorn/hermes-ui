@@ -1,4 +1,6 @@
 import { useSessionsTab } from "../../hooks/useSessionsTab";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
 
 export function SessionsTab() {
   const sessions = useSessionsTab();
@@ -13,24 +15,26 @@ export function SessionsTab() {
           {`Profile: ${sessions.profile ?? "default"} (${sessions.sessions.length} session${sessions.sessions.length === 1 ? "" : "s"})`}
         </p>
         <div className="flex gap-2">
-          <button
+          <Button
             id="sessions-reload"
             type="button"
-            className="rounded-full bg-frosted px-3 py-1 text-xs text-text"
+            variant="secondary"
             onClick={() => void sessions.refresh()}
           >
             Reload
-          </button>
-          <button
+          </Button>
+          <Button
             id="sessions-create"
             type="button"
-            className="rounded-full bg-text px-3 py-1 text-xs text-background"
+            variant="primary"
             onClick={() => void sessions.createSession()}
           >
             New session
-          </button>
+          </Button>
         </div>
       </div>
+      <Card variant="soft" className="mb-3 overflow-auto">
+      <table className="w-full border-collapse text-xs">
       <tbody id="sessions-list">
         {sessions.sessions.length === 0 ? (
           <tr>
@@ -51,29 +55,32 @@ export function SessionsTab() {
               <td className="px-3 py-2 text-muted">{session.updatedAt}</td>
               <td className="px-3 py-2 text-right">
                 <div className="flex justify-end gap-1">
-                  <button
+                  <Button
                     type="button"
-                    className="rounded-full bg-frosted px-2 py-1 text-[11px] text-text"
+                    variant="secondary"
+                    className="px-2 py-1 text-[11px]"
                     onClick={(event) => {
                       event.stopPropagation();
                       void sessions.openSession(session.id);
                     }}
                   >
                     Open
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="rounded-full bg-frosted px-2 py-1 text-[11px] text-text"
+                    variant="secondary"
+                    className="px-2 py-1 text-[11px]"
                     onClick={(event) => {
                       event.stopPropagation();
                       void sessions.renameSession(session.id);
                     }}
                   >
                     Rename
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="rounded-full bg-frosted px-2 py-1 text-[11px] text-text"
+                    variant="secondary"
+                    className="px-2 py-1 text-[11px]"
                     onClick={(event) => {
                       event.stopPropagation();
                       if (session.archived) {
@@ -84,29 +91,32 @@ export function SessionsTab() {
                     }}
                   >
                     {session.archived ? "Restore" : "Archive"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="rounded-full bg-frosted px-2 py-1 text-[11px] text-danger"
+                    variant="danger"
+                    className="px-2 py-1 text-[11px]"
                     onClick={(event) => {
                       event.stopPropagation();
                       void sessions.deleteSession(session.id);
                     }}
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </td>
             </tr>
           ))
         )}
       </tbody>
+      </table>
+      </Card>
       <p id="sessions-selection" className="mt-3 text-xs text-muted">
         {sessions.selectedLabel}
       </p>
       <pre
         id="sessions-transcript"
-        className="max-h-[320px] overflow-auto whitespace-pre-wrap wrap-break-word text-xs text-text"
+        className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-lg border border-frosted bg-background p-3 text-xs text-text wrap-break-word"
       >
         {sessions.transcript}
       </pre>

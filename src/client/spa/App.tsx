@@ -1,6 +1,7 @@
 import { Tabs } from "@base-ui/react";
 import { useCallback, useState } from "react";
 import type { GatewayStatus } from "../../server/types";
+import { Card } from "../components/Card";
 import {
   Select,
   SelectContent,
@@ -11,18 +12,21 @@ import {
   SelectValue,
 } from "../components/Select";
 import { useProfilesTab } from "../hooks/useProfilesTab";
-import { dispatchProfilesTabShown, dispatchSessionsTabShown } from "../lib/event";
+import {
+  dispatchProfilesTabShown,
+  dispatchSessionsTabShown,
+} from "../lib/event";
 import type { TabKey } from "../tabs";
 import { ConfigTab } from "./ui/ConfigTab";
 import { ControlTab } from "./ui/ControlTab";
 import { EnvTab } from "./ui/EnvTab";
-import { LogsTab } from "./ui/LogsTab";
 import { ProfilesTab } from "./ui/ProfilesTab";
 import { ShellTab } from "./ui/ShellTab";
 import { SessionsTab } from "./ui/SessionsTab";
 import { MessagingPanel } from "./ui/MessagingPanel";
 import { ModelProvidersPanel } from "./ui/ModelProvidersPanel";
 import { TabSection } from "./ui/TabSection";
+import { Dot, StatusChip } from "../components/UiPrimitives";
 import { WorkspaceTabsHeader } from "./ui/WorkspaceTabsHeader";
 
 type AppProps = {
@@ -34,7 +38,6 @@ const STORAGE_KEY = "hermes.workspace.lastOpenTab";
 function isTabKey(value: string): value is TabKey {
   return (
     value === "control" ||
-    value === "logs" ||
     value === "shell" ||
     value === "config" ||
     value === "env" ||
@@ -76,17 +79,17 @@ export function App({ initialStatus }: AppProps) {
   }, []);
 
   return (
-    <main className="h-screen overflow-x-hidden overflow-y-hidden bg-background text-text">
+    <main className="h-screen overflow-y-auto bg-[radial-gradient(circle_at_85%_-10%,rgba(0,122,255,0.16),transparent_38%),radial-gradient(circle_at_20%_-20%,rgba(98,129,199,0.2),transparent_45%),var(--color-background)] text-text">
       <section
         id="workspace"
-        className="mx-auto flex h-full min-w-0 max-w-[1400px] flex-1 flex-col overflow-hidden rounded-xl border border-accent-border bg-surface p-3"
+        className="mx-auto flex h-full min-w-0 max-w-[1700px] p-3 lg:p-4"
       >
         <Tabs.Root
           value={activeTab}
           onValueChange={(value) => {
             onTabChange(value as TabKey);
           }}
-          className="flex min-h-0 min-w-0 flex-1 flex-col"
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4"
         >
           <WorkspaceTabsHeader
             activeTab={activeTab}
@@ -96,7 +99,9 @@ export function App({ initialStatus }: AppProps) {
                 value={profiles.pickerValue}
                 onValueChange={(value) => {
                   const nextValue = String(value ?? "default");
-                  void profiles.activate(nextValue === "default" ? null : nextValue);
+                  void profiles.activate(
+                    nextValue === "default" ? null : nextValue,
+                  );
                 }}
               >
                 <SelectTrigger>
@@ -110,7 +115,10 @@ export function App({ initialStatus }: AppProps) {
                     </SelectItem>
                   ) : (
                     profiles.pickerOptions.map((profile) => (
-                      <SelectItem key={profile.label} value={profile.name ?? "default"}>
+                      <SelectItem
+                        key={profile.label}
+                        value={profile.name ?? "default"}
+                      >
                         <SelectItemText>{profile.label}</SelectItemText>
                       </SelectItem>
                     ))
@@ -119,42 +127,58 @@ export function App({ initialStatus }: AppProps) {
               </Select>
             }
           />
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+            <Card className="flex items-center justify-between px-5 py-3">
+              <div className="flex flex-col gap-1">
+                <h1 className="text-2xl font-semibold tracking-tight text-text">
+                  Hermes Agent
+                </h1>
+                <p className="mt-1 text-base font-semibold text-text">
+                  AI Gateway Control
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <StatusChip>
+                  <Dot />
+                  Gateway Online
+                </StatusChip>
+                <StatusChip>Uptime: 12d 04h</StatusChip>
+              </div>
+            </Card>
+            <Card className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
+              <TabSection value="control">
+                <ControlTab initialStatus={initialStatus} />
+              </TabSection>
 
-          <TabSection value="control">
-            <ControlTab initialStatus={initialStatus} />
-          </TabSection>
+              <TabSection value="shell">
+                <ShellTab />
+              </TabSection>
 
-          <TabSection value="logs">
-            <LogsTab />
-          </TabSection>
+              <TabSection value="config">
+                <ConfigTab />
+              </TabSection>
 
-          <TabSection value="shell">
-            <ShellTab />
-          </TabSection>
+              <TabSection value="env">
+                <EnvTab />
+              </TabSection>
 
-          <TabSection value="config">
-            <ConfigTab />
-          </TabSection>
+              <TabSection value="messaging">
+                <MessagingPanel />
+              </TabSection>
 
-          <TabSection value="env">
-            <EnvTab />
-          </TabSection>
+              <TabSection value="model-providers">
+                <ModelProvidersPanel />
+              </TabSection>
 
-          <TabSection value="messaging">
-            <MessagingPanel />
-          </TabSection>
+              <TabSection value="profiles">
+                <ProfilesTab />
+              </TabSection>
 
-          <TabSection value="model-providers">
-            <ModelProvidersPanel />
-          </TabSection>
-
-          <TabSection value="profiles">
-            <ProfilesTab />
-          </TabSection>
-
-          <TabSection value="sessions">
-            <SessionsTab />
-          </TabSection>
+              <TabSection value="sessions">
+                <SessionsTab />
+              </TabSection>
+            </Card>
+          </section>
         </Tabs.Root>
       </section>
     </main>

@@ -1,5 +1,7 @@
 import type { ConfigValidationIssue } from "../../../server/types";
+import { Button } from "../../components/Button";
 import { YamlEditor } from "../../components/YamlEditor";
+import { Card } from "../../components/Card";
 import { useConfigTab } from "../../hooks/useConfigTab";
 
 export function ConfigTab() {
@@ -11,7 +13,7 @@ export function ConfigTab() {
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
       <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="rounded-lg border border-frosted bg-background px-3 py-2">
           <p className="text-xs uppercase text-muted">Hermes Config</p>
           <p id="config-path" className="mt-1 text-sm text-text">
             {config.path}
@@ -21,26 +23,28 @@ export function ConfigTab() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
+          <Button
             id="config-reload"
             type="button"
-            className="rounded-full bg-frosted px-3 py-1 text-xs text-text"
+            variant="secondary"
             onClick={() => void config.reload()}
           >
             Reload from disk
-          </button>
-          <button
+          </Button>
+          <Button
             id="config-save"
             type="button"
-            className="rounded-full bg-text px-3 py-1 text-xs text-background disabled:opacity-50"
+            variant="primary"
             disabled={!config.canSave}
             onClick={() => void config.save()}
           >
             Save config
-          </button>
+          </Button>
         </div>
       </div>
-      <YamlEditor value={config.content} onChange={config.onChange} />
+      <Card variant="soft" className="min-h-0 flex-1 p-2">
+        <YamlEditor value={config.content} onChange={config.onChange} />
+      </Card>
       <div
         id="config-status"
         className="mt-3 shrink-0 text-xs text-muted"

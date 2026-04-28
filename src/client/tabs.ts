@@ -1,6 +1,5 @@
 export type TabKey =
   | "control"
-  | "logs"
   | "shell"
   | "config"
   | "env"

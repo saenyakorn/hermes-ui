@@ -3,6 +3,8 @@ import { io, type Socket } from "socket.io-client";
 import { useXTerm } from "react-xtermjs";
 import { FitAddon } from "@xterm/addon-fit";
 import { ApiFetcher } from "../../api-fetcher";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
 import { PROFILE_CHANGED_EVENT } from "../../lib/event";
 
 export function ShellTab() {
@@ -97,22 +99,34 @@ export function ShellTab() {
   );
 
   return (
-    <section
-      data-tab-panel="shell"
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-    >
+    <section data-tab-panel="shell" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="mb-3 flex shrink-0 items-center justify-between">
-        <p className="text-sm text-muted">Interactive shell</p>
-        <button
-          id="shell-clear"
-          type="button"
-          className="rounded-full bg-frosted px-3 py-1 text-xs text-text"
-          onClick={() => instance?.clear()}
-        >
+        <p className="text-sm font-semibold text-text">Interactive Shell</p>
+        <Button id="shell-clear" type="button" variant="secondary" onClick={() => instance?.clear()}>
           Clear
-        </button>
+        </Button>
       </div>
-      <div ref={ref} id="terminal" className="min-h-[320px] flex-1 rounded-lg bg-background" />
+      <Card className="min-h-0 min-w-0 flex-1 p-3">
+        <div
+          ref={ref}
+          id="terminal"
+          className="min-h-[320px] flex-1 rounded-lg border border-frosted bg-background"
+        />
+      </Card>
+      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Card variant="soft" className="p-3">
+          <p className="text-[11px] uppercase text-muted">Active agents</p>
+          <p className="mt-1 text-xl font-semibold text-text">24</p>
+        </Card>
+        <Card variant="soft" className="p-3">
+          <p className="text-[11px] uppercase text-muted">Throughput</p>
+          <p className="mt-1 text-xl font-semibold text-text">1.2k req/s</p>
+        </Card>
+        <Card variant="soft" className="p-3">
+          <p className="text-[11px] uppercase text-muted">Health score</p>
+          <p className="mt-1 text-xl font-semibold text-text">99.8%</p>
+        </Card>
+      </div>
     </section>
   );
 }

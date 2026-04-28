@@ -17,66 +17,82 @@ export type MessagingDiscordFieldEntry =
   | readonly MessagingDiscordFieldSpec[];
 
 export const MESSAGING_DISCORD_FIELD_SOURCES: Record<string, MessagingDiscordFieldEntry> = {
-  "messaging-discord-token": {
+  "discord-bot-token": {
     source: "env",
     envKey: "DISCORD_BOT_TOKEN",
     kind: "secret",
   },
-  "messaging-discord-allowed": [
+  "discord-allowed-users": [
     { source: "config", configPath: "discord.allowed_users" },
     { source: "env", envKey: "DISCORD_ALLOWED_USERS", kind: "plainText" },
   ],
-  "d-adv-roles": { source: "env", envKey: "DISCORD_ALLOWED_ROLES", kind: "maskedText" },
-  "d-adv-allow-ch": [
+  "discord-advanced-allowed-roles": {
+    source: "env",
+    envKey: "DISCORD_ALLOWED_ROLES",
+    kind: "maskedText",
+  },
+  "discord-advanced-allowed-channels": [
     { source: "config", configPath: "discord.allowed_channels" },
     { source: "env", envKey: "DISCORD_ALLOWED_CHANNELS", kind: "maskedText" },
   ],
-  "d-adv-free": [
+  "discord-advanced-free-response-channels": [
     { source: "config", configPath: "discord.free_response_channels" },
     { source: "env", envKey: "DISCORD_FREE_RESPONSE_CHANNELS", kind: "maskedText" },
   ],
-  "d-adv-home": { source: "env", envKey: "DISCORD_HOME_CHANNEL", kind: "maskedText" },
-  "d-adv-homen": { source: "env", envKey: "DISCORD_HOME_CHANNEL_NAME", kind: "maskedText" },
-  "d-adv-proxy": { source: "env", envKey: "DISCORD_PROXY", kind: "maskedText" },
-  "d-adv-cmd": { source: "env", envKey: "DISCORD_COMMAND_SYNC_POLICY", kind: "select" },
-  "d-adv-reply": { source: "env", envKey: "DISCORD_REPLY_TO_MODE", kind: "select" },
-  "d-adv-reqm": [
+  "discord-advanced-home-channel": {
+    source: "env",
+    envKey: "DISCORD_HOME_CHANNEL",
+    kind: "maskedText",
+  },
+  "discord-advanced-home-channel-name": {
+    source: "env",
+    envKey: "DISCORD_HOME_CHANNEL_NAME",
+    kind: "maskedText",
+  },
+  "discord-advanced-proxy": { source: "env", envKey: "DISCORD_PROXY", kind: "maskedText" },
+  "discord-advanced-command-sync-policy": {
+    source: "env",
+    envKey: "DISCORD_COMMAND_SYNC_POLICY",
+    kind: "select",
+  },
+  "discord-advanced-reply-mode": { source: "env", envKey: "DISCORD_REPLY_TO_MODE", kind: "select" },
+  "discord-advanced-require-mention": [
     { source: "config", configPath: "discord.require_mention" },
     { source: "env", envKey: "DISCORD_REQUIRE_MENTION", kind: "select" },
   ],
-  "d-adv-autoth": [
+  "discord-advanced-auto-thread": [
     { source: "config", configPath: "discord.auto_thread" },
     { source: "env", envKey: "DISCORD_AUTO_THREAD", kind: "select" },
   ],
-  "d-adv-rxn": [
+  "discord-advanced-reactions": [
     { source: "config", configPath: "discord.reactions" },
     { source: "env", envKey: "DISCORD_REACTIONS", kind: "select" },
   ],
-  "d-adv-ign": [
+  "discord-advanced-ignored-channels": [
     { source: "config", configPath: "discord.ignored_channels" },
     { source: "env", envKey: "DISCORD_IGNORED_CHANNELS", kind: "maskedText" },
   ],
-  "d-adv-nothr": [
+  "discord-advanced-no-thread-channels": [
     { source: "config", configPath: "discord.no_thread_channels" },
     { source: "env", envKey: "DISCORD_NO_THREAD_CHANNELS", kind: "maskedText" },
   ],
-  "d-adv-alle": [
+  "discord-advanced-allow-mention-everyone": [
     { source: "config", configPath: "discord.allow_mentions.everyone" },
     { source: "env", envKey: "DISCORD_ALLOW_MENTION_EVERYONE", kind: "select" },
   ],
-  "d-adv-alr": [
+  "discord-advanced-allow-mention-roles": [
     { source: "config", configPath: "discord.allow_mentions.roles" },
     { source: "env", envKey: "DISCORD_ALLOW_MENTION_ROLES", kind: "select" },
   ],
-  "d-adv-alu": [
+  "discord-advanced-allow-mention-users": [
     { source: "config", configPath: "discord.allow_mentions.users" },
     { source: "env", envKey: "DISCORD_ALLOW_MENTION_USERS", kind: "select" },
   ],
-  "d-adv-alk": [
+  "discord-advanced-allow-mention-replied-user": [
     { source: "config", configPath: "discord.allow_mentions.replied_user" },
     { source: "env", envKey: "DISCORD_ALLOW_MENTION_REPLIED_USER", kind: "select" },
   ],
-  "d-adv-ignm": {
+  "discord-advanced-ignore-no-mention": {
     source: "env",
     envKey: "DISCORD_IGNORE_NO_MENTION",
     kind: "select",
@@ -87,8 +103,8 @@ export const MESSAGING_SLACK_FIELD_SOURCES: Record<
   string,
   { source: "env"; envKey: string; kind: "secret" }
 > = {
-  "messaging-slack-bot": { source: "env", envKey: "SLACK_BOT_TOKEN", kind: "secret" },
-  "messaging-slack-app": { source: "env", envKey: "SLACK_APP_TOKEN", kind: "secret" },
+  "slack-bot-token": { source: "env", envKey: "SLACK_BOT_TOKEN", kind: "secret" },
+  "slack-app-token": { source: "env", envKey: "SLACK_APP_TOKEN", kind: "secret" },
 };
 
 export type ModelProviderFieldSource =
@@ -99,19 +115,19 @@ export type ModelProviderFieldSource =
 export type ModelProviderName = "openrouter" | "anthropic" | "openai" | "gemini";
 
 export const MODEL_PROVIDER_FIELD_SOURCES: Record<string, readonly ModelProviderFieldSource[]> = {
-  "mp-yaml-default": [{ source: "config", configPath: "model.default" }],
-  "mp-yaml-provider": [{ source: "config", configPath: "model.provider" }],
-  "mp-yaml-base-url": [{ source: "config", configPath: "model.base_url" }],
-  "mp-or-key": [{ source: "env", kind: "secret", envKey: "OPENROUTER_API_KEY" }],
-  "mp-or-base": [{ source: "env", kind: "maskedText", envKey: "OPENROUTER_BASE_URL" }],
-  "mp-anthropic-key": [{ source: "env", kind: "secret", envKey: "ANTHROPIC_API_KEY" }],
-  "mp-openai-key": [{ source: "env", kind: "secret", envKey: "OPENAI_API_KEY" }],
-  "mp-openai-base": [{ source: "env", kind: "maskedText", envKey: "OPENAI_BASE_URL" }],
-  "mp-google-key": [
+  "model-provider-default-model-id": [{ source: "config", configPath: "model.default" }],
+  "model-provider-default-model-provider": [{ source: "config", configPath: "model.provider" }],
+  "model-provider-default-model-base-url": [{ source: "config", configPath: "model.base_url" }],
+  "model-provider-openrouter-api-key": [{ source: "env", kind: "secret", envKey: "OPENROUTER_API_KEY" }],
+  "model-provider-openrouter-base-url": [{ source: "env", kind: "maskedText", envKey: "OPENROUTER_BASE_URL" }],
+  "model-provider-anthropic-api-key": [{ source: "env", kind: "secret", envKey: "ANTHROPIC_API_KEY" }],
+  "model-provider-openai-api-key": [{ source: "env", kind: "secret", envKey: "OPENAI_API_KEY" }],
+  "model-provider-openai-base-url": [{ source: "env", kind: "maskedText", envKey: "OPENAI_BASE_URL" }],
+  "model-provider-google-api-key": [
     { source: "env", kind: "secret", envKey: "GOOGLE_API_KEY" },
     { source: "env", kind: "secret", envKey: "GEMINI_API_KEY" },
   ],
-  "mp-gemini-base": [{ source: "env", kind: "maskedText", envKey: "GEMINI_BASE_URL" }],
+  "model-provider-gemini-base-url": [{ source: "env", kind: "maskedText", envKey: "GEMINI_BASE_URL" }],
 };
 
 const MODEL_PROVIDER_ORDER: readonly ModelProviderName[] = [

@@ -1,11 +1,15 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import type { ModelProvidersSavePayload } from "../api-fetcher";
 import { ApiFetcher } from "../api-fetcher";
-import { dispatchEnvReloadRequest, dispatchEnvSnapshot, dispatchGatewayStatus } from "../lib/event";
+import {
+  dispatchEnvReloadRequest,
+  dispatchEnvSnapshot,
+  dispatchGatewayStatus,
+} from "../lib/event";
 import {
   isConfiguredSecretPlaceholder,
   MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER,
-} from "./workspaceFieldSources";
+} from "./useWorkspaceFieldSources";
 import { useWorkspaceIntegrations } from "./useWorkspaceIntegrations";
 
 type SaveFn = () => Promise<void>;
@@ -34,7 +38,8 @@ export function useMessagingModelProviders(): {
   clearGemini: SaveFn;
 } {
   const api = useMemo(() => new ApiFetcher(), []);
-  const { fieldValues, refresh, setFieldValue, setFieldValues } = useWorkspaceIntegrations();
+  const { fieldValues, refresh, setFieldValue, setFieldValues } =
+    useWorkspaceIntegrations();
   const [messagingHint, setMessagingHint] = useState("Loading…");
   const [modelProvidersHint, setModelProvidersHint] = useState("Loading…");
   const [messagingStatus, setMessagingStatus] = useState("Ready.");
@@ -49,22 +54,33 @@ export function useMessagingModelProviders(): {
       setModelProvidersHint("Could not load .env");
       return;
     }
-    const discordN = result.env.entries.filter((entry) => entry.key.startsWith("DISCORD_")).length;
-    const slackN = result.env.entries.filter((entry) => entry.key.startsWith("SLACK_")).length;
+    const discordN = result.env.entries.filter((entry) =>
+      entry.key.startsWith("DISCORD_"),
+    ).length;
+    const slackN = result.env.entries.filter((entry) =>
+      entry.key.startsWith("SLACK_"),
+    ).length;
     setMessagingHint(
       `${discordN > 0 ? `Discord: ${String(discordN)} DISCORD_* key(s) in .env` : "Discord: no DISCORD_* in .env"} · ${
-        slackN > 0 ? `Slack: ${String(slackN)} SLACK_* key(s) in .env` : "Slack: no SLACK_* in .env"
+        slackN > 0
+          ? `Slack: ${String(slackN)} SLACK_* key(s) in .env`
+          : "Slack: no SLACK_* in .env"
       }`,
     );
     const providerLine = (label: string, keys: readonly string[]) => {
       const count = keys.filter((key) =>
         result.env.entries.some((entry) => entry.key === key),
       ).length;
-      return count > 0 ? `${label}: ${String(count)} key(s)` : `${label}: no tracked keys`;
+      return count > 0
+        ? `${label}: ${String(count)} key(s)`
+        : `${label}: no tracked keys`;
     };
     setModelProvidersHint(
       [
-        providerLine("OpenRouter", MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openrouter),
+        providerLine(
+          "OpenRouter",
+          MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openrouter,
+        ),
         providerLine("Claude", MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.anthropic),
         providerLine("OpenAI", MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.openai),
         providerLine("Gemini", MODEL_PROVIDER_ENV_KEYS_BY_PROVIDER.gemini),
@@ -116,25 +132,34 @@ export function useMessagingModelProviders(): {
     }
     const set: Record<string, string> = {};
     const discordFields = [
-      ["messaging-discord-token", "DISCORD_BOT_TOKEN"],
-      ["d-adv-roles", "DISCORD_ALLOWED_ROLES"],
-      ["d-adv-allow-ch", "DISCORD_ALLOWED_CHANNELS"],
-      ["d-adv-free", "DISCORD_FREE_RESPONSE_CHANNELS"],
-      ["d-adv-home", "DISCORD_HOME_CHANNEL"],
-      ["d-adv-homen", "DISCORD_HOME_CHANNEL_NAME"],
-      ["d-adv-proxy", "DISCORD_PROXY"],
-      ["d-adv-cmd", "DISCORD_COMMAND_SYNC_POLICY"],
-      ["d-adv-reply", "DISCORD_REPLY_TO_MODE"],
-      ["d-adv-reqm", "DISCORD_REQUIRE_MENTION"],
-      ["d-adv-autoth", "DISCORD_AUTO_THREAD"],
-      ["d-adv-rxn", "DISCORD_REACTIONS"],
-      ["d-adv-ign", "DISCORD_IGNORED_CHANNELS"],
-      ["d-adv-nothr", "DISCORD_NO_THREAD_CHANNELS"],
-      ["d-adv-alle", "DISCORD_ALLOW_MENTION_EVERYONE"],
-      ["d-adv-alr", "DISCORD_ALLOW_MENTION_ROLES"],
-      ["d-adv-alu", "DISCORD_ALLOW_MENTION_USERS"],
-      ["d-adv-alk", "DISCORD_ALLOW_MENTION_REPLIED_USER"],
-      ["d-adv-ignm", "DISCORD_IGNORE_NO_MENTION"],
+      ["discord-bot-token", "DISCORD_BOT_TOKEN"],
+      ["discord-advanced-allowed-roles", "DISCORD_ALLOWED_ROLES"],
+      ["discord-advanced-allowed-channels", "DISCORD_ALLOWED_CHANNELS"],
+      [
+        "discord-advanced-free-response-channels",
+        "DISCORD_FREE_RESPONSE_CHANNELS",
+      ],
+      ["discord-advanced-home-channel", "DISCORD_HOME_CHANNEL"],
+      ["discord-advanced-home-channel-name", "DISCORD_HOME_CHANNEL_NAME"],
+      ["discord-advanced-proxy", "DISCORD_PROXY"],
+      ["discord-advanced-command-sync-policy", "DISCORD_COMMAND_SYNC_POLICY"],
+      ["discord-advanced-reply-mode", "DISCORD_REPLY_TO_MODE"],
+      ["discord-advanced-require-mention", "DISCORD_REQUIRE_MENTION"],
+      ["discord-advanced-auto-thread", "DISCORD_AUTO_THREAD"],
+      ["discord-advanced-reactions", "DISCORD_REACTIONS"],
+      ["discord-advanced-ignored-channels", "DISCORD_IGNORED_CHANNELS"],
+      ["discord-advanced-no-thread-channels", "DISCORD_NO_THREAD_CHANNELS"],
+      [
+        "discord-advanced-allow-mention-everyone",
+        "DISCORD_ALLOW_MENTION_EVERYONE",
+      ],
+      ["discord-advanced-allow-mention-roles", "DISCORD_ALLOW_MENTION_ROLES"],
+      ["discord-advanced-allow-mention-users", "DISCORD_ALLOW_MENTION_USERS"],
+      [
+        "discord-advanced-allow-mention-replied-user",
+        "DISCORD_ALLOW_MENTION_REPLIED_USER",
+      ],
+      ["discord-advanced-ignore-no-mention", "DISCORD_IGNORE_NO_MENTION"],
     ] as const;
     for (const [fieldId, envKey] of discordFields) {
       const value = String(fieldValues[fieldId] ?? "").trim();
@@ -142,7 +167,7 @@ export function useMessagingModelProviders(): {
         set[envKey] = value;
       }
     }
-    const allowedUsers = String(fieldValues["messaging-discord-allowed"] ?? "");
+    const allowedUsers = String(fieldValues["discord-allowed-users"] ?? "");
     if (Object.keys(set).length === 0 && allowedUsers.trim().length === 0) {
       setMessagingStatus("Nothing to save for Discord.");
       return;
@@ -150,13 +175,21 @@ export function useMessagingModelProviders(): {
     setMessagingBusy(true);
     setMessagingStatus("Saving and restarting gateway…");
     try {
-      const payload: ModelProvidersSavePayload = { discord: { allowed_users: allowedUsers } };
+      const payload: ModelProvidersSavePayload = {
+        discord: { allowed_users: allowedUsers },
+      };
       if (Object.keys(set).length > 0) {
         payload.env = { set };
       }
-      await applyMutation(payload, "Discord settings updated.", setMessagingStatus);
+      await applyMutation(
+        payload,
+        "Discord settings updated.",
+        setMessagingStatus,
+      );
     } catch (error) {
-      setMessagingStatus(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+      setMessagingStatus(
+        `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setMessagingBusy(false);
     }
@@ -168,8 +201,8 @@ export function useMessagingModelProviders(): {
     }
     const set: Record<string, string> = {};
     for (const [fieldId, envKey] of [
-      ["messaging-slack-bot", "SLACK_BOT_TOKEN"],
-      ["messaging-slack-app", "SLACK_APP_TOKEN"],
+      ["slack-bot-token", "SLACK_BOT_TOKEN"],
+      ["slack-app-token", "SLACK_APP_TOKEN"],
     ] as const) {
       const value = String(fieldValues[fieldId] ?? "").trim();
       if (value.length > 0 && !isConfiguredSecretPlaceholder(value)) {
@@ -194,15 +227,25 @@ export function useMessagingModelProviders(): {
           : `Slack settings written. Gateway restart failed: ${response.restart.error ?? "Unknown error"}`,
       );
     } catch (error) {
-      setMessagingStatus(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+      setMessagingStatus(
+        `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setMessagingBusy(false);
     }
   }, [api, fieldValues, messagingBusy, refreshHints]);
 
   const clearKeys = useCallback(
-    async (label: string, keys: readonly string[], setStatus: (message: string) => void) => {
-      if (!window.confirm(`Remove ${label} keys from data/.env and restart gateway?`)) {
+    async (
+      label: string,
+      keys: readonly string[],
+      setStatus: (message: string) => void,
+    ) => {
+      if (
+        !window.confirm(
+          `Remove ${label} keys from data/.env and restart gateway?`,
+        )
+      ) {
         return;
       }
       const response = await api.postEnvBatch({ remove: [...keys] });
@@ -258,11 +301,13 @@ export function useMessagingModelProviders(): {
         setMessagingStatus,
       );
       setFieldValues({
-        "messaging-discord-token": "",
-        "messaging-discord-allowed": "",
+        "discord-bot-token": "",
+        "discord-allowed-users": "",
       });
     } catch (error) {
-      setMessagingStatus(`Clear failed: ${error instanceof Error ? error.message : String(error)}`);
+      setMessagingStatus(
+        `Clear failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setMessagingBusy(false);
     }
@@ -275,10 +320,16 @@ export function useMessagingModelProviders(): {
     setMessagingBusy(true);
     setMessagingStatus("Removing keys and restarting gateway…");
     try {
-      await clearKeys("Slack", ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"], setMessagingStatus);
-      setFieldValues({ "messaging-slack-bot": "", "messaging-slack-app": "" });
+      await clearKeys(
+        "Slack",
+        ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"],
+        setMessagingStatus,
+      );
+      setFieldValues({ "slack-bot-token": "", "slack-app-token": "" });
     } catch (error) {
-      setMessagingStatus(`Clear failed: ${error instanceof Error ? error.message : String(error)}`);
+      setMessagingStatus(
+        `Clear failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setMessagingBusy(false);
     }
@@ -304,9 +355,9 @@ export function useMessagingModelProviders(): {
       return;
     }
     const model: Record<string, string> = {};
-    const defaultModel = String(fieldValues["mp-yaml-default"] ?? "").trim();
-    const provider = String(fieldValues["mp-yaml-provider"] ?? "").trim();
-    const baseUrl = String(fieldValues["mp-yaml-base-url"] ?? "").trim();
+    const defaultModel = String(fieldValues["model-provider-default-model-id"] ?? "").trim();
+    const provider = String(fieldValues["model-provider-default-model-provider"] ?? "").trim();
+    const baseUrl = String(fieldValues["model-provider-default-model-base-url"] ?? "").trim();
     if (defaultModel) model.default = defaultModel;
     if (provider) model.provider = provider;
     if (baseUrl) model.base_url = baseUrl;
@@ -317,7 +368,11 @@ export function useMessagingModelProviders(): {
     setModelProvidersBusy(true);
     setModelProvidersStatus("Saving…");
     try {
-      await applyMutation({ model }, "Default model written.", setModelProvidersStatus);
+      await applyMutation(
+        { model },
+        "Default model written.",
+        setModelProvidersStatus,
+      );
     } catch (error) {
       setModelProvidersStatus(
         `Save failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -335,13 +390,17 @@ export function useMessagingModelProviders(): {
       await saveProvider(
         "OpenRouter settings written.",
         {
-          ...(String(fieldValues["mp-or-key"] ?? "").trim() &&
-          !isConfiguredSecretPlaceholder(String(fieldValues["mp-or-key"] ?? "").trim())
-            ? { OPENROUTER_API_KEY: String(fieldValues["mp-or-key"]).trim() }
+          ...(String(fieldValues["model-provider-openrouter-api-key"] ?? "").trim() &&
+          !isConfiguredSecretPlaceholder(
+            String(fieldValues["model-provider-openrouter-api-key"] ?? "").trim(),
+          )
+            ? { OPENROUTER_API_KEY: String(fieldValues["model-provider-openrouter-api-key"]).trim() }
             : {}),
-          ...(String(fieldValues["mp-or-base"] ?? "").trim() &&
-          !isConfiguredSecretPlaceholder(String(fieldValues["mp-or-base"] ?? "").trim())
-            ? { OPENROUTER_BASE_URL: String(fieldValues["mp-or-base"]).trim() }
+          ...(String(fieldValues["model-provider-openrouter-base-url"] ?? "").trim() &&
+          !isConfiguredSecretPlaceholder(
+            String(fieldValues["model-provider-openrouter-base-url"] ?? "").trim(),
+          )
+            ? { OPENROUTER_BASE_URL: String(fieldValues["model-provider-openrouter-base-url"]).trim() }
             : {}),
         },
         setModelProvidersStatus,
@@ -382,9 +441,15 @@ export function useMessagingModelProviders(): {
       await saveProvider(
         "Claude settings written.",
         {
-          ...(String(fieldValues["mp-anthropic-key"] ?? "").trim() &&
-          !isConfiguredSecretPlaceholder(String(fieldValues["mp-anthropic-key"] ?? "").trim())
-            ? { ANTHROPIC_API_KEY: String(fieldValues["mp-anthropic-key"]).trim() }
+          ...(String(fieldValues["model-provider-anthropic-api-key"] ?? "").trim() &&
+          !isConfiguredSecretPlaceholder(
+            String(fieldValues["model-provider-anthropic-api-key"] ?? "").trim(),
+          )
+            ? {
+                ANTHROPIC_API_KEY: String(
+                  fieldValues["model-provider-anthropic-api-key"],
+                ).trim(),
+              }
             : {}),
         },
         setModelProvidersStatus,
@@ -425,13 +490,17 @@ export function useMessagingModelProviders(): {
       await saveProvider(
         "OpenAI settings written.",
         {
-          ...(String(fieldValues["mp-openai-key"] ?? "").trim() &&
-          !isConfiguredSecretPlaceholder(String(fieldValues["mp-openai-key"] ?? "").trim())
-            ? { OPENAI_API_KEY: String(fieldValues["mp-openai-key"]).trim() }
+          ...(String(fieldValues["model-provider-openai-api-key"] ?? "").trim() &&
+          !isConfiguredSecretPlaceholder(
+            String(fieldValues["model-provider-openai-api-key"] ?? "").trim(),
+          )
+            ? { OPENAI_API_KEY: String(fieldValues["model-provider-openai-api-key"]).trim() }
             : {}),
-          ...(String(fieldValues["mp-openai-base"] ?? "").trim() &&
-          !isConfiguredSecretPlaceholder(String(fieldValues["mp-openai-base"] ?? "").trim())
-            ? { OPENAI_BASE_URL: String(fieldValues["mp-openai-base"]).trim() }
+          ...(String(fieldValues["model-provider-openai-base-url"] ?? "").trim() &&
+          !isConfiguredSecretPlaceholder(
+            String(fieldValues["model-provider-openai-base-url"] ?? "").trim(),
+          )
+            ? { OPENAI_BASE_URL: String(fieldValues["model-provider-openai-base-url"]).trim() }
             : {}),
         },
         setModelProvidersStatus,
@@ -469,16 +538,16 @@ export function useMessagingModelProviders(): {
     setModelProvidersBusy(true);
     setModelProvidersStatus("Saving…");
     try {
+      const googleKey = String(fieldValues["model-provider-google-api-key"] ?? "").trim();
+      const geminiBase = String(fieldValues["model-provider-gemini-base-url"] ?? "").trim();
       await saveProvider(
         "Gemini settings written.",
         {
-          ...(String(fieldValues["mp-google-key"] ?? "").trim() &&
-          !isConfiguredSecretPlaceholder(String(fieldValues["mp-google-key"] ?? "").trim())
-            ? { GOOGLE_API_KEY: String(fieldValues["mp-google-key"]).trim() }
+          ...(googleKey.length > 0 && !isConfiguredSecretPlaceholder(googleKey)
+            ? { GOOGLE_API_KEY: googleKey }
             : {}),
-          ...(String(fieldValues["mp-gemini-base"] ?? "").trim() &&
-          !isConfiguredSecretPlaceholder(String(fieldValues["mp-gemini-base"] ?? "").trim())
-            ? { GEMINI_BASE_URL: String(fieldValues["mp-gemini-base"]).trim() }
+          ...(geminiBase.length > 0 && !isConfiguredSecretPlaceholder(geminiBase)
+            ? { GEMINI_BASE_URL: geminiBase }
             : {}),
         },
         setModelProvidersStatus,

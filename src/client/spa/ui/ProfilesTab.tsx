@@ -1,4 +1,6 @@
 import type { ProfileFileKind } from "../../../server/types";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
 import { MarkdownEditor } from "../../components/MarkdownEditor";
 import { useProfileFilesTab } from "../../hooks/useProfileFilesTab";
 import { useProfilesTab } from "../../hooks/useProfilesTab";
@@ -11,13 +13,13 @@ export function ProfilesTab() {
     const file = profileFiles.files[kind];
     const dirty = file.content !== file.savedContent;
     return (
-      <article className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-frosted bg-background p-3">
+      <Card className="flex min-h-0 min-w-0 flex-1 flex-col p-3">
         <div className="mb-3 flex items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-text">{title}</p>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
-              className="rounded-full bg-frosted px-3 py-1 text-xs text-text"
+              variant="secondary"
               onClick={() => {
                 if (dirty && !window.confirm("Discard unsaved changes?")) {
                   return;
@@ -26,15 +28,15 @@ export function ProfilesTab() {
               }}
             >
               Reload
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="rounded-full bg-text px-3 py-1 text-xs text-background disabled:opacity-50"
+              variant="primary"
               disabled={!file.loaded || file.saving || !dirty}
               onClick={() => void profileFiles.save(kind)}
             >
               Save
-            </button>
+            </Button>
           </div>
         </div>
         <p className="mb-2 text-xs text-muted">
@@ -52,7 +54,7 @@ export function ProfilesTab() {
         <p className="mt-2 text-xs text-muted" role="status" aria-live="polite">
           {file.status}
         </p>
-      </article>
+      </Card>
     );
   };
 
@@ -66,26 +68,26 @@ export function ProfilesTab() {
           {`Active: ${profiles.list.active ?? "default"} (${profiles.list.profiles.length} profile${profiles.list.profiles.length === 1 ? "" : "s"})`}
         </p>
         <div className="flex gap-2">
-          <button
+          <Button
             id="profiles-reload"
             type="button"
-            className="rounded-full bg-frosted px-3 py-1 text-xs text-text"
+            variant="secondary"
             onClick={() => void profiles.refresh()}
           >
             Reload
-          </button>
-          <button
+          </Button>
+          <Button
             id="profiles-new"
             type="button"
-            className="rounded-full bg-text px-3 py-1 text-xs text-background"
+            variant="primary"
             onClick={() => void profiles.create()}
           >
             New profile
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div id="profiles-list" className="mb-3 overflow-auto rounded-lg border border-frosted">
+      <Card id="profiles-list" className="mb-3 overflow-auto">
         <table className="w-full border-collapse text-xs">
           <tbody>
             {profiles.list.profiles.length === 0 ? (
@@ -112,30 +114,33 @@ export function ProfilesTab() {
                     <td className="px-3 py-2 text-right">
                       <div className="flex justify-end gap-1">
                         {!profile.active ? (
-                          <button
+                          <Button
                             type="button"
-                            className="rounded-full bg-frosted px-2 py-1 text-[11px] text-text"
+                            variant="secondary"
+                            className="px-2 py-1 text-[11px]"
                             onClick={() => void profiles.activate(profile.name)}
                           >
                             Activate
-                          </button>
+                          </Button>
                         ) : null}
                         {profileName !== null ? (
                           <>
-                            <button
+                            <Button
                               type="button"
-                              className="rounded-full bg-frosted px-2 py-1 text-[11px] text-text"
+                              variant="secondary"
+                              className="px-2 py-1 text-[11px]"
                               onClick={() => void profiles.rename(profileName)}
                             >
                               Rename
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
-                              className="rounded-full bg-frosted px-2 py-1 text-[11px] text-danger"
+                              variant="danger"
+                              className="px-2 py-1 text-[11px]"
                               onClick={() => void profiles.remove(profileName)}
                             >
                               Delete
-                            </button>
+                            </Button>
                           </>
                         ) : null}
                       </div>
@@ -146,7 +151,7 @@ export function ProfilesTab() {
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       <p id="profiles-status" className="mt-3 text-xs text-muted" role="status" aria-live="polite">
         {profiles.status}

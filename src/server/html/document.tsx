@@ -1,4 +1,7 @@
-export function renderHtmlDocument(title: string, initialStatus: string): string {
+export function renderHtmlDocument(
+  title: string,
+  initialStatus: string,
+): string {
   const decodedStatus = decodeURIComponent(initialStatus);
   return `<!doctype html>
 <html lang="en">

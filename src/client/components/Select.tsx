@@ -18,7 +18,7 @@ export function SelectTrigger({ className, ...props }: SelectTriggerProps) {
   return (
     <BaseSelect.Trigger
       className={cn(
-        "inline-flex min-w-[140px] items-center justify-between rounded-md border border-frosted bg-background px-2 py-1 text-xs text-text outline-none",
+        "inline-flex min-w-[140px] items-center justify-between rounded-md border border-accent-border/70 bg-surface px-2 py-1.5 text-xs text-text outline-none focus:border-accent",
         className,
       )}
       {...props}
@@ -36,7 +36,7 @@ export function SelectContent({ className, ...props }: SelectContentProps) {
       <BaseSelect.Positioner sideOffset={4}>
         <BaseSelect.Popup
           className={cn(
-            "z-50 min-w-(--anchor-width) rounded-md border border-frosted bg-background p-1 shadow-xl",
+            "z-50 min-w-(--anchor-width) rounded-md border border-accent-border/80 bg-surface p-1 shadow-xl",
             className,
           )}
           {...props}
@@ -50,7 +50,7 @@ export function SelectItem({ className, ...props }: SelectItemProps) {
   return (
     <BaseSelect.Item
       className={cn(
-        "cursor-pointer rounded-sm px-2 py-1 text-xs text-text data-highlighted:bg-frosted/50",
+        "cursor-pointer rounded-sm px-2 py-1 text-xs text-text data-highlighted:bg-accent/20",
         className,
       )}
       {...props}

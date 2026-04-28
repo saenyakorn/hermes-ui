@@ -4,7 +4,7 @@ import { ApiFetcher } from "../api-fetcher";
 import {
   resolveAllWorkspaceIntegrationFieldValues,
   type IntegrationFieldValues,
-} from "./workspaceFieldSources";
+} from "./useWorkspaceFieldSources";
 
 export function useWorkspaceIntegrations(): {
   fieldValues: IntegrationFieldValues;

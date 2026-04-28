@@ -31,16 +31,14 @@ export type ActionConfig<TAction extends string> = {
   action: TAction;
 };
 
-const inputClass =
-  "rounded-md border border-frosted bg-surface px-2 py-2 text-xs text-text outline-none";
-const compactInputClass =
-  "rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none";
+const inputClass = "";
+const compactInputClass = "py-1.5";
 const selectTriggerClass =
-  "inline-flex w-full items-center justify-between rounded-md border border-frosted bg-surface px-2 py-1.5 text-xs text-text outline-none";
+  "inline-flex w-full items-center justify-between rounded-md border border-accent-border/70 bg-surface px-2 py-1.5 text-xs text-text outline-none focus:border-accent";
 const selectPopupClass =
-  "z-50 min-w-[var(--anchor-width)] rounded-md border border-frosted bg-background p-1 shadow-xl";
+  "z-50 min-w-[var(--anchor-width)] rounded-md border border-accent-border/80 bg-surface p-1 shadow-xl";
 const selectItemClass =
-  "cursor-pointer rounded-sm px-2 py-1 text-xs text-text data-[highlighted]:bg-frosted/50";
+  "cursor-pointer rounded-sm px-2 py-1 text-xs text-text data-[highlighted]:bg-accent/20";
 
 export function FormInput({
   config,
@@ -55,14 +53,16 @@ export function FormInput({
 }) {
   return (
     <Field.Root className={config.className}>
-      <Field.Label className="sr-only">{config.label}</Field.Label>
+      <Field.Label className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
+        {config.label}
+      </Field.Label>
       <Input
         id={config.id}
         data-discord-key={config.dataDiscordKey}
         type={config.type ?? "text"}
         autoComplete={config.autoComplete}
-        placeholder={config.placeholder}
-        className={cn(compact ? compactInputClass : inputClass)}
+        placeholder={config.placeholder ?? `Enter ${config.label.toLowerCase()}`}
+        className={cn(inputClass, compact && compactInputClass)}
         value={value}
         onChange={(event) => {
           onChange(config.id, event.target.value);
@@ -83,7 +83,9 @@ export function FormSelect({
 }) {
   return (
     <Field.Root className={config.className}>
-      <Field.Label className="sr-only">{config.label}</Field.Label>
+      <Field.Label className="mb-1 block text-[11px] uppercase tracking-[0.12em] text-muted">
+        {config.label}
+      </Field.Label>
       <Select.Root
         id={config.id}
         value={value}
@@ -134,9 +136,10 @@ export function ActionButton({
       id={actionId}
       type="button"
       className={cn(
-        "rounded-full px-3 py-2 text-xs disabled:opacity-50",
-        kind === "primary" ? "bg-text text-background" : "bg-frosted text-text",
+        "px-3 py-2 text-xs",
+        kind === "primary" ? "border-accent bg-accent text-background" : "border-accent-border bg-surface text-text",
       )}
+      variant={kind === "primary" ? "primary" : "secondary"}
       disabled={disabled}
       onClick={onClick}
     >
