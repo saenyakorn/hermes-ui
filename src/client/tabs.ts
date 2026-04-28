@@ -11,7 +11,8 @@ export type TabKey =
   | "env"
   | "messaging"
   | "model-providers"
-  | "profiles";
+  | "profiles"
+  | "sessions";
 
 const LAST_OPEN_TAB_STORAGE_KEY = "hermes.workspace.lastOpenTab";
 
@@ -24,7 +25,8 @@ function isTabKey(value: string): value is TabKey {
     value === "env" ||
     value === "messaging" ||
     value === "model-providers" ||
-    value === "profiles"
+    value === "profiles" ||
+    value === "sessions"
   );
 }
 
@@ -105,6 +107,9 @@ export function wireTabs(deps: WireTabsDeps): void {
     if (tab === "profiles") {
       window.dispatchEvent(new CustomEvent("profiles:tab-shown"));
     }
+    if (tab === "sessions") {
+      window.dispatchEvent(new CustomEvent("sessions:tab-shown"));
+    }
   };
 
   const applyStoredOrDefaultTab = (): void => {
@@ -146,7 +151,8 @@ export function wireTabs(deps: WireTabsDeps): void {
       key === "env" ||
       key === "messaging" ||
       key === "model-providers" ||
-      key === "profiles"
+      key === "profiles" ||
+      key === "sessions"
     ) {
       setActiveTab(key);
     }

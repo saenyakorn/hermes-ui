@@ -10,6 +10,7 @@ import { renderMessagingEnvHint, setupMessagingPlatform } from "./messaging-ui";
 import { setupModelProviders } from "./model-providers-ui";
 import { ProfileFilesUI } from "./profile-files-ui";
 import { ProfilesUI } from "./profiles-ui";
+import { SessionsUI } from "./sessions-ui";
 import { setupTerminal } from "./terminal-ui";
 import { wireTabs } from "./tabs";
 import type { HermesWorkspaceDeps } from "./workspace-deps";
@@ -69,6 +70,7 @@ function main(): void {
   };
 
   const profileFilesUI = new ProfileFilesUI(api);
+  const sessionsUI = new SessionsUI(api);
   const profilesUI = new ProfilesUI({
     api,
     files: profileFilesUI,
@@ -80,6 +82,7 @@ function main(): void {
       void configConfigurator.loadFromServer();
       void envConfigurator.loadEnvVars();
       void profileFilesUI.reloadAll();
+      sessionsUI.setProfile(detail.active);
       void refreshGatewayStatus(api, queryClient);
       shellTerminal?.dispose();
       const terminalHost = document.getElementById("terminal");
@@ -109,6 +112,7 @@ function main(): void {
   setupModelProviders(workspace);
   void profileFilesUI.setup();
   void profilesUI.setup();
+  void sessionsUI.setup();
 }
 
 main();

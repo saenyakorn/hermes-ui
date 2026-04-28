@@ -76,7 +76,9 @@ describe("ProfileResolver", () => {
       flag: "w",
     }).catch(async () => {
       // ENOENT for missing data/ — create it then retry.
-      await import("node:fs/promises").then((fs) => fs.mkdir(path.join(rootDir, "data"), { recursive: true }));
+      await import("node:fs/promises").then((fs) =>
+        fs.mkdir(path.join(rootDir, "data"), { recursive: true }),
+      );
       await writeFile(path.join(rootDir, "data", ".active_profile"), "coder");
     });
     const resolver = new ProfileResolver(rootDir);
@@ -111,9 +113,7 @@ describe("ProfileResolver", () => {
 
     await resolver.setActive(null);
     expect(resolver.getActive()).toBeNull();
-    await expect(
-      readFile(path.join(rootDir, "data", ".active_profile"), "utf8"),
-    ).rejects.toThrow();
+    await expect(readFile(path.join(rootDir, "data", ".active_profile"), "utf8")).rejects.toThrow();
     expect(listener).toHaveBeenLastCalledWith(null);
   });
 
@@ -138,8 +138,15 @@ describe("services follow profile switches", () => {
 
     const resolver = new ProfileResolver(rootDir);
     await resolver.initialize();
-    const logs = new LogStore(() => resolver.getLogsDir(), () => "2026-04-26T10:30:00.000Z");
-    const config = new ConfigStore(() => resolver.getDataDir(), logs, () => "2026-04-26T10:30:00.000Z");
+    const logs = new LogStore(
+      () => resolver.getLogsDir(),
+      () => "2026-04-26T10:30:00.000Z",
+    );
+    const config = new ConfigStore(
+      () => resolver.getDataDir(),
+      logs,
+      () => "2026-04-26T10:30:00.000Z",
+    );
 
     const beforeSwitch = await config.read();
     expect(beforeSwitch.content).toBe("default: true\n");
@@ -155,12 +162,21 @@ describe("services follow profile switches", () => {
     const coderLogs = path.join(rootDir, "data", "profiles", "coder", "logs");
     await fs.mkdir(defaultLogs, { recursive: true });
     await fs.mkdir(coderLogs, { recursive: true });
-    await writeFile(path.join(defaultLogs, "2026-04-26.log"), "[2026-04-26T10:30:00.000Z] [gateway] default\n");
-    await writeFile(path.join(coderLogs, "2026-04-26.log"), "[2026-04-26T10:30:00.000Z] [gateway] coder\n");
+    await writeFile(
+      path.join(defaultLogs, "2026-04-26.log"),
+      "[2026-04-26T10:30:00.000Z] [gateway] default\n",
+    );
+    await writeFile(
+      path.join(coderLogs, "2026-04-26.log"),
+      "[2026-04-26T10:30:00.000Z] [gateway] coder\n",
+    );
 
     const resolver = new ProfileResolver(rootDir);
     await resolver.initialize();
-    const logs = new LogStore(() => resolver.getLogsDir(), () => "2026-04-26T10:30:00.000Z");
+    const logs = new LogStore(
+      () => resolver.getLogsDir(),
+      () => "2026-04-26T10:30:00.000Z",
+    );
 
     const beforeSwitch = await logs.tail(10);
     expect(beforeSwitch.lines.at(-1)).toContain("default");
@@ -176,7 +192,10 @@ describe("services follow profile switches", () => {
 
     const resolver = new ProfileResolver(rootDir);
     await resolver.initialize();
-    const logs = new LogStore(() => resolver.getLogsDir(), () => "2026-04-26T10:30:00.000Z");
+    const logs = new LogStore(
+      () => resolver.getLogsDir(),
+      () => "2026-04-26T10:30:00.000Z",
+    );
 
     const child = createFakeChild(1234);
     const spawnGateway: SpawnGateway = vi.fn(() => child);

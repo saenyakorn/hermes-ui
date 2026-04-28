@@ -61,14 +61,14 @@ npm start
 
 ## Scripts
 
-| Command | Purpose |
-|--------|---------|
-| `npm run dev` | Development server with watch |
-| `npm run build` | Bundle server + client, Tailwind, Monaco, htmx assets into `dist/` |
-| `npm start` | Production entry (`dist/index.js`) |
-| `npm test` | Vitest test suite |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` / `npm run format` | Oxlint / Oxfmt |
+| Command                           | Purpose                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `npm run dev`                     | Development server with watch                                      |
+| `npm run build`                   | Bundle server + client, Tailwind, Monaco, htmx assets into `dist/` |
+| `npm start`                       | Production entry (`dist/index.js`)                                 |
+| `npm test`                        | Vitest test suite                                                  |
+| `npm run typecheck`               | `tsc --noEmit`                                                     |
+| `npm run lint` / `npm run format` | Oxlint / Oxfmt                                                     |
 
 ## Architecture
 

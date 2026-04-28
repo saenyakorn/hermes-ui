@@ -191,7 +191,9 @@ function modelProviderNameFromEnvKey(envKey: string): ModelProviderName | null {
   return null;
 }
 
-function buildModelProviderEnvKeysByProvider(): Readonly<Record<ModelProviderName, readonly string[]>> {
+function buildModelProviderEnvKeysByProvider(): Readonly<
+  Record<ModelProviderName, readonly string[]>
+> {
   const perProvider = new Map<ModelProviderName, string[]>(
     MODEL_PROVIDER_ORDER.map((provider) => [provider, []]),
   );
@@ -212,7 +214,10 @@ function buildModelProviderEnvKeysByProvider(): Readonly<Record<ModelProviderNam
     }
   }
   return Object.fromEntries(
-    MODEL_PROVIDER_ORDER.map((provider) => [provider, Object.freeze([...(perProvider.get(provider) ?? [])])]),
+    MODEL_PROVIDER_ORDER.map((provider) => [
+      provider,
+      Object.freeze([...(perProvider.get(provider) ?? [])]),
+    ]),
   ) as Readonly<Record<ModelProviderName, readonly string[]>>;
 }
 

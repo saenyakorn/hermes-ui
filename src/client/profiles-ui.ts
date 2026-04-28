@@ -145,9 +145,7 @@ export class ProfilesUI {
   private wireCreateDialog(): void {
     const newButton = document.getElementById("profiles-new");
     const dialog = this.requireDialog("profiles-create-dialog");
-    const cancel = document.querySelector<HTMLButtonElement>(
-      "[data-profiles-create-cancel]",
-    );
+    const cancel = document.querySelector<HTMLButtonElement>("[data-profiles-create-cancel]");
     const form = document.getElementById("profiles-create-form");
 
     newButton?.addEventListener("click", () => {
@@ -164,9 +162,7 @@ export class ProfilesUI {
 
   private wireRenameDialog(): void {
     const dialog = this.requireDialog("profiles-rename-dialog");
-    const cancel = document.querySelector<HTMLButtonElement>(
-      "[data-profiles-rename-cancel]",
-    );
+    const cancel = document.querySelector<HTMLButtonElement>("[data-profiles-rename-cancel]");
     const form = document.getElementById("profiles-rename-form");
 
     cancel?.addEventListener("click", () => {
@@ -421,9 +417,7 @@ export class ProfilesUI {
     }
     if (profile.name !== null) {
       actionWrap.append(this.makeActionButton("rename", profileKey, "Rename"));
-      actionWrap.append(
-        this.makeActionButton("delete", profileKey, "Delete", "text-danger"),
-      );
+      actionWrap.append(this.makeActionButton("delete", profileKey, "Delete", "text-danger"));
     }
     actionsCell.append(actionWrap);
     row.append(actionsCell);
@@ -441,7 +435,8 @@ export class ProfilesUI {
     button.type = "button";
     button.dataset.profileAction = action;
     button.dataset.profileName = name;
-    button.className = `rounded-full bg-frosted px-2 py-1 text-[11px] text-text ${extraClass}`.trim();
+    button.className =
+      `rounded-full bg-frosted px-2 py-1 text-[11px] text-text ${extraClass}`.trim();
     button.textContent = label;
     return button;
   }

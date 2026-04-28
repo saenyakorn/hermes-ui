@@ -69,6 +69,13 @@ export function WorkspaceTabStrip() {
       >
         Profiles
       </button>
+      <button
+        type="button"
+        data-tab-trigger="sessions"
+        class="rounded-full px-4 py-2 text-sm text-muted"
+      >
+        Sessions
+      </button>
     </div>
   );
 }

@@ -83,9 +83,7 @@ export class ProfileFilesUI {
     const reload = document.querySelector<HTMLButtonElement>(
       `[data-profile-file-reload="${kind}"]`,
     );
-    const save = document.querySelector<HTMLButtonElement>(
-      `[data-profile-file-save="${kind}"]`,
-    );
+    const save = document.querySelector<HTMLButtonElement>(`[data-profile-file-save="${kind}"]`);
     reload?.addEventListener("click", () => {
       void this.reloadWithConfirmation(kind);
     });

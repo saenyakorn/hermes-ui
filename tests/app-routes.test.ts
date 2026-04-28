@@ -154,6 +154,70 @@ function createServices(): AppServices {
         saved: true as const,
       })),
     },
+    profileSessions: {
+      list: vi.fn(async (profile) => ({ profile, sessions: [] })),
+      get: vi.fn(async (profile, id) => ({
+        profile,
+        session: {
+          profile,
+          id,
+          name: "Session",
+          archived: false,
+          createdAt: "2026-04-29T00:00:00.000Z",
+          updatedAt: "2026-04-29T00:00:00.000Z",
+          chat: "",
+        },
+      })),
+      create: vi.fn(async (profile, input) => ({
+        profile,
+        session: {
+          profile,
+          id: "session-1",
+          name: input.name,
+          archived: false,
+          createdAt: "2026-04-29T00:00:00.000Z",
+          updatedAt: "2026-04-29T00:00:00.000Z",
+          chat: "",
+        },
+      })),
+      rename: vi.fn(async (profile, id, input) => ({
+        profile,
+        session: {
+          profile,
+          id,
+          name: input.name,
+          archived: false,
+          createdAt: "2026-04-29T00:00:00.000Z",
+          updatedAt: "2026-04-29T00:00:00.000Z",
+          chat: "",
+        },
+      })),
+      archive: vi.fn(async (profile, id) => ({
+        profile,
+        session: {
+          profile,
+          id,
+          name: "Session",
+          archived: true,
+          createdAt: "2026-04-29T00:00:00.000Z",
+          updatedAt: "2026-04-29T00:00:00.000Z",
+          chat: "",
+        },
+      })),
+      restore: vi.fn(async (profile, id) => ({
+        profile,
+        session: {
+          profile,
+          id,
+          name: "Session",
+          archived: false,
+          createdAt: "2026-04-29T00:00:00.000Z",
+          updatedAt: "2026-04-29T00:00:00.000Z",
+          chat: "",
+        },
+      })),
+      remove: vi.fn(async (profile, id) => ({ profile, id, deleted: true as const })),
+    },
   };
 }
 
@@ -799,5 +863,68 @@ describe("createApp", () => {
 
     expect(response.status).toBe(400);
     expect(services.profileFiles.write).not.toHaveBeenCalled();
+  });
+
+  it("lists profile sessions", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/default/sessions", {
+      headers: { authorization: auth },
+    });
+    expect(response.status).toBe(200);
+    expect(services.profileSessions.list).toHaveBeenCalledWith(null);
+  });
+
+  it("creates and renames a profile session", async () => {
+    const services = createServices();
+    const createResponse = await createApp(services).request("/profiles/coder/sessions", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Sprint" }),
+    });
+    expect(createResponse.status).toBe(200);
+    expect(services.profileSessions.create).toHaveBeenCalledWith("coder", { name: "Sprint" });
+
+    const renameResponse = await createApp(services).request("/profiles/coder/sessions/session-1", {
+      method: "PUT",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Renamed" }),
+    });
+    expect(renameResponse.status).toBe(200);
+    expect(services.profileSessions.rename).toHaveBeenCalledWith("coder", "session-1", {
+      name: "Renamed",
+    });
+  });
+
+  it("archives, restores, and deletes profile sessions", async () => {
+    const services = createServices();
+    const archiveResponse = await createApp(services).request(
+      "/profiles/default/sessions/session-1/archive",
+      {
+        method: "POST",
+        headers: { authorization: auth },
+      },
+    );
+    expect(archiveResponse.status).toBe(200);
+    expect(services.profileSessions.archive).toHaveBeenCalledWith(null, "session-1");
+
+    const restoreResponse = await createApp(services).request(
+      "/profiles/default/sessions/session-1/restore",
+      {
+        method: "POST",
+        headers: { authorization: auth },
+      },
+    );
+    expect(restoreResponse.status).toBe(200);
+    expect(services.profileSessions.restore).toHaveBeenCalledWith(null, "session-1");
+
+    const deleteResponse = await createApp(services).request(
+      "/profiles/default/sessions/session-1",
+      {
+        method: "DELETE",
+        headers: { authorization: auth },
+      },
+    );
+    expect(deleteResponse.status).toBe(200);
+    expect(services.profileSessions.remove).toHaveBeenCalledWith(null, "session-1");
   });
 });

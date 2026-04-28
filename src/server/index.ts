@@ -12,6 +12,7 @@ import { GatewayManager } from "./services/gateway-manager";
 import { LogStore } from "./services/log-store";
 import { createPaths, ProfileResolver } from "./services/paths";
 import { ProfileFiles } from "./services/profile-files";
+import { ProfileSessionsStore } from "./services/profile-sessions";
 import { ProfileStore } from "./services/profile-store";
 import { TerminalManager } from "./services/terminal-manager";
 import { attachSocketServer } from "./socket";
@@ -28,6 +29,7 @@ export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir =
   const terminals = new TerminalManager(() => profileResolver.getDataDir());
   const profiles = new ProfileStore(rootDir, profileResolver, logs);
   const profileFiles = new ProfileFiles(profileResolver);
+  const profileSessions = new ProfileSessionsStore(profileResolver);
 
   return {
     env,
@@ -41,6 +43,7 @@ export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir =
     terminals,
     profiles,
     profileFiles,
+    profileSessions,
   };
 }
 
@@ -68,6 +71,7 @@ export async function main(): Promise<void> {
     envVars: runtime.envVars,
     profiles: runtime.profiles,
     profileFiles: runtime.profileFiles,
+    profileSessions: runtime.profileSessions,
   });
   const server = createServer(getRequestListener(app.fetch));
 

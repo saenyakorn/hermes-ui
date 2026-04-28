@@ -16,6 +16,11 @@ import type {
   ProfileFileWriteResult,
   ProfileListResult,
   ProfileMutationResult,
+  ProfileSessionCreateInput,
+  ProfileSessionDeleteResult,
+  ProfileSessionGetResult,
+  ProfileSessionListResult,
+  ProfileSessionRenameInput,
   WorkspaceConfigHints,
 } from "../server/types";
 import { getResponseErrorMessage, isErrorResponse } from "./lib/errors";
@@ -258,5 +263,116 @@ export class ApiFetcher {
       throw new Error(await getResponseErrorMessage(response));
     }
     return response.json() as Promise<ProfileFileWriteResult>;
+  }
+
+  async getProfileSessions(profile: string | null): Promise<ProfileSessionListResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions`,
+      {
+        credentials: "include",
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileSessionListResult>;
+  }
+
+  async getProfileSession(profile: string | null, id: string): Promise<ProfileSessionGetResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}`,
+      {
+        credentials: "include",
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileSessionGetResult>;
+  }
+
+  async postProfileSession(
+    profile: string | null,
+    input: ProfileSessionCreateInput,
+  ): Promise<ProfileSessionGetResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileSessionGetResult>;
+  }
+
+  async putProfileSessionRename(
+    profile: string | null,
+    id: string,
+    input: ProfileSessionRenameInput,
+  ): Promise<ProfileSessionGetResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileSessionGetResult>;
+  }
+
+  async postProfileSessionArchive(
+    profile: string | null,
+    id: string,
+  ): Promise<ProfileSessionGetResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}/archive`,
+      {
+        method: "POST",
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileSessionGetResult>;
+  }
+
+  async postProfileSessionRestore(
+    profile: string | null,
+    id: string,
+  ): Promise<ProfileSessionGetResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}/restore`,
+      {
+        method: "POST",
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileSessionGetResult>;
+  }
+
+  async deleteProfileSession(
+    profile: string | null,
+    id: string,
+  ): Promise<ProfileSessionDeleteResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileSessionDeleteResult>;
   }
 }

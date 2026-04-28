@@ -54,12 +54,7 @@ export function ProfilesTabPanel() {
           </table>
         </div>
 
-        <p
-          id="profiles-status"
-          class="mt-3 text-xs text-muted"
-          role="status"
-          aria-live="polite"
-        >
+        <p id="profiles-status" class="mt-3 text-xs text-muted" role="status" aria-live="polite">
           Ready.
         </p>
 
@@ -89,10 +84,7 @@ function ProfileFileCard({ kind, title, subtitle }: ProfileFileCardProps) {
         <div>
           <p class="text-sm text-text">{title}</p>
           <p class="text-xs text-muted">{subtitle}</p>
-          <p
-            data-profile-file-path={kind}
-            class="mt-1 text-[11px] text-muted"
-          >
+          <p data-profile-file-path={kind} class="mt-1 text-[11px] text-muted">
             -
           </p>
         </div>
@@ -196,11 +188,7 @@ function ProfileCreateDialog() {
             <option value="">(active profile)</option>
           </select>
         </label>
-        <p
-          id="profiles-create-error"
-          class="hidden text-[11px] text-danger"
-          role="alert"
-        />
+        <p id="profiles-create-error" class="hidden text-[11px] text-danger" role="alert" />
         <div class="mt-1 flex justify-end gap-2">
           <button
             type="button"
@@ -209,10 +197,7 @@ function ProfileCreateDialog() {
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            class="rounded-full bg-text px-3 py-1 text-xs text-background"
-          >
+          <button type="submit" class="rounded-full bg-text px-3 py-1 text-xs text-background">
             Create
           </button>
         </div>
@@ -245,11 +230,7 @@ function ProfileRenameDialog() {
             class="rounded-md border border-frosted bg-background px-2 py-1 text-xs text-text outline-none"
           />
         </label>
-        <p
-          id="profiles-rename-error"
-          class="hidden text-[11px] text-danger"
-          role="alert"
-        />
+        <p id="profiles-rename-error" class="hidden text-[11px] text-danger" role="alert" />
         <div class="mt-1 flex justify-end gap-2">
           <button
             type="button"
@@ -258,10 +239,7 @@ function ProfileRenameDialog() {
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            class="rounded-full bg-text px-3 py-1 text-xs text-background"
-          >
+          <button type="submit" class="rounded-full bg-text px-3 py-1 text-xs text-background">
             Rename
           </button>
         </div>

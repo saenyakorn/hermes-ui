@@ -19,8 +19,17 @@ afterEach(async () => {
 
 function createStore(runHermes: RunHermes): { store: ProfileStore; resolver: ProfileResolver } {
   const resolver = new ProfileResolver(rootDir);
-  const logs = new LogStore(() => resolver.getLogsDir(), () => "2026-04-29T00:00:00.000Z");
-  const store = new ProfileStore(rootDir, resolver, logs, runHermes, () => "2026-04-29T00:00:00.000Z");
+  const logs = new LogStore(
+    () => resolver.getLogsDir(),
+    () => "2026-04-29T00:00:00.000Z",
+  );
+  const store = new ProfileStore(
+    rootDir,
+    resolver,
+    logs,
+    runHermes,
+    () => "2026-04-29T00:00:00.000Z",
+  );
   return { store, resolver };
 }
 

@@ -189,3 +189,38 @@ export type ProfileFileReadResult = {
 export type ProfileFileWriteResult = ProfileFileReadResult & {
   saved: true;
 };
+
+export type ProfileSession = {
+  profile: string | null;
+  id: string;
+  name: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProfileSessionListResult = {
+  profile: string | null;
+  sessions: ProfileSession[];
+};
+
+export type ProfileSessionGetResult = {
+  profile: string | null;
+  session: ProfileSession & {
+    chat: string;
+  };
+};
+
+export type ProfileSessionCreateInput = {
+  name: string;
+};
+
+export type ProfileSessionRenameInput = {
+  name: string;
+};
+
+export type ProfileSessionDeleteResult = {
+  profile: string | null;
+  id: string;
+  deleted: true;
+};

@@ -20,6 +20,11 @@ import type {
   ProfileFileWriteResult,
   ProfileListResult,
   ProfileMutationResult,
+  ProfileSessionCreateInput,
+  ProfileSessionDeleteResult,
+  ProfileSessionGetResult,
+  ProfileSessionListResult,
+  ProfileSessionRenameInput,
   WorkspaceConfigHints,
 } from "./types";
 
@@ -52,7 +57,11 @@ export type AppProfiles = {
   remove: (name: string) => Promise<ProfileMutationResult>;
   activate: (
     name: string | null,
-    gateway: { status: () => GatewayStatus; stop: () => Promise<GatewayStatus>; start: () => Promise<GatewayStatus> },
+    gateway: {
+      status: () => GatewayStatus;
+      stop: () => Promise<GatewayStatus>;
+      start: () => Promise<GatewayStatus>;
+    },
   ) => Promise<ProfileActivateResult>;
 };
 
@@ -63,6 +72,23 @@ export type AppProfileFiles = {
     kind: ProfileFileKind,
     content: string,
   ) => Promise<ProfileFileWriteResult>;
+};
+
+export type AppProfileSessions = {
+  list: (profile: string | null) => Promise<ProfileSessionListResult>;
+  get: (profile: string | null, id: string) => Promise<ProfileSessionGetResult>;
+  create: (
+    profile: string | null,
+    input: ProfileSessionCreateInput,
+  ) => Promise<ProfileSessionGetResult>;
+  rename: (
+    profile: string | null,
+    id: string,
+    input: ProfileSessionRenameInput,
+  ) => Promise<ProfileSessionGetResult>;
+  archive: (profile: string | null, id: string) => Promise<ProfileSessionGetResult>;
+  restore: (profile: string | null, id: string) => Promise<ProfileSessionGetResult>;
+  remove: (profile: string | null, id: string) => Promise<ProfileSessionDeleteResult>;
 };
 
 export type AppServices = {
@@ -81,6 +107,7 @@ export type AppServices = {
   };
   profiles: AppProfiles;
   profileFiles: AppProfileFiles;
+  profileSessions: AppProfileSessions;
 };
 
 export function createApp(services: AppServices) {
@@ -354,10 +381,7 @@ export function createApp(services: AppServices) {
       try {
         return context.json(await services.profiles.list());
       } catch (cause: unknown) {
-        return context.json(
-          { error: `Failed to list profiles: ${getErrorMessage(cause)}` },
-          500,
-        );
+        return context.json({ error: `Failed to list profiles: ${getErrorMessage(cause)}` }, 500);
       }
     })
     .post("/profiles", async (context) => {
@@ -374,10 +398,7 @@ export function createApp(services: AppServices) {
       try {
         return context.json(await services.profiles.create(input));
       } catch (cause: unknown) {
-        return context.json(
-          { error: `Failed to create profile: ${getErrorMessage(cause)}` },
-          400,
-        );
+        return context.json({ error: `Failed to create profile: ${getErrorMessage(cause)}` }, 400);
       }
     })
     .put("/profiles/:name", async (context) => {
@@ -392,10 +413,7 @@ export function createApp(services: AppServices) {
       try {
         return context.json(await services.profiles.rename(from, body.to));
       } catch (cause: unknown) {
-        return context.json(
-          { error: `Failed to rename profile: ${getErrorMessage(cause)}` },
-          400,
-        );
+        return context.json({ error: `Failed to rename profile: ${getErrorMessage(cause)}` }, 400);
       }
     })
     .delete("/profiles/:name", async (context) => {
@@ -406,10 +424,7 @@ export function createApp(services: AppServices) {
       try {
         return context.json(await services.profiles.remove(name));
       } catch (cause: unknown) {
-        return context.json(
-          { error: `Failed to delete profile: ${getErrorMessage(cause)}` },
-          400,
-        );
+        return context.json({ error: `Failed to delete profile: ${getErrorMessage(cause)}` }, 400);
       }
     })
     .post("/profiles/:name/activate", async (context) => {
@@ -436,10 +451,7 @@ export function createApp(services: AppServices) {
       }
       const kind = parseProfileFileKind(kindParam);
       if (kind === null) {
-        return context.json(
-          { error: 'File kind must be one of: "soul", "memory", "user".' },
-          400,
-        );
+        return context.json({ error: 'File kind must be one of: "soul", "memory", "user".' }, 400);
       }
       try {
         return context.json(await services.profileFiles.read(profile, kind));
@@ -459,10 +471,7 @@ export function createApp(services: AppServices) {
       }
       const kind = parseProfileFileKind(kindParam);
       if (kind === null) {
-        return context.json(
-          { error: 'File kind must be one of: "soul", "memory", "user".' },
-          400,
-        );
+        return context.json({ error: 'File kind must be one of: "soul", "memory", "user".' }, 400);
       }
       const content = await parseProfileFileContent(context.req.json());
       if (content === null) {
@@ -473,6 +482,120 @@ export function createApp(services: AppServices) {
       } catch (cause: unknown) {
         return context.json(
           { error: `Failed to write profile file: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .get("/profiles/:name/sessions", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      try {
+        return context.json(await services.profileSessions.list(profile));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to list profile sessions: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .get("/profiles/:name/sessions/:id", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      try {
+        return context.json(await services.profileSessions.get(profile, context.req.param("id")));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to read profile session: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .post("/profiles/:name/sessions", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const input = await parseProfileSessionCreateInput(context.req.json());
+      if (input === null) {
+        return context.json({ error: "Body must include { name: string }." }, 400);
+      }
+      try {
+        return context.json(await services.profileSessions.create(profile, input));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to create profile session: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .put("/profiles/:name/sessions/:id", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const input = await parseProfileSessionRenameInput(context.req.json());
+      if (input === null) {
+        return context.json({ error: "Body must include { name: string }." }, 400);
+      }
+      try {
+        return context.json(
+          await services.profileSessions.rename(profile, context.req.param("id"), input),
+        );
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to rename profile session: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .delete("/profiles/:name/sessions/:id", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      try {
+        return context.json(
+          await services.profileSessions.remove(profile, context.req.param("id")),
+        );
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to delete profile session: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .post("/profiles/:name/sessions/:id/archive", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      try {
+        return context.json(
+          await services.profileSessions.archive(profile, context.req.param("id")),
+        );
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to archive profile session: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .post("/profiles/:name/sessions/:id/restore", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      try {
+        return context.json(
+          await services.profileSessions.restore(profile, context.req.param("id")),
+        );
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to restore profile session: ${getErrorMessage(cause)}` },
           500,
         );
       }
@@ -823,4 +946,38 @@ function parseProfileFileKind(value: unknown): ProfileFileKind | null {
     return value;
   }
   return null;
+}
+
+function parseProfileParam(value: string): string | null | undefined {
+  if (value === "default") {
+    return null;
+  }
+  if (!isValidProfileName(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+async function parseProfileSessionCreateInput(
+  bodyPromise: Promise<unknown>,
+): Promise<ProfileSessionCreateInput | null> {
+  try {
+    const body = await bodyPromise;
+    if (!isRecord(body) || typeof body.name !== "string") {
+      return null;
+    }
+    const name = body.name.trim();
+    if (name.length === 0) {
+      return null;
+    }
+    return { name };
+  } catch {
+    return null;
+  }
+}
+
+async function parseProfileSessionRenameInput(
+  bodyPromise: Promise<unknown>,
+): Promise<ProfileSessionRenameInput | null> {
+  return parseProfileSessionCreateInput(bodyPromise);
 }

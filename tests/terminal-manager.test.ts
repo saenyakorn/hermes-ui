@@ -70,7 +70,12 @@ describe("TerminalManager", () => {
     cwd = "/repo/data/profiles/coder";
     manager.create("socket-2");
 
-    expect(spawnPty).toHaveBeenNthCalledWith(1, "bash", [], expect.objectContaining({ cwd: "/repo/data" }));
+    expect(spawnPty).toHaveBeenNthCalledWith(
+      1,
+      "bash",
+      [],
+      expect.objectContaining({ cwd: "/repo/data" }),
+    );
     expect(spawnPty).toHaveBeenNthCalledWith(
       2,
       "bash",
@@ -81,7 +86,10 @@ describe("TerminalManager", () => {
 
   it("kills session on close", () => {
     const fake = new FakePty();
-    const manager = new TerminalManager(() => "/repo/data", () => fake);
+    const manager = new TerminalManager(
+      () => "/repo/data",
+      () => fake,
+    );
 
     manager.create("socket-1");
     manager.close("socket-1");
