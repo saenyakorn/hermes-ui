@@ -131,3 +131,61 @@ export type ModelProvidersMutationResponse = {
   };
   gateway: GatewayStatus;
 };
+
+/** Mode passed to `hermes profile create`. */
+export type ProfileCreateMode = "blank" | "clone" | "clone-all";
+
+export type ProfileCreateInput = {
+  name: string;
+  mode: ProfileCreateMode;
+  cloneFrom?: string;
+};
+
+export type ProfileSummary = {
+  /** Profile slug (`null` represents the default profile rooted at `data/`). */
+  name: string | null;
+  /** Display label suitable for UI. */
+  label: string;
+  /** Absolute filesystem path of the profile's data directory. */
+  dataDir: string;
+  /** ISO timestamp of the profile directory's mtime, or `null` for the default. */
+  updatedAt: string | null;
+  /** True iff this profile is currently active. */
+  active: boolean;
+};
+
+export type ProfileListResult = {
+  active: string | null;
+  profiles: ProfileSummary[];
+  /** Warning surfaced when the hermes CLI is unavailable for richer metadata. */
+  warning: string | null;
+};
+
+export type ProfileMutationResult = {
+  list: ProfileListResult;
+};
+
+export type ProfileActivateResult = {
+  active: string | null;
+  list: ProfileListResult;
+  restart: {
+    attempted: boolean;
+    ok: boolean;
+    error: string | null;
+  };
+  gateway: GatewayStatus;
+};
+
+export type ProfileFileKind = "soul" | "memory" | "user";
+
+export type ProfileFileReadResult = {
+  profile: string | null;
+  kind: ProfileFileKind;
+  path: string;
+  content: string;
+  updatedAt: string | null;
+};
+
+export type ProfileFileWriteResult = ProfileFileReadResult & {
+  saved: true;
+};

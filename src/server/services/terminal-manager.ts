@@ -1,4 +1,5 @@
 import { spawn, type IPty, type IPtyForkOptions, type IWindowsPtyForkOptions } from "node-pty";
+import { asDirProvider, type DirProvider } from "./paths";
 
 type PtyOptions = IPtyForkOptions | IWindowsPtyForkOptions;
 
@@ -14,20 +15,24 @@ export type TerminalSession = {
 
 export class TerminalManager {
   private sessions = new Map<string, IPty>();
+  private readonly getCwd: DirProvider;
 
   constructor(
-    private readonly cwd: string,
+    cwd: string | DirProvider,
     private readonly spawnPty: SpawnPty = spawn,
-  ) {}
+  ) {
+    this.getCwd = asDirProvider(cwd);
+  }
 
   create(socketId: string): TerminalSession {
     this.close(socketId);
 
+    const cwd = this.getCwd();
     const pty = this.spawnPty("bash", [], {
-      cwd: this.cwd,
+      cwd,
       cols: 80,
       rows: 24,
-      env: process.env,
+      env: { ...process.env, HERMES_HOME: cwd },
     });
     this.sessions.set(socketId, pty);
 

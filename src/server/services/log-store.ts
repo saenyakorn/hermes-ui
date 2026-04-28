@@ -3,6 +3,7 @@ import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import { asDirProvider, type DirProvider } from "./paths";
 
 dayjs.extend(utc);
 
@@ -21,11 +22,23 @@ export type LogTailResult = {
 export class LogStore {
   private readonly listeners = new Set<LogListener>();
   private warning: string | null = null;
+  private readonly getLogsDir: DirProvider;
 
   constructor(
-    private readonly logsDir: string,
+    logsDir: string | DirProvider,
     private readonly clock: Clock = () => new Date().toISOString(),
-  ) {}
+  ) {
+    this.getLogsDir = asDirProvider(logsDir);
+  }
+
+  /**
+   * Resets the in-memory warning state. Used after switching the active profile
+   * so a stale "logs unwritable" warning from the previous profile does not
+   * carry over.
+   */
+  clearWarning(): void {
+    this.warning = null;
+  }
 
   async append(channel: LogChannel, message: string): Promise<void> {
     const timestamp = this.clock();
@@ -39,7 +52,7 @@ export class LogStore {
     }
 
     try {
-      await mkdir(this.logsDir, { recursive: true });
+      await mkdir(this.getLogsDir(), { recursive: true });
       await writeFile(this.getLogFilePath(timestamp), `${lines.join("\n")}\n`, { flag: "a" });
       this.warning = null;
     } catch (cause: unknown) {
@@ -107,7 +120,7 @@ export class LogStore {
   }
 
   private getLogFilePath(timestamp: string): string {
-    return path.join(this.logsDir, `${dayjs(timestamp).utc().format("YYYY-MM-DD")}.log`);
+    return path.join(this.getLogsDir(), `${dayjs(timestamp).utc().format("YYYY-MM-DD")}.log`);
   }
 
   private formatLine(timestamp: string, channel: LogChannel, message: string): string {

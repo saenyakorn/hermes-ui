@@ -5,6 +5,7 @@ import {
 } from "node:child_process";
 import { checkGatewayHealth } from "./health";
 import type { LogStore } from "./log-store";
+import { asDirProvider, type DirProvider } from "./paths";
 import type { GatewayHealthState, GatewayProcessState, GatewayStatus } from "../types";
 
 const STOP_FORCE_TIMEOUT_MS = 5_000;
@@ -13,7 +14,7 @@ const GATEWAY_ARGS = ["gateway"] as const;
 export type SpawnGateway = (
   command: string,
   args: string[],
-  options: Pick<SpawnOptionsWithoutStdio, "cwd">,
+  options: Pick<SpawnOptionsWithoutStdio, "cwd" | "env">,
 ) => ChildProcessWithoutNullStreams;
 
 const defaultSpawnGateway: SpawnGateway = (command, args, options) => spawn(command, args, options);
@@ -26,14 +27,22 @@ export class GatewayManager {
   private lastError: string | null = null;
   private stopTimer: NodeJS.Timeout | null = null;
   private controlledShutdownChild: ChildProcessWithoutNullStreams | null = null;
+  private readonly getCwd: DirProvider;
 
   constructor(
-    private readonly cwd: string,
+    cwd: string | DirProvider,
     private readonly logs: LogStore,
     private readonly spawnGateway: SpawnGateway = defaultSpawnGateway,
     private readonly clock: () => string = () => new Date().toISOString(),
     private readonly forceKillTimeoutMs: number = STOP_FORCE_TIMEOUT_MS,
-  ) {}
+  ) {
+    this.getCwd = asDirProvider(cwd);
+  }
+
+  /** Resolved spawn cwd for the active profile. */
+  get cwd(): string {
+    return this.getCwd();
+  }
 
   async start(): Promise<GatewayStatus> {
     if (this.child !== null) {
@@ -46,7 +55,11 @@ export class GatewayManager {
     this.lastError = null;
 
     try {
-      const child = this.spawnGateway("hermes", [...GATEWAY_ARGS], { cwd: this.cwd });
+      const cwd = this.getCwd();
+      const child = this.spawnGateway("hermes", [...GATEWAY_ARGS], {
+        cwd,
+        env: { ...process.env, HERMES_HOME: cwd },
+      });
 
       this.child = child;
       this.bindChild(child);

@@ -2,6 +2,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { renderHtmlDocument } from "./html/document";
 import { basicAuthMiddleware } from "./services/auth";
+import { isValidProfileName } from "./services/paths";
 import type {
   AppEnv,
   ConfigReadResult,
@@ -11,6 +12,14 @@ import type {
   LogTail,
   ModelProvidersMutationResponse,
   ModelYamlPatch,
+  ProfileActivateResult,
+  ProfileCreateInput,
+  ProfileCreateMode,
+  ProfileFileKind,
+  ProfileFileReadResult,
+  ProfileFileWriteResult,
+  ProfileListResult,
+  ProfileMutationResult,
   WorkspaceConfigHints,
 } from "./types";
 
@@ -35,6 +44,27 @@ export type AppConfig = {
   patchDiscordAllowedUsers: (allowed_users: string) => Promise<ConfigSaveResult>;
 };
 
+export type AppProfiles = {
+  list: () => Promise<ProfileListResult>;
+  active: () => string | null;
+  create: (input: ProfileCreateInput) => Promise<ProfileMutationResult>;
+  rename: (from: string, to: string) => Promise<ProfileMutationResult>;
+  remove: (name: string) => Promise<ProfileMutationResult>;
+  activate: (
+    name: string | null,
+    gateway: { status: () => GatewayStatus; stop: () => Promise<GatewayStatus>; start: () => Promise<GatewayStatus> },
+  ) => Promise<ProfileActivateResult>;
+};
+
+export type AppProfileFiles = {
+  read: (profile: string | null, kind: ProfileFileKind) => Promise<ProfileFileReadResult>;
+  write: (
+    profile: string | null,
+    kind: ProfileFileKind,
+    content: string,
+  ) => Promise<ProfileFileWriteResult>;
+};
+
 export type AppServices = {
   env: AppEnv;
   gateway: AppGateway;
@@ -49,6 +79,8 @@ export type AppServices = {
       remove?: string[];
     }) => Promise<EnvReadResult>;
   };
+  profiles: AppProfiles;
+  profileFiles: AppProfileFiles;
 };
 
 export function createApp(services: AppServices) {
@@ -317,6 +349,133 @@ export function createApp(services: AppServices) {
           connection: "keep-alive",
         },
       });
+    })
+    .get("/profiles", async (context) => {
+      try {
+        return context.json(await services.profiles.list());
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to list profiles: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .post("/profiles", async (context) => {
+      const input = await parseProfileCreateInput(context.req.json());
+      if (input === null) {
+        return context.json(
+          {
+            error:
+              'Body must include { name: string, mode: "blank"|"clone"|"clone-all", cloneFrom?: string }.',
+          },
+          400,
+        );
+      }
+      try {
+        return context.json(await services.profiles.create(input));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to create profile: ${getErrorMessage(cause)}` },
+          400,
+        );
+      }
+    })
+    .put("/profiles/:name", async (context) => {
+      const from = context.req.param("name");
+      if (!isValidProfileName(from)) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const body = await parseProfileRenameInput(context.req.json());
+      if (body === null) {
+        return context.json({ error: "Body must include { to: string }." }, 400);
+      }
+      try {
+        return context.json(await services.profiles.rename(from, body.to));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to rename profile: ${getErrorMessage(cause)}` },
+          400,
+        );
+      }
+    })
+    .delete("/profiles/:name", async (context) => {
+      const name = context.req.param("name");
+      if (!isValidProfileName(name)) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      try {
+        return context.json(await services.profiles.remove(name));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to delete profile: ${getErrorMessage(cause)}` },
+          400,
+        );
+      }
+    })
+    .post("/profiles/:name/activate", async (context) => {
+      const name = context.req.param("name");
+      const target = name === "default" ? null : name;
+      if (target !== null && !isValidProfileName(target)) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      try {
+        return context.json(await services.profiles.activate(target, services.gateway));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to activate profile: ${getErrorMessage(cause)}` },
+          400,
+        );
+      }
+    })
+    .get("/profiles/:name/files/:kind", async (context) => {
+      const name = context.req.param("name");
+      const kindParam = context.req.param("kind");
+      const profile = name === "default" ? null : name;
+      if (profile !== null && !isValidProfileName(profile)) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const kind = parseProfileFileKind(kindParam);
+      if (kind === null) {
+        return context.json(
+          { error: 'File kind must be one of: "soul", "memory", "user".' },
+          400,
+        );
+      }
+      try {
+        return context.json(await services.profileFiles.read(profile, kind));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to read profile file: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
+    })
+    .put("/profiles/:name/files/:kind", async (context) => {
+      const name = context.req.param("name");
+      const kindParam = context.req.param("kind");
+      const profile = name === "default" ? null : name;
+      if (profile !== null && !isValidProfileName(profile)) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const kind = parseProfileFileKind(kindParam);
+      if (kind === null) {
+        return context.json(
+          { error: 'File kind must be one of: "soul", "memory", "user".' },
+          400,
+        );
+      }
+      const content = await parseProfileFileContent(context.req.json());
+      if (content === null) {
+        return context.json({ error: "Body must include { content: string }." }, 400);
+      }
+      try {
+        return context.json(await services.profileFiles.write(profile, kind, content));
+      } catch (cause: unknown) {
+        return context.json(
+          { error: `Failed to write profile file: ${getErrorMessage(cause)}` },
+          500,
+        );
+      }
     });
 }
 
@@ -590,4 +749,78 @@ function getErrorMessage(cause: unknown): string {
   }
 
   return String(cause);
+}
+
+function parseProfileCreateMode(value: unknown): ProfileCreateMode | null {
+  if (value === "blank" || value === "clone" || value === "clone-all") {
+    return value;
+  }
+  return null;
+}
+
+async function parseProfileCreateInput(
+  bodyPromise: Promise<unknown>,
+): Promise<ProfileCreateInput | null> {
+  try {
+    const body = await bodyPromise;
+    if (!isRecord(body) || typeof body.name !== "string") {
+      return null;
+    }
+    const name = body.name.trim();
+    if (name.length === 0 || !isValidProfileName(name)) {
+      return null;
+    }
+    const mode = parseProfileCreateMode(body.mode);
+    if (mode === null) {
+      return null;
+    }
+    const result: ProfileCreateInput = { name, mode };
+    if (typeof body.cloneFrom === "string" && body.cloneFrom.trim().length > 0) {
+      const cloneFrom = body.cloneFrom.trim();
+      if (!isValidProfileName(cloneFrom)) {
+        return null;
+      }
+      result.cloneFrom = cloneFrom;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+async function parseProfileRenameInput(
+  bodyPromise: Promise<unknown>,
+): Promise<{ to: string } | null> {
+  try {
+    const body = await bodyPromise;
+    if (!isRecord(body) || typeof body.to !== "string") {
+      return null;
+    }
+    const to = body.to.trim();
+    if (to.length === 0 || !isValidProfileName(to)) {
+      return null;
+    }
+    return { to };
+  } catch {
+    return null;
+  }
+}
+
+async function parseProfileFileContent(bodyPromise: Promise<unknown>): Promise<string | null> {
+  try {
+    const body = await bodyPromise;
+    if (!isRecord(body) || typeof body.content !== "string") {
+      return null;
+    }
+    return body.content;
+  } catch {
+    return null;
+  }
+}
+
+function parseProfileFileKind(value: unknown): ProfileFileKind | null {
+  if (value === "soul" || value === "memory" || value === "user") {
+    return value;
+  }
+  return null;
 }

@@ -53,7 +53,10 @@ describe("GatewayManager", () => {
     const status = await manager.start();
 
     expect(spawnGateway).toHaveBeenCalledTimes(1);
-    expect(spawnGateway).toHaveBeenCalledWith("hermes", ["gateway"], { cwd: "/workspace/project" });
+    expect(spawnGateway).toHaveBeenCalledWith("hermes", ["gateway"], {
+      cwd: "/workspace/project",
+      env: { ...process.env, HERMES_HOME: "/workspace/project" },
+    });
     expect(status).toMatchObject({
       state: "running",
       health: "unknown",
@@ -157,6 +160,7 @@ describe("GatewayManager", () => {
     expect(spawnGateway).toHaveBeenCalledTimes(2);
     expect(spawnGateway).toHaveBeenLastCalledWith("hermes", ["gateway"], {
       cwd: "/workspace/project",
+      env: { ...process.env, HERMES_HOME: "/workspace/project" },
     });
   });
 

@@ -10,7 +10,7 @@ A production-ready control plane and Web UI for the Hermes Agent, inspired by Fr
 - **Live logs:** Real-time streaming of gateway stdout/stderr via Server-Sent Events (SSE).
 - **Configuration:** YAML editing (Monaco) with syntax highlighting, atomic writes, and model/workspace-related helpers where configured.
 - **Environment variables:** View and edit persisted env for the gateway from the UI.
-- **Profiles:** CRUD for agent profiles and editing of `SOUL.md` files.
+- **Profiles:** CRUD for agent profiles via the `hermes profile` CLI (blank / `--clone` / `--clone-all`), an active-profile picker that re-points the gateway, config, env, messaging, and shell tabs at the selected `HERMES_HOME`, and Monaco editors for `SOUL.md`, `memories/MEMORY.md`, and `memories/USER.md`.
 - **Security:** HTTP Basic Auth across HTTP routes, WebSockets, and SSE.
 
 ## Quick start

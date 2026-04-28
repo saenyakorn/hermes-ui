@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import { DEFAULT_HERMES_CONFIG_YAML } from "../config/default-hermes-config";
 import type { LogStore } from "./log-store";
+import { asDirProvider, type DirProvider } from "./paths";
 
 const CONFIG_FILE_NAME = "config.yaml";
 
@@ -33,11 +34,15 @@ function emptyDiscordHints(): WorkspaceConfigHints["discord"] {
 }
 
 export class ConfigStore {
+  private readonly getDataDir: DirProvider;
+
   constructor(
-    private readonly dataDir: string,
+    dataDir: string | DirProvider,
     private readonly logs: LogStore,
     private readonly clock: () => string = () => new Date().toISOString(),
-  ) {}
+  ) {
+    this.getDataDir = asDirProvider(dataDir);
+  }
 
   async read(): Promise<ConfigReadResult> {
     await this.ensureConfigFile();
@@ -123,7 +128,7 @@ export class ConfigStore {
       };
     }
 
-    const temporaryPath = path.join(this.dataDir, `.config.yaml.${randomUUID()}.tmp`);
+    const temporaryPath = path.join(this.getDataDir(), `.config.yaml.${randomUUID()}.tmp`);
 
     try {
       await writeFile(temporaryPath, content);
@@ -326,7 +331,7 @@ export class ConfigStore {
   }
 
   private async ensureDataDir(): Promise<void> {
-    await mkdir(this.dataDir, { recursive: true });
+    await mkdir(this.getDataDir(), { recursive: true });
   }
 
   private validate(content: string): { ok: boolean; issues: ConfigValidationIssue[] } {
@@ -351,7 +356,7 @@ export class ConfigStore {
   }
 
   private getConfigPath(): string {
-    return path.join(this.dataDir, CONFIG_FILE_NAME);
+    return path.join(this.getDataDir(), CONFIG_FILE_NAME);
   }
 
   private async getExistingUpdatedAt(): Promise<string | null> {

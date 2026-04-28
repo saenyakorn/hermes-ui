@@ -51,4 +51,6 @@ Pull requests should include a short summary, validation steps run, linked issue
 
 Never commit `.env`, credentials, or generated `data/` contents. Keep Basic Auth enforced across HTTP, WebSocket, and SSE paths. Sanitize filesystem inputs before reading or writing profile files, and preserve atomic write behavior for YAML and `SOUL.md` updates.
 
+Profile names are validated by `validateProfileName` in `src/server/services/paths.ts` (regex `^[a-z0-9][a-z0-9_-]{0,31}$`, rejects `default`, `.`, `..`, and any value containing path separators) before they are joined under `data/profiles/`. The active profile is tracked in `data/.active_profile` and switched only via `ProfileResolver.setActive`, which writes the marker through a temp-file + rename. CRUD operations against the on-disk profile layout shell out to the `hermes profile <verb>` CLI through `ProfileStore`'s injectable runner, with `HERMES_HOME` set explicitly so dev environments without an exported `HERMES_HOME` still write into `<repo>/data/`. Markdown writes (`SOUL.md`, `memories/MEMORY.md`, `memories/USER.md`) go through `ProfileFiles` which mirrors the temp+rename pattern used by `ConfigStore`.
+
 @RTK.md

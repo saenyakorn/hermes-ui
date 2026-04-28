@@ -8,6 +8,8 @@ import { refreshGatewayStatus, renderGatewayStatus, wireGatewayActions } from ".
 import { setupLogs } from "./logs-ui";
 import { renderMessagingEnvHint, setupMessagingPlatform } from "./messaging-ui";
 import { setupModelProviders } from "./model-providers-ui";
+import { ProfileFilesUI } from "./profile-files-ui";
+import { ProfilesUI } from "./profiles-ui";
 import { setupTerminal } from "./terminal-ui";
 import { wireTabs } from "./tabs";
 import type { HermesWorkspaceDeps } from "./workspace-deps";
@@ -66,6 +68,28 @@ function main(): void {
     renderGatewayStatus,
   };
 
+  const profileFilesUI = new ProfileFilesUI(api);
+  const profilesUI = new ProfilesUI({
+    api,
+    files: profileFilesUI,
+    onProfileChanged: (detail) => {
+      if (detail.result) {
+        queryClient.setQueryData(gatewayQueryKey, detail.result.gateway);
+        renderGatewayStatus(detail.result.gateway, null);
+      }
+      void configConfigurator.loadFromServer();
+      void envConfigurator.loadEnvVars();
+      void profileFilesUI.reloadAll();
+      void refreshGatewayStatus(api, queryClient);
+      shellTerminal?.dispose();
+      const terminalHost = document.getElementById("terminal");
+      if (terminalHost instanceof HTMLDivElement) {
+        terminalHost.innerHTML = "";
+      }
+      shellTerminal = setupTerminal(() => api.getBasicAuthToken());
+    },
+  });
+
   const initialStatus = parseInitialStatus();
   queryClient.setQueryData(gatewayQueryKey, initialStatus);
   renderGatewayStatus(initialStatus, null);
@@ -83,6 +107,8 @@ function main(): void {
   void envConfigurator.setup();
   void setupMessagingPlatform(workspace);
   setupModelProviders(workspace);
+  void profileFilesUI.setup();
+  void profilesUI.setup();
 }
 
 main();

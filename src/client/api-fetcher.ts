@@ -9,6 +9,13 @@ import type {
   LogTail,
   ModelProvidersMutationResponse,
   ModelYamlPatch,
+  ProfileActivateResult,
+  ProfileCreateInput,
+  ProfileFileKind,
+  ProfileFileReadResult,
+  ProfileFileWriteResult,
+  ProfileListResult,
+  ProfileMutationResult,
   WorkspaceConfigHints,
 } from "../server/types";
 import { getResponseErrorMessage, isErrorResponse } from "./lib/errors";
@@ -169,5 +176,87 @@ export class ApiFetcher {
       throw new Error("Empty response from server.");
     }
     return JSON.parse(raw) as ModelProvidersMutationResponse;
+  }
+
+  async getProfiles(): Promise<ProfileListResult> {
+    const response = await this.rpc.profiles.$get();
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileListResult>;
+  }
+
+  async postProfile(input: ProfileCreateInput): Promise<ProfileMutationResult> {
+    const response = await this.rpc.profiles.$post({ json: input });
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileMutationResult>;
+  }
+
+  async putProfileRename(name: string, to: string): Promise<ProfileMutationResult> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${encodeURIComponent(name)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ to }),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileMutationResult>;
+  }
+
+  async deleteProfile(name: string): Promise<ProfileMutationResult> {
+    const response = await this.rpc.profiles[":name"].$delete({ param: { name } });
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileMutationResult>;
+  }
+
+  async postProfileActivate(name: string | null): Promise<ProfileActivateResult> {
+    const response = await this.rpc.profiles[":name"].activate.$post({
+      param: { name: name ?? "default" },
+    });
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileActivateResult>;
+  }
+
+  async getProfileFile(
+    profile: string | null,
+    kind: ProfileFileKind,
+  ): Promise<ProfileFileReadResult> {
+    const response = await this.rpc.profiles[":name"].files[":kind"].$get({
+      param: { name: profile ?? "default", kind },
+    });
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileFileReadResult>;
+  }
+
+  async putProfileFile(
+    profile: string | null,
+    kind: ProfileFileKind,
+    content: string,
+  ): Promise<ProfileFileWriteResult> {
+    const profileSegment = encodeURIComponent(profile ?? "default");
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${profileSegment}/files/${encodeURIComponent(kind)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content }),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<ProfileFileWriteResult>;
   }
 }

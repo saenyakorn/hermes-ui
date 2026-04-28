@@ -43,7 +43,7 @@ class FakePty extends EventEmitter implements IPty {
 }
 
 describe("TerminalManager", () => {
-  it("spawns bash in data cwd", () => {
+  it("spawns bash in data cwd with HERMES_HOME set to cwd", () => {
     const fake = new FakePty();
     const spawnPty: SpawnPty = vi.fn(() => fake);
     const manager = new TerminalManager("/repo/data", spawnPty);
@@ -54,15 +54,34 @@ describe("TerminalManager", () => {
       cwd: "/repo/data",
       cols: 80,
       rows: 24,
-      env: process.env,
+      env: { ...process.env, HERMES_HOME: "/repo/data" },
     });
     session.write("pwd\n");
     expect(fake.writes).toEqual(["pwd\n"]);
   });
 
+  it("re-resolves cwd on each create call (follows profile switches)", () => {
+    const fake = new FakePty();
+    const spawnPty: SpawnPty = vi.fn(() => fake);
+    let cwd = "/repo/data";
+    const manager = new TerminalManager(() => cwd, spawnPty);
+
+    manager.create("socket-1");
+    cwd = "/repo/data/profiles/coder";
+    manager.create("socket-2");
+
+    expect(spawnPty).toHaveBeenNthCalledWith(1, "bash", [], expect.objectContaining({ cwd: "/repo/data" }));
+    expect(spawnPty).toHaveBeenNthCalledWith(
+      2,
+      "bash",
+      [],
+      expect.objectContaining({ cwd: "/repo/data/profiles/coder" }),
+    );
+  });
+
   it("kills session on close", () => {
     const fake = new FakePty();
-    const manager = new TerminalManager("/repo/data", () => fake);
+    const manager = new TerminalManager(() => "/repo/data", () => fake);
 
     manager.create("socket-1");
     manager.close("socket-1");

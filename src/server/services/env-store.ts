@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseEnv } from "dotenv";
 import type { EnvReadResult } from "../types";
+import { asDirProvider, type DirProvider } from "./paths";
 
 const ENV_FILE_NAME = ".env";
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
@@ -23,7 +24,11 @@ const ENV_KEYS_WITH_PUBLIC_VALUE_IN_API = new Set([
 ]);
 
 export class EnvStore {
-  constructor(private readonly dataDir: string) {}
+  private readonly getDataDir: DirProvider;
+
+  constructor(dataDir: string | DirProvider) {
+    this.getDataDir = asDirProvider(dataDir);
+  }
 
   async read(): Promise<EnvReadResult> {
     await this.ensureDataDir();
@@ -106,7 +111,7 @@ export class EnvStore {
   }
 
   private async ensureDataDir(): Promise<void> {
-    await mkdir(this.dataDir, { recursive: true });
+    await mkdir(this.getDataDir(), { recursive: true });
   }
 
   private async readRawContent(): Promise<string> {
@@ -121,7 +126,7 @@ export class EnvStore {
   }
 
   private async writeParsed(values: Record<string, string>): Promise<void> {
-    const temporaryPath = path.join(this.dataDir, `.env.${randomUUID()}.tmp`);
+    const temporaryPath = path.join(this.getDataDir(), `.env.${randomUUID()}.tmp`);
     const content = this.serialize(values);
     try {
       await writeFile(temporaryPath, content);
@@ -171,7 +176,7 @@ export class EnvStore {
   }
 
   private getEnvPath(): string {
-    return path.join(this.dataDir, ENV_FILE_NAME);
+    return path.join(this.getDataDir(), ENV_FILE_NAME);
   }
 
   private isFileErrorCode(cause: unknown, code: string): boolean {

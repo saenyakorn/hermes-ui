@@ -2,7 +2,17 @@
 
 export function WorkspaceTabStrip() {
   return (
-    <div class="mb-3 flex shrink-0 gap-2 overflow-x-auto border-b border-frosted pb-3">
+    <div class="mb-3 flex shrink-0 flex-wrap items-center gap-2 border-b border-frosted pb-3">
+      <label class="flex items-center gap-2 text-xs text-muted" for="profile-picker">
+        Profile
+        <select
+          id="profile-picker"
+          class="rounded-md border border-frosted bg-background px-2 py-1 text-xs text-text outline-none"
+        >
+          <option value="default">default</option>
+        </select>
+      </label>
+      <span class="mx-1 h-5 w-px bg-frosted" aria-hidden="true" />
       <button
         type="button"
         data-tab-trigger="control"
@@ -51,6 +61,13 @@ export function WorkspaceTabStrip() {
         class="rounded-full px-4 py-2 text-sm text-muted"
       >
         Model providers
+      </button>
+      <button
+        type="button"
+        data-tab-trigger="profiles"
+        class="rounded-full px-4 py-2 text-sm text-muted"
+      >
+        Profiles
       </button>
     </div>
   );

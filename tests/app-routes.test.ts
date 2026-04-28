@@ -6,6 +6,7 @@ import type {
   EnvReadResult,
   GatewayStatus,
   ModelYamlPatch,
+  ProfileListResult,
   WorkspaceConfigHints,
 } from "../src/server/types";
 
@@ -54,6 +55,20 @@ const envRead: EnvReadResult = {
   path: "data/.env",
   updatedAt: "2026-04-26T10:30:00.000Z",
   entries: [{ key: "OPENAI_API_KEY", maskedValue: "******ab" }],
+};
+
+const profileList: ProfileListResult = {
+  active: null,
+  profiles: [
+    {
+      name: null,
+      label: "default",
+      dataDir: "/repo/data",
+      updatedAt: "2026-04-26T10:00:00.000Z",
+      active: true,
+    },
+  ],
+  warning: null,
 };
 
 const workspaceHints: WorkspaceConfigHints = {
@@ -108,6 +123,36 @@ function createServices(): AppServices {
       })),
       remove: vi.fn(async () => envRead),
       applyBatch: vi.fn(async () => envRead),
+    },
+    profiles: {
+      list: vi.fn(async () => profileList),
+      active: vi.fn(() => null),
+      create: vi.fn(async () => ({ list: profileList })),
+      rename: vi.fn(async () => ({ list: profileList })),
+      remove: vi.fn(async () => ({ list: profileList })),
+      activate: vi.fn(async (name) => ({
+        active: name,
+        list: profileList,
+        restart: { attempted: false, ok: true, error: null },
+        gateway: stoppedStatus,
+      })),
+    },
+    profileFiles: {
+      read: vi.fn(async (profile, kind) => ({
+        profile,
+        kind,
+        path: "data/SOUL.md",
+        content: "",
+        updatedAt: null,
+      })),
+      write: vi.fn(async (profile, kind, content) => ({
+        profile,
+        kind,
+        path: "data/SOUL.md",
+        content,
+        updatedAt: "2026-04-29T00:00:00.000Z",
+        saved: true as const,
+      })),
     },
   };
 }
@@ -613,5 +658,146 @@ describe("createApp", () => {
     expect(services.config.patchDiscordAllowedUsers).toHaveBeenCalledOnce();
     expect(services.envVars.applyBatch).not.toHaveBeenCalled();
     expect(services.gateway.restart).not.toHaveBeenCalled();
+  });
+
+  it("returns the profile listing", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles", {
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(profileList);
+    expect(services.profiles.list).toHaveBeenCalledOnce();
+  });
+
+  it("rejects invalid profile create input with 400", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ name: "BAD NAME", mode: "blank" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(services.profiles.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a profile when input is valid", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ name: "coder", mode: "clone-all", cloneFrom: "default-bot" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.profiles.create).toHaveBeenCalledWith({
+      name: "coder",
+      mode: "clone-all",
+      cloneFrom: "default-bot",
+    });
+  });
+
+  it("renames a profile", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/coder", {
+      method: "PUT",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ to: "developer" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.profiles.rename).toHaveBeenCalledWith("coder", "developer");
+  });
+
+  it("rejects rename targets that fail validation", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/coder", {
+      method: "PUT",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ to: "../etc" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(services.profiles.rename).not.toHaveBeenCalled();
+  });
+
+  it("deletes a profile", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/ops", {
+      method: "DELETE",
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.profiles.remove).toHaveBeenCalledWith("ops");
+  });
+
+  it("activates a named profile and forwards the gateway facade", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/coder/activate", {
+      method: "POST",
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.profiles.activate).toHaveBeenCalledTimes(1);
+    expect(services.profiles.activate).toHaveBeenCalledWith("coder", services.gateway);
+  });
+
+  it("activates the default profile when name is 'default'", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/default/activate", {
+      method: "POST",
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.profiles.activate).toHaveBeenCalledWith(null, services.gateway);
+  });
+
+  it("reads a profile file", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/default/files/soul", {
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.profileFiles.read).toHaveBeenCalledWith(null, "soul");
+  });
+
+  it("rejects unknown file kinds with 400", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/default/files/agents", {
+      headers: { authorization: auth },
+    });
+
+    expect(response.status).toBe(400);
+    expect(services.profileFiles.read).not.toHaveBeenCalled();
+  });
+
+  it("writes a profile file", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/coder/files/memory", {
+      method: "PUT",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ content: "hello\n" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.profileFiles.write).toHaveBeenCalledWith("coder", "memory", "hello\n");
+  });
+
+  it("rejects profile-file writes missing string content with 400", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/profiles/coder/files/memory", {
+      method: "PUT",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ content: 42 }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(services.profileFiles.write).not.toHaveBeenCalled();
   });
 });
