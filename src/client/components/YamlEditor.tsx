@@ -20,9 +20,10 @@ export function YamlEditor({ value, onChange, onReady }: YamlEditorProps) {
   return (
     <div
       id="config-editor"
-      className="min-h-[280px] flex-1 overflow-hidden rounded-lg border border-frosted bg-background"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-frosted bg-background"
     >
       <Editor
+        height="100%"
         value={value}
         language="yaml"
         theme="vs-dark"

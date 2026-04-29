@@ -3,6 +3,7 @@ import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { useGatewayStatus } from "../../hooks/useGatewayStatus";
 import { useLogs } from "../../hooks/useLogs";
+import { useProfileWorkspace } from "../profile-context";
 import { SectionLabel, StatusChip } from "../../components/UiPrimitives";
 
 type ControlTabProps = {
@@ -10,17 +11,24 @@ type ControlTabProps = {
 };
 
 export function ControlTab({ initialStatus }: ControlTabProps) {
-  const gateway = useGatewayStatus(initialStatus);
+  const profile = useProfileWorkspace();
+  const gateway = useGatewayStatus(initialStatus, profile.activeProfile);
   const logs = useLogs();
   const isOnline = gateway.status.state.toLowerCase() === "running";
+  const logLines = logs.lines
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const recentActivity = logLines.slice(-4).reverse();
+  const errorLineCount = logLines.filter((line) => line.toLowerCase().includes("error")).length;
 
   return (
     <section
       id="gateway-panel"
       data-tab-panel="control"
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-auto"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto pb-2"
     >
-      <div className="grid min-h-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid min-h-0 shrink-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <SectionLabel>Process information</SectionLabel>
@@ -65,7 +73,7 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
         </Card>
         <Card className="h-fit p-4">
           <p className="text-xs uppercase tracking-[0.15em] text-muted">System controls</p>
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-3 flex flex-row gap-2">
             <Button
               id="start-button"
               variant="secondary"
@@ -99,22 +107,20 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
           </p>
         </Card>
       </div>
-      <Card className="p-4">
-        <div className="mb-2 flex items-center justify-between">
+      <Card className="shrink-0 p-4">
+        <div className="mb-2">
           <SectionLabel>Recent system activity</SectionLabel>
-          <Button type="button" variant="ghost" className="px-0 py-0 text-xs">
-            View all logs
-          </Button>
         </div>
         <div className="space-y-2 rounded-lg border border-frosted bg-background p-3 font-mono text-xs text-muted">
-          <p>[INFO] Heartbeat received from node us-east-gateway-01. Response time 12ms.</p>
-          <p>[SYS] Hermes core configuration reloaded successfully.</p>
-          <p>[INFO] Agent session initialized. Model GPT-4-Turbo.</p>
-          <p>[WARN] Token threshold approaching for profile default.</p>
+          {recentActivity.length > 0 ? (
+            recentActivity.map((line, index) => <p key={`${index}-${line}`}>{line}</p>)
+          ) : (
+            <p>No activity yet. Start the gateway to stream logs.</p>
+          )}
         </div>
       </Card>
-      <section className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden">
-        <Card className="flex min-h-0 min-w-0 flex-1 flex-col p-4">
+      <section className="flex min-h-[1200px] min-w-0 shrink-0 gap-3 overflow-hidden">
+        <Card className="flex min-h-[1200px] min-w-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-base font-semibold text-text">Live Log Streaming</p>
@@ -138,7 +144,7 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
           </div>
           <pre
             id="log-lines"
-            className="min-h-0 flex-1 overflow-auto rounded-lg border border-frosted bg-background p-3 text-xs text-muted"
+            className="min-h-[220px] flex-1 overflow-auto rounded-lg border border-frosted bg-background p-3 text-xs text-muted"
           >
             {logs.lines}
           </pre>
@@ -149,24 +155,23 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
             {logs.error ?? ""}
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-muted">
-            <span>Lines: 1,848 • Errors: 1 • Memory: 244MB</span>
-            <span>Region: US-EAST-1</span>
+            <span>{`Lines: ${logLines.length} • Errors: ${errorLineCount}`}</span>
           </div>
         </Card>
         <Card className="hidden w-[280px] shrink-0 p-4 xl:block">
           <SectionLabel>Log metadata</SectionLabel>
           <div className="mt-3 space-y-2 text-xs text-muted">
             <div className="rounded-lg border border-frosted bg-background p-2">
-              <p className="text-[10px] uppercase">Source agent</p>
-              <p className="mt-1 text-text">hermes-worker-v4-029</p>
+              <p className="text-[10px] uppercase">Stream source</p>
+              <p className="mt-1 text-text">Live log tail</p>
             </div>
             <div className="rounded-lg border border-frosted bg-background p-2">
-              <p className="text-[10px] uppercase">Trace id</p>
-              <p className="mt-1 break-all text-text">550e8400-e29b-41d4-a716-446655440000</p>
+              <p className="text-[10px] uppercase">Gateway state</p>
+              <p className="mt-1 break-all text-text">{gateway.status.state}</p>
             </div>
             <div className="rounded-lg border border-frosted bg-background p-2">
-              <p className="text-[10px] uppercase">Execution payload</p>
-              <p className="mt-1 break-all text-text">{`{"action":"router-failover","priority":"critical"}`}</p>
+              <p className="text-[10px] uppercase">Last fetch status</p>
+              <p className="mt-1 break-all text-text">{logs.error ? "Warning" : "Healthy"}</p>
             </div>
           </div>
         </Card>

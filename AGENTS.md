@@ -35,6 +35,8 @@ Use CommonJS JavaScript unless the project is explicitly migrated. Prefer small 
 
 Build UI with simple HTML and CSS. Use htmx attributes for dynamic server interactions instead of introducing a frontend framework. Keep client-side JavaScript minimal and only add it when htmx and server-rendered HTML are not enough.
 
+When working in React code, avoid `useEffect` unless there is no simpler alternative. Prefer deriving state during render, handling logic in event callbacks, using memoization hooks for pure computations, and using framework data-loading primitives instead of effect-driven synchronization.
+
 For UI work, follow `DESIGN.md`: pure black surfaces, Framer Blue accents, restrained typography, and product-focused layouts. Avoid adding new visual systems without updating the design document.
 
 ## Testing Guidelines

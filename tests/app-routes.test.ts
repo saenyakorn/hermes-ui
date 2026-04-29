@@ -102,7 +102,7 @@ function createServices(): AppServices {
       start: vi.fn(),
       stop: vi.fn(),
       restart: vi.fn(),
-      refreshHealth: vi.fn(),
+      refreshHealth: vi.fn(async () => stoppedStatus),
     },
     logs: {
       tail: vi.fn(async () => ({ lines: ["line one"], warning: null })),

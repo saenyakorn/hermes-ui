@@ -15,6 +15,20 @@ import type { LogStore } from "./log-store";
 import { asDirProvider, type DirProvider } from "./paths";
 
 const CONFIG_FILE_NAME = "config.yaml";
+const PROFILE_PATH_MARKER = "/data/profiles/";
+
+function getDisplayConfigPath(dataDir: string): string {
+  const normalized = dataDir.split(path.sep).join("/");
+  const markerIndex = normalized.indexOf(PROFILE_PATH_MARKER);
+  if (markerIndex >= 0) {
+    const remainder = normalized.slice(markerIndex + PROFILE_PATH_MARKER.length);
+    const profileName = remainder.split("/")[0];
+    if (profileName) {
+      return `data/profiles/${profileName}/config.yaml`;
+    }
+  }
+  return "data/config.yaml";
+}
 
 function emptyDiscordHints(): WorkspaceConfigHints["discord"] {
   return {
@@ -50,7 +64,7 @@ export class ConfigStore {
     const metadata = await stat(this.getConfigPath());
 
     return {
-      path: "data/config.yaml",
+      path: getDisplayConfigPath(this.getDataDir()),
       content,
       updatedAt: metadata.mtime.toISOString(),
       validation: this.validate(content),
@@ -83,7 +97,7 @@ export class ConfigStore {
     if (parseIssues.length > 0) {
       const updatedAt = await this.getExistingUpdatedAt();
       return {
-        path: "data/config.yaml",
+        path: getDisplayConfigPath(this.getDataDir()),
         content,
         updatedAt,
         validation: { ok: false, issues: parseIssues },
@@ -93,7 +107,7 @@ export class ConfigStore {
     if (document.contents === null || !isMap(document.contents)) {
       const updatedAt = await this.getExistingUpdatedAt();
       return {
-        path: "data/config.yaml",
+        path: getDisplayConfigPath(this.getDataDir()),
         content,
         updatedAt,
         validation: {
@@ -120,7 +134,7 @@ export class ConfigStore {
       const updatedAt = await this.getExistingUpdatedAt();
 
       return {
-        path: "data/config.yaml",
+        path: getDisplayConfigPath(this.getDataDir()),
         content,
         updatedAt,
         validation,
@@ -216,7 +230,7 @@ export class ConfigStore {
     if (parseIssues.length > 0) {
       const updatedAt = await this.getExistingUpdatedAt();
       return {
-        path: "data/config.yaml",
+        path: getDisplayConfigPath(this.getDataDir()),
         content,
         updatedAt,
         validation: { ok: false, issues: parseIssues },
@@ -226,7 +240,7 @@ export class ConfigStore {
     if (document.contents === null || !isMap(document.contents)) {
       const updatedAt = await this.getExistingUpdatedAt();
       return {
-        path: "data/config.yaml",
+        path: getDisplayConfigPath(this.getDataDir()),
         content,
         updatedAt,
         validation: {

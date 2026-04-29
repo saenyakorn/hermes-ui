@@ -71,7 +71,6 @@ button:hover {
 }
 
 button:disabled {
-  cursor: wait;
   opacity: 0.55;
 }
 

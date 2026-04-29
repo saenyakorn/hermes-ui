@@ -37,6 +37,30 @@ function messageFromJsonErrorBody(raw: string, fallback: string): string {
   }
 }
 
+export function parseLogStreamFrames(frame: string): string[] {
+  const dataLines = frame
+    .split("\n")
+    .filter((line) => line.startsWith("data:") && line.length > "data:".length);
+  const out: string[] = [];
+  for (const dataLine of dataLines) {
+    const payload = dataLine.slice("data:".length).trim();
+    try {
+      const parsed = JSON.parse(payload) as unknown;
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "line" in parsed &&
+        typeof parsed.line === "string"
+      ) {
+        out.push(parsed.line);
+      }
+    } catch {
+      // Ignore malformed stream payloads and keep streaming.
+    }
+  }
+  return out;
+}
+
 export type ModelProvidersSavePayload = {
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
@@ -106,6 +130,59 @@ export class ApiFetcher {
       throw new Error(await getResponseErrorMessage(response));
     }
     return response.json() as Promise<LogTail>;
+  }
+
+  subscribeLogStream(
+    onLine: (line: string) => void,
+    onError: (message: string) => void,
+  ): () => void {
+    const abortController = new AbortController();
+
+    const consume = async () => {
+      try {
+        const response = await this.authenticatedFetch(`${this.origin}/logs/stream`, {
+          headers: { accept: "text/event-stream" },
+          signal: abortController.signal,
+        });
+        if (!response.ok) {
+          onError(await getResponseErrorMessage(response));
+          return;
+        }
+        if (response.body === null) {
+          onError("Log stream unavailable.");
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop() ?? "";
+
+          for (const frame of frames) {
+            for (const line of parseLogStreamFrames(frame)) {
+              onLine(line);
+            }
+          }
+        }
+      } catch (cause: unknown) {
+        if (!abortController.signal.aborted) {
+          onError(cause instanceof Error ? cause.message : String(cause));
+        }
+      }
+    };
+
+    void consume();
+
+    return () => {
+      abortController.abort();
+    };
   }
 
   async getConfigRead(): Promise<ConfigReadResult> {

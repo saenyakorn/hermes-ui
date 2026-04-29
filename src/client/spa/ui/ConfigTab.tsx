@@ -42,7 +42,7 @@ export function ConfigTab() {
           </Button>
         </div>
       </div>
-      <Card variant="soft" className="min-h-0 flex-1 p-2">
+      <Card variant="soft" className="flex min-h-0 min-w-0 flex-1 flex-col p-2">
         <YamlEditor value={config.content} onChange={config.onChange} />
       </Card>
       <div

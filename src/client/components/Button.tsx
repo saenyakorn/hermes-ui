@@ -22,8 +22,8 @@ export function Button({
   return (
     <BaseButton
       className={cn(
-        "inline-flex items-center justify-center rounded-md border transition",
-        "disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex cursor-pointer items-center justify-center rounded-md border transition",
+        "disabled:cursor-not-allowed disabled:opacity-55 aria-disabled:cursor-not-allowed data-disabled:cursor-not-allowed",
         size === "md" ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-xs",
         variant === "primary" && "border-accent bg-accent text-background",
         variant === "secondary" && "border-accent-border bg-surface text-text",

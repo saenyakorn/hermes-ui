@@ -21,9 +21,10 @@ export function MarkdownEditor({ value, onChange, onReady, id }: MarkdownEditorP
   return (
     <div
       id={id}
-      className="min-h-[220px] flex-1 overflow-hidden rounded-lg border border-frosted bg-background"
+      className="h-[min(22rem,40vh)] min-h-[12rem] w-full shrink-0 overflow-hidden rounded-lg border border-frosted bg-background"
     >
       <Editor
+        height="100%"
         value={value}
         language="markdown"
         theme="vs-dark"

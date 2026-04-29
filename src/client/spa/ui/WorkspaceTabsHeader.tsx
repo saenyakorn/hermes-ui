@@ -23,14 +23,16 @@ export function WorkspaceTabsHeader({ activeTab, profilePicker }: WorkspaceTabsH
     <Tabs.List className="w-full shrink-0 lg:min-h-0 lg:w-[232px]">
       <Card className="flex h-auto min-h-0 flex-col p-4 lg:h-full">
         <div className="border-b border-frosted pb-3">
-          <p className="text-[34px]/[1] font-semibold tracking-[-0.03em] text-text">Hermes Agent</p>
+          <p className="text-[22px]/[1.2] font-semibold tracking-[-0.02em] text-text">
+            Hermes Agent
+          </p>
           <SectionLabel className="mt-1">AI Gateway Control</SectionLabel>
         </div>
         <div className="mt-3 flex items-center gap-2 text-xs text-muted">
           <span>Profile</span>
           <div className="min-w-0 flex-1">{profilePicker}</div>
         </div>
-        <div className="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-auto pr-1 lg:pr-0">
+        <div className="mt-4 -m-2 flex min-h-0 flex-1 flex-col gap-1 overflow-auto p-2 pr-1 lg:pr-0">
           <Tabs.Tab value="control" data-tab-trigger="control" className={tabClass("control")}>
             Control
           </Tabs.Tab>

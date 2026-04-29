@@ -7,6 +7,20 @@ import { asDirProvider, type DirProvider } from "./paths";
 
 const ENV_FILE_NAME = ".env";
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
+const PROFILE_PATH_MARKER = "/data/profiles/";
+
+function getDisplayEnvPath(dataDir: string): string {
+  const normalized = dataDir.split(path.sep).join("/");
+  const markerIndex = normalized.indexOf(PROFILE_PATH_MARKER);
+  if (markerIndex >= 0) {
+    const remainder = normalized.slice(markerIndex + PROFILE_PATH_MARKER.length);
+    const profileName = remainder.split("/")[0];
+    if (profileName) {
+      return `data/profiles/${profileName}/.env`;
+    }
+  }
+  return "data/.env";
+}
 
 /** Non-secret Discord .env keys whose raw value may be sent to the workspace UI (selects). */
 const ENV_KEYS_WITH_PUBLIC_VALUE_IN_API = new Set([
@@ -50,7 +64,7 @@ export class EnvStore {
       });
 
     return {
-      path: "data/.env",
+      path: getDisplayEnvPath(this.getDataDir()),
       updatedAt: metadata,
       entries,
     };

@@ -169,6 +169,15 @@ export function useSessionsTab(): {
       try {
         await api.deleteProfileSession(state.profile, id);
         await refresh();
+        setState((prev) => {
+          if (prev.selectedSessionId !== id) return prev;
+          return {
+            ...prev,
+            selectedSessionId: null,
+            selectedLabel: "Selected: none",
+            transcript: "Click session row to view entire chat.",
+          };
+        });
         setStatus("Session deleted.");
       } catch (cause: unknown) {
         setStatus(`Failed to delete session: ${getErrorMessage(cause)}`);

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import { io, type Socket } from "socket.io-client";
 import { useXTerm } from "react-xtermjs";
 import { FitAddon } from "@xterm/addon-fit";
@@ -10,10 +10,9 @@ import { PROFILE_CHANGED_EVENT } from "../../lib/event";
 export function ShellTab() {
   const api = useMemo(() => new ApiFetcher(), []);
   const fitAddon = useMemo(() => new FitAddon(), []);
-  const socketRef = useRef<Socket | null>(null);
-  const { ref, instance } = useXTerm({
-    addons: [fitAddon],
-    options: {
+  const addons = useMemo(() => [fitAddon], [fitAddon]);
+  const xtermOptions = useMemo(
+    () => ({
       cursorBlink: true,
       fontFamily: '"Azeret Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 13,
@@ -23,7 +22,13 @@ export function ShellTab() {
         cursor: "#0099ff",
         selectionBackground: "#0099ff55",
       },
-    },
+    }),
+    [],
+  );
+  const socketRef = useRef<Socket | null>(null);
+  const { ref, instance } = useXTerm({
+    addons,
+    options: xtermOptions,
     listeners: {
       onData: (input) => {
         socketRef.current?.emit("terminal:input", input);
@@ -31,59 +36,68 @@ export function ShellTab() {
     },
   });
 
-  useSyncExternalStore(
-    (onStoreChange) => {
-      if (!instance || !ref.current) {
-        return () => undefined;
-      }
+  const connectSocket = useCallback(
+    (host: HTMLDivElement, terminalInstance: NonNullable<typeof instance>): Socket => {
+      const socket = io({
+        transports: ["websocket"],
+        auth: { token: api.getBasicAuthToken() },
+      });
 
-      const host = ref.current;
-      const connectSocket = (): Socket => {
-        const socket = io({
-          transports: ["websocket"],
-          auth: { token: api.getBasicAuthToken() },
-        });
+      const resize = (): void => {
+        if (host.offsetWidth < 2 || host.offsetHeight < 2) {
+          return;
+        }
+        fitAddon.fit();
+        if (socket.connected) {
+          socket.emit("terminal:resize", {
+            cols: terminalInstance.cols,
+            rows: terminalInstance.rows,
+          });
+        }
+      };
 
-        const resize = (): void => {
-          if (host.offsetWidth < 2 || host.offsetHeight < 2) {
-            return;
-          }
-          fitAddon.fit();
-          if (socket.connected) {
-            socket.emit("terminal:resize", { cols: instance.cols, rows: instance.rows });
-          }
-        };
-
-        socket.on("connect", () => {
-          socket.emit("terminal:start");
-          resize();
-        });
-        socket.on("terminal:output", (data: string) => instance.write(data));
-        socket.on("terminal:exit", ({ exitCode }: { exitCode: number }) => {
-          instance.writeln(`\r\n[process exited ${exitCode}]\r\n`);
-        });
-
-        const resizeObserver = new ResizeObserver(() => resize());
-        resizeObserver.observe(host);
-        window.addEventListener("resize", resize);
+      socket.on("connect", () => {
+        socket.emit("terminal:start");
         resize();
+      });
+      socket.on("terminal:output", (data: string) => terminalInstance.write(data));
+      socket.on("terminal:exit", ({ exitCode }: { exitCode: number }) => {
+        terminalInstance.writeln(`\r\n[process exited ${exitCode}]\r\n`);
+      });
 
-        const originalDisconnect = socket.disconnect.bind(socket);
-        socket.disconnect = () => {
-          window.removeEventListener("resize", resize);
-          resizeObserver.disconnect();
-          originalDisconnect();
-          return socket;
-        };
+      const resizeObserver = new ResizeObserver(() => resize());
+      resizeObserver.observe(host);
+      window.addEventListener("resize", resize);
+      resize();
 
+      const originalDisconnect = socket.disconnect.bind(socket);
+      socket.disconnect = () => {
+        window.removeEventListener("resize", resize);
+        resizeObserver.disconnect();
+        originalDisconnect();
         return socket;
       };
 
-      socketRef.current = connectSocket();
+      return socket;
+    },
+    [api, fitAddon, instance],
+  );
+
+  const subscribeTerminalRuntime = useCallback(
+    (onStoreChange: () => void) => {
+      if (!instance) {
+        return () => {};
+      }
+      const host = ref.current;
+      if (!host) {
+        return () => {};
+      }
+
+      socketRef.current = connectSocket(host, instance);
 
       const onProfileChanged = () => {
         socketRef.current?.disconnect();
-        socketRef.current = connectSocket();
+        socketRef.current = connectSocket(host, instance);
         onStoreChange();
       };
 
@@ -94,6 +108,11 @@ export function ShellTab() {
         socketRef.current = null;
       };
     },
+    [connectSocket, instance, ref],
+  );
+
+  useSyncExternalStore(
+    subscribeTerminalRuntime,
     () => 0,
     () => 0,
   );
@@ -114,27 +133,13 @@ export function ShellTab() {
           Clear
         </Button>
       </div>
-      <Card className="min-h-0 min-w-0 flex-1 p-3">
+      <Card className="min-h-[1000px] min-w-0 flex-1 p-3">
         <div
           ref={ref}
           id="terminal"
-          className="min-h-[320px] flex-1 rounded-lg border border-frosted bg-background"
+          className="min-h-[1000px] flex-1 rounded-lg border border-frosted bg-background"
         />
       </Card>
-      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Card variant="soft" className="p-3">
-          <p className="text-[11px] uppercase text-muted">Active agents</p>
-          <p className="mt-1 text-xl font-semibold text-text">24</p>
-        </Card>
-        <Card variant="soft" className="p-3">
-          <p className="text-[11px] uppercase text-muted">Throughput</p>
-          <p className="mt-1 text-xl font-semibold text-text">1.2k req/s</p>
-        </Card>
-        <Card variant="soft" className="p-3">
-          <p className="text-[11px] uppercase text-muted">Health score</p>
-          <p className="mt-1 text-xl font-semibold text-text">99.8%</p>
-        </Card>
-      </div>
     </section>
   );
 }

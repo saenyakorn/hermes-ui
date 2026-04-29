@@ -125,7 +125,7 @@ export function createApp(services: AppServices) {
         ),
       );
     })
-    .get("/gateway/status", (context) => context.json(services.gateway.status()))
+    .get("/gateway/status", async (context) => context.json(await services.gateway.refreshHealth()))
     .get("/gateway/health", async (context) => context.json(await services.gateway.refreshHealth()))
     .post("/gateway/start", async (context) =>
       context.json(await runGatewayAction(services.gateway, () => services.gateway.start())),

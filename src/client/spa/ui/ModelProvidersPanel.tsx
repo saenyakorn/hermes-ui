@@ -149,8 +149,8 @@ function DefaultModelForm({
   return (
     <form.AppForm>
       <Card className="p-4">
-        <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             Default model
           </p>
           {DefaultModelFields.map((providerField) => (
@@ -171,7 +171,7 @@ function DefaultModelForm({
               )}
             />
           ))}
-          <div className="flex gap-2">
+          <div className="col-span-full flex gap-2">
             <form.SubmitButton
               variant="primary"
               disabled={isDefaultsLoading || saveMutation.isPending}
@@ -180,7 +180,7 @@ function DefaultModelForm({
             </form.SubmitButton>
           </div>
           {saveMutation.isError ? (
-            <p className="text-xs text-danger">{saveMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
           ) : null}
         </section>
       </Card>
@@ -245,8 +245,10 @@ function OpenRouterForm(props: {
   return (
     <form.AppForm>
       <Card className="p-4">
-        <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">OpenRouter</p>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            OpenRouter
+          </p>
           {OpenRouterFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -263,7 +265,7 @@ function OpenRouterForm(props: {
               )}
             </form.AppField>
           ))}
-          <div className="flex gap-2">
+          <div className="col-span-full flex gap-2">
             <form.SubmitButton
               variant="primary"
               disabled={
@@ -284,10 +286,10 @@ function OpenRouterForm(props: {
             </Button>
           </div>
           {saveMutation.isError ? (
-            <p className="text-xs text-danger">{saveMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
           ) : null}
           {clearMutation.isError ? (
-            <p className="text-xs text-danger">{clearMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
         </section>
       </Card>
@@ -336,8 +338,10 @@ function ClaudeForm(props: {
   return (
     <form.AppForm>
       <Card className="p-4">
-        <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Claude</p>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            Claude
+          </p>
           {ClaudeFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -354,7 +358,7 @@ function ClaudeForm(props: {
               )}
             </form.AppField>
           ))}
-          <div className="flex gap-2">
+          <div className="col-span-full flex gap-2">
             <form.SubmitButton
               variant="primary"
               disabled={
@@ -375,10 +379,10 @@ function ClaudeForm(props: {
             </Button>
           </div>
           {saveMutation.isError ? (
-            <p className="text-xs text-danger">{saveMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
           ) : null}
           {clearMutation.isError ? (
-            <p className="text-xs text-danger">{clearMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
         </section>
       </Card>
@@ -439,8 +443,10 @@ function OpenAiForm(props: {
   return (
     <form.AppForm>
       <Card className="p-4">
-        <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">OpenAI</p>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            OpenAI
+          </p>
           {OpenAiFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -457,7 +463,7 @@ function OpenAiForm(props: {
               )}
             </form.AppField>
           ))}
-          <div className="flex gap-2">
+          <div className="col-span-full flex gap-2">
             <form.SubmitButton
               variant="primary"
               disabled={
@@ -478,10 +484,10 @@ function OpenAiForm(props: {
             </Button>
           </div>
           {saveMutation.isError ? (
-            <p className="text-xs text-danger">{saveMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
           ) : null}
           {clearMutation.isError ? (
-            <p className="text-xs text-danger">{clearMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
         </section>
       </Card>
@@ -542,8 +548,10 @@ function GeminiForm(props: {
   return (
     <form.AppForm>
       <Card className="p-4">
-        <section className="grid gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Gemini</p>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            Gemini
+          </p>
           {GeminiFields.map((providerField) => (
             <form.AppField key={providerField.name} name={providerField.name}>
               {(field) => (
@@ -560,7 +568,7 @@ function GeminiForm(props: {
               )}
             </form.AppField>
           ))}
-          <div className="flex gap-2">
+          <div className="col-span-full flex gap-2">
             <form.SubmitButton
               variant="primary"
               disabled={
@@ -581,10 +589,10 @@ function GeminiForm(props: {
             </Button>
           </div>
           {saveMutation.isError ? (
-            <p className="text-xs text-danger">{saveMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
           ) : null}
           {clearMutation.isError ? (
-            <p className="text-xs text-danger">{clearMutation.error.message}</p>
+            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
         </section>
       </Card>

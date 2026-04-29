@@ -10,6 +10,7 @@ import { getErrorMessage } from "../lib/errors";
 import {
   dispatchGatewayStatus,
   dispatchProfileChanged,
+  PROFILE_CHANGED_EVENT,
   PROFILES_TAB_SHOWN_EVENT,
 } from "../lib/event";
 
@@ -23,17 +24,25 @@ const initialState: ProfilesState = {
   status: "Ready.",
 };
 
-export function useProfilesTab(): {
+export type ProfileWorkspaceApi = {
   list: ProfileListResult;
+  /** Active profile slug; `null` = default profile at data root. */
+  activeProfile: string | null;
   status: string;
   refresh: () => Promise<void>;
   activate: (name: string | null) => Promise<void>;
-  create: () => Promise<void>;
-  rename: (name: string) => Promise<void>;
-  remove: (name: string) => Promise<void>;
+  createProfile: (input: {
+    name: string;
+    mode: ProfileCreateMode;
+    cloneFrom?: string;
+  }) => Promise<void>;
+  renameTo: (from: string, to: string) => Promise<void>;
+  removeConfirmed: (name: string) => Promise<void>;
   pickerValue: string;
   pickerOptions: ProfileSummary[];
-} {
+};
+
+export function useProfilesTab(): ProfileWorkspaceApi {
   const api = useMemo(() => new ApiFetcher(), []);
   const [state, setState] = useState<ProfilesState>(initialState);
 
@@ -55,9 +64,12 @@ export function useProfilesTab(): {
       (onStoreChange) => {
         void refresh().finally(onStoreChange);
         const onTabShown = () => void refresh().finally(onStoreChange);
+        const onProfileChanged = () => void refresh().finally(onStoreChange);
         window.addEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
+        window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
         return () => {
           window.removeEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
+          window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
         };
       },
       [refresh],
@@ -93,39 +105,45 @@ export function useProfilesTab(): {
     [api, setStatus, state.list.active],
   );
 
-  const create = useCallback(async () => {
-    const name = window.prompt("New profile name");
-    if (name === null) return;
-    const mode = (window.prompt('Mode: "blank" | "clone" | "clone-all"', "blank") ??
-      "blank") as ProfileCreateMode;
-    const cloneFrom = window.prompt("Clone from (optional)");
-    try {
-      const payload: { name: string; mode: ProfileCreateMode; cloneFrom?: string } = {
-        name: name.trim(),
-        mode,
-      };
-      if (cloneFrom && cloneFrom.trim()) payload.cloneFrom = cloneFrom.trim();
-      const result = await api.postProfile(payload);
-      setState((prev) => ({
-        ...prev,
-        list: result.list,
-        status: `Created profile "${name.trim()}".`,
-      }));
-    } catch (cause: unknown) {
-      setStatus(`Failed to create: ${getErrorMessage(cause)}`);
-    }
-  }, [api, setStatus]);
-
-  const rename = useCallback(
-    async (name: string) => {
-      const to = window.prompt(`Rename "${name}" to`);
-      if (to === null) return;
+  const createProfile = useCallback(
+    async (input: { name: string; mode: ProfileCreateMode; cloneFrom?: string }) => {
+      const trimmed = input.name.trim();
+      if (!trimmed) {
+        setStatus("Profile name required.");
+        return;
+      }
       try {
-        const result = await api.putProfileRename(name, to.trim());
+        const payload: { name: string; mode: ProfileCreateMode; cloneFrom?: string } = {
+          name: trimmed,
+          mode: input.mode,
+        };
+        if (input.cloneFrom?.trim()) payload.cloneFrom = input.cloneFrom.trim();
+        const result = await api.postProfile(payload);
         setState((prev) => ({
           ...prev,
           list: result.list,
-          status: `Renamed "${name}" -> "${to.trim()}".`,
+          status: `Created profile "${trimmed}".`,
+        }));
+      } catch (cause: unknown) {
+        setStatus(`Failed to create: ${getErrorMessage(cause)}`);
+      }
+    },
+    [api, setStatus],
+  );
+
+  const renameTo = useCallback(
+    async (from: string, to: string) => {
+      const next = to.trim();
+      if (!next) {
+        setStatus("New name required.");
+        return;
+      }
+      try {
+        const result = await api.putProfileRename(from, next);
+        setState((prev) => ({
+          ...prev,
+          list: result.list,
+          status: `Renamed "${from}" -> "${next}".`,
         }));
       } catch (cause: unknown) {
         setStatus(`Failed to rename: ${getErrorMessage(cause)}`);
@@ -134,13 +152,8 @@ export function useProfilesTab(): {
     [api, setStatus],
   );
 
-  const remove = useCallback(
+  const removeConfirmed = useCallback(
     async (name: string) => {
-      const typed = window.prompt(`Type profile name "${name}" to confirm delete.`);
-      if (typed === null || typed.trim() !== name) {
-        setStatus("Profile name mismatch. Delete cancelled.");
-        return;
-      }
       try {
         const result = await api.deleteProfile(name);
         setState((prev) => ({ ...prev, list: result.list, status: `Deleted profile "${name}".` }));
@@ -151,15 +164,19 @@ export function useProfilesTab(): {
     [api, setStatus],
   );
 
-  return {
-    list: state.list,
-    status: state.status,
-    refresh,
-    activate,
-    create,
-    rename,
-    remove,
-    pickerValue: state.list.active ?? "default",
-    pickerOptions: state.list.profiles,
-  };
+  return useMemo(
+    (): ProfileWorkspaceApi => ({
+      list: state.list,
+      activeProfile: state.list.active,
+      status: state.status,
+      refresh,
+      activate,
+      createProfile,
+      renameTo,
+      removeConfirmed,
+      pickerValue: state.list.active ?? "default",
+      pickerOptions: state.list.profiles,
+    }),
+    [state.list, state.status, refresh, activate, createProfile, renameTo, removeConfirmed],
+  );
 }

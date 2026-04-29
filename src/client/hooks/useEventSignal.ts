@@ -9,7 +9,7 @@ function subscribeToWindowEvent(eventName: string) {
 }
 
 /**
- * React-safe event pulse without useEffect in consumers.
+ * React-safe event pulse without lifecycle hooks in consumers.
  * Value increments whenever the event fires.
  */
 export function useEventSignal(eventName: string): number {

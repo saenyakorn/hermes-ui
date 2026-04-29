@@ -7,7 +7,10 @@ import { dispatchGatewayStatus, GATEWAY_STATUS_EVENT } from "../lib/event";
 
 let lastGatewayStatus: GatewayStatus | null = null;
 
-export function useGatewayStatus(initialStatus: GatewayStatus): {
+export function useGatewayStatus(
+  initialStatus: GatewayStatus,
+  activeProfile: string | null = null,
+): {
   status: GatewayStatus;
   error: string | null;
   busy: boolean;
@@ -34,7 +37,7 @@ export function useGatewayStatus(initialStatus: GatewayStatus): {
   );
 
   const statusQuery = useQuery({
-    queryKey: ["gateway-status"],
+    queryKey: ["gateway-status", activeProfile ?? "default"],
     queryFn: () => api.getGatewayStatus(),
     initialData: initialStatus,
     refetchInterval: 3000,
@@ -47,7 +50,7 @@ export function useGatewayStatus(initialStatus: GatewayStatus): {
   const actionMutation = useMutation({
     mutationFn: (action: "start" | "stop" | "restart") => api.postGatewayAction(action),
     onSuccess: (next) => {
-      queryClient.setQueryData(["gateway-status"], next);
+      queryClient.setQueryData(["gateway-status", activeProfile ?? "default"], next);
       dispatchGatewayStatus(next);
     },
   });

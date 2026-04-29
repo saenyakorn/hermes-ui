@@ -1,19 +1,27 @@
-FROM node:20-slim AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run typecheck && npm run build && npm test
 
-FROM node:20-slim AS runtime
+FROM node:20-alpine AS runtime
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends bash build-essential ca-certificates curl git libffi-dev python3 python3-dev xz-utils \
-    && rm -rf /var/lib/apt/lists/*
+# bash: Hermes install.sh; build-base + headers: uv/pip native wheels; rest: git/clone, libffi, xz (Node tarballs if ever needed)
+RUN apk add --no-cache \
+    bash \
+    build-base \
+    ca-certificates \
+    curl \
+    git \
+    libffi-dev \
+    linux-headers \
+    openssl-dev \
+    python3 \
+    python3-dev \
+    xz
 
 RUN mkdir -p /app/data \
     && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
@@ -23,7 +31,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HERMES_HOME=/app/data
-
 
 COPY package*.json ./
 RUN npm ci --omit=dev
