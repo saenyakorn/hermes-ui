@@ -3,10 +3,6 @@ name: Publish Docker Image to GHCR
 on:
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: Docker image tag to publish
-        required: true
-        default: saenyakorn/hermes-ui
       push_latest:
         description: Also push latest tag
         required: true
@@ -27,7 +23,7 @@ permissions:
   statuses: write
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,6 +32,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,22 +48,34 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Compute image tag
+        id: image_tag
+        run: |
+          version="$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
+          commit_tags="$(git tag --points-at HEAD)"
+          if [ -n "$commit_tags" ]; then
+            value="$version"
+          else
+            value="${version}-${GITHUB_SHA}"
+          fi
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/saenyakorn/hermes-ui
           tags: |
-            type=raw,value=${{ inputs.image_tag }}
-            type=sha
+            type=raw,value=${{ steps.image_tag.outputs.value }}
             type=raw,value=latest,enable=${{ inputs.push_latest }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/386,linux/ppc64le,linux/s390x,linux/riscv64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
