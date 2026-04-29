@@ -4,4 +4,9 @@ dist/
 .worktrees/
 data/
 .env
+.env.*
 .DS_Store
+coverage/
+*.log
+.cursor/
+.vscode/

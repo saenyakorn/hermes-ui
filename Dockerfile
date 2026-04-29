@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
@@ -7,7 +7,9 @@ RUN npm ci
 COPY . .
 RUN npm run typecheck && npm run build && npm test
 
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
+
+ARG HERMES_VERSION=main
 
 # bash: Hermes install.sh; build-base + headers: uv/pip native wheels; rest: git/clone, libffi, xz (Node tarballs if ever needed)
 RUN apk add --no-cache \
@@ -24,13 +26,15 @@ RUN apk add --no-cache \
     xz
 
 RUN mkdir -p /app/data \
-    && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
+    && curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/${HERMES_VERSION}/scripts/install.sh" \
     | bash -s -- --skip-setup --hermes-home /app/data
 
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HERMES_HOME=/app/data
+ARG ADMIN_USERNAME
+ARG ADMIN_PASSWORD
 
 COPY package*.json ./
 RUN npm ci --omit=dev

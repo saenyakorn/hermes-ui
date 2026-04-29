@@ -1,4 +1,6 @@
-FROM node:20-slim
+FROM node:24-slim
+
+ARG HERMES_VERSION=main
 
 WORKDIR /app
 
@@ -7,7 +9,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /app/data \
-&& curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
+    && curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/${HERMES_VERSION}/scripts/install.sh" \
     | bash -s -- --skip-setup --hermes-home /app/data
 
 COPY package*.json ./
@@ -19,6 +21,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint-dev.sh
 ENV NODE_ENV=development
 ENV PORT=3000
 ENV HERMES_HOME=/app/data
+ARG ADMIN_USERNAME
+ARG ADMIN_PASSWORD
 
 EXPOSE 3000
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint-dev.sh"]
