@@ -121,6 +121,7 @@ docker-compose down
 ### Run Prebuilt Image Locally (GHCR)
 
 Tags:
+
 - `ghcr.io/saenyakorn/hermes-ui:<version>` (tagged commit)
 - `ghcr.io/saenyakorn/hermes-ui:<version>-<commit-sha>` (untagged commit)
 - optional `ghcr.io/saenyakorn/hermes-ui:latest`
@@ -179,27 +180,27 @@ If your GHCR package is private, configure Railway registry credentials that can
 
 ### Application Variables
 
-| Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `ADMIN_USERNAME` | Yes | - | Basic Auth username for HTTP/SSE/WebSocket access |
-| `ADMIN_PASSWORD` | Yes | - | Basic Auth password for HTTP/SSE/WebSocket access |
-| `PORT` | No | `3000` | HTTP server port (must be 1-65535) |
-| `LOG_LEVEL` | No | `info` | One of: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent` |
+| Variable         | Required | Default | Description                                                          |
+| ---------------- | -------- | ------- | -------------------------------------------------------------------- |
+| `ADMIN_USERNAME` | Yes      | -       | Basic Auth username for HTTP/SSE/WebSocket access                    |
+| `ADMIN_PASSWORD` | Yes      | -       | Basic Auth password for HTTP/SSE/WebSocket access                    |
+| `PORT`           | No       | `3000`  | HTTP server port (must be 1-65535)                                   |
+| `LOG_LEVEL`      | No       | `info`  | One of: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent` |
 
 ### Container Runtime Variables
 
-| Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `NODE_ENV` | No | `production` | Node runtime environment in the container image |
-| `HERMES_HOME` | No | `/app/data` | Hermes runtime data directory inside the container |
-| `ADMIN_USERNAME` | Yes | - | Required at runtime (set via Docker Compose, `docker run`, or cloud env config) |
-| `ADMIN_PASSWORD` | Yes | - | Required at runtime (set via Docker Compose, `docker run`, or cloud env config) |
+| Variable         | Required | Default      | Description                                                                     |
+| ---------------- | -------- | ------------ | ------------------------------------------------------------------------------- |
+| `NODE_ENV`       | No       | `production` | Node runtime environment in the container image                                 |
+| `HERMES_HOME`    | No       | `/app/data`  | Hermes runtime data directory inside the container                              |
+| `ADMIN_USERNAME` | Yes      | -            | Required at runtime (set via Docker Compose, `docker run`, or cloud env config) |
+| `ADMIN_PASSWORD` | Yes      | -            | Required at runtime (set via Docker Compose, `docker run`, or cloud env config) |
 
 ### Docker Build Argument
 
-| Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `HERMES_VERSION` | No | `main` | Hermes installer source ref used at image build time (branch, tag, or commit SHA) |
+| Variable         | Required | Default | Description                                                                       |
+| ---------------- | -------- | ------- | --------------------------------------------------------------------------------- |
+| `HERMES_VERSION` | No       | `main`  | Hermes installer source ref used at image build time (branch, tag, or commit SHA) |
 
 Example:
 
@@ -211,15 +212,15 @@ docker build --build-arg HERMES_VERSION=main -t ghcr.io/saenyakorn/hermes-ui:cus
 
 ## Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start development server with watch |
-| `npm run build` | Build server and client assets into `dist/` |
-| `npm start` | Run production entrypoint (`dist/index.js`) |
-| `npm test` | Run Vitest suite |
-| `npm run typecheck` | Run TypeScript checks (`tsc --noEmit`) |
-| `npm run lint` | Run Oxlint |
-| `npm run format` | Run Oxfmt |
+| Command             | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `npm run dev`       | Start development server with watch         |
+| `npm run build`     | Build server and client assets into `dist/` |
+| `npm start`         | Run production entrypoint (`dist/index.js`) |
+| `npm test`          | Run Vitest suite                            |
+| `npm run typecheck` | Run TypeScript checks (`tsc --noEmit`)      |
+| `npm run lint`      | Run Oxlint                                  |
+| `npm run format`    | Run Oxfmt                                   |
 
 ---
 

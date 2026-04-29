@@ -44,15 +44,18 @@ export function useSessionsTab(): {
     setState((prev) => ({ ...prev, status: message }));
   }, []);
 
-  const refresh = useCallback(async (profileOverride?: string | null) => {
-    try {
-      const profile = profileOverride === undefined ? state.profile : profileOverride;
-      const list = await api.getProfileSessions(profile);
-      setState((prev) => ({ ...prev, profile, list }));
-    } catch (cause: unknown) {
-      setStatus(`Failed to load sessions: ${getErrorMessage(cause)}`);
-    }
-  }, [api, setStatus, state.profile]);
+  const refresh = useCallback(
+    async (profileOverride?: string | null) => {
+      try {
+        const profile = profileOverride === undefined ? state.profile : profileOverride;
+        const list = await api.getProfileSessions(profile);
+        setState((prev) => ({ ...prev, profile, list }));
+      } catch (cause: unknown) {
+        setStatus(`Failed to load sessions: ${getErrorMessage(cause)}`);
+      }
+    },
+    [api, setStatus, state.profile],
+  );
 
   useSyncExternalStore(
     useCallback(

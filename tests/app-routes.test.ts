@@ -216,7 +216,11 @@ function createServices(): AppServices {
           chat: "",
         },
       })),
-      remove: vi.fn(async (profile, id) => ({ profile, id, deleted: true as const })),
+      remove: vi.fn(async (profile, id) => ({
+        profile,
+        id,
+        deleted: true as const,
+      })),
     },
   };
 }
@@ -255,7 +259,47 @@ describe("createApp", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ lines: ["line one"], warning: null });
+    await expect(response.json()).resolves.toEqual({
+      lines: ["line one"],
+      warning: null,
+    });
+  });
+
+  it("ignores log writes after stream disconnect without unhandled rejection", async () => {
+    const services = createServices();
+    let subscribed = false;
+    let emitLogLine: (line: string) => void = () => {
+      throw new Error("Expected log listener subscription");
+    };
+    const unsubscribe = vi.fn();
+    services.logs.subscribe = vi.fn((next: (line: string) => void) => {
+      subscribed = true;
+      emitLogLine = next;
+      return unsubscribe;
+    });
+
+    const unhandledRejection = vi.fn();
+    process.on("unhandledRejection", unhandledRejection);
+    try {
+      const request = new Request("http://localhost/logs/stream", {
+        method: "GET",
+        headers: { authorization: auth },
+        signal: AbortSignal.timeout(100),
+      });
+      const response = await createApp(services).request(request);
+      expect(response.status).toBe(200);
+      expect(subscribed).toBe(true);
+
+      emitLogLine("line before close");
+      await response.body?.cancel();
+      emitLogLine("line after close");
+      await Promise.resolve();
+
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+      expect(unhandledRejection).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandledRejection);
+    }
   });
 
   it("protects config routes with basic auth", async () => {
@@ -413,7 +457,9 @@ describe("createApp", () => {
     });
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "Config content must be a string." });
+    await expect(response.json()).resolves.toEqual({
+      error: "Config content must be a string.",
+    });
     expect(services.config.save).not.toHaveBeenCalled();
     expect(services.gateway.restart).not.toHaveBeenCalled();
   });
@@ -500,7 +546,9 @@ describe("createApp", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(services.envVars.applyBatch).toHaveBeenCalledWith({ set: { DISCORD_BOT_TOKEN: "tok" } });
+    expect(services.envVars.applyBatch).toHaveBeenCalledWith({
+      set: { DISCORD_BOT_TOKEN: "tok" },
+    });
     expect(services.gateway.restart).toHaveBeenCalledOnce();
     await expect(response.json()).resolves.toEqual({
       env: afterBatch,
@@ -628,7 +676,9 @@ describe("createApp", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(services.config.patchModel).toHaveBeenCalledWith({ default: "anthropic/claude" });
+    expect(services.config.patchModel).toHaveBeenCalledWith({
+      default: "anthropic/claude",
+    });
     expect(services.envVars.applyBatch).toHaveBeenCalledWith({
       set: { OPENROUTER_API_KEY: "tok" },
     });
@@ -746,7 +796,11 @@ describe("createApp", () => {
     const response = await createApp(services).request("/profiles", {
       method: "POST",
       headers: { authorization: auth, "content-type": "application/json" },
-      body: JSON.stringify({ name: "coder", mode: "clone-all", cloneFrom: "default-bot" }),
+      body: JSON.stringify({
+        name: "coder",
+        mode: "clone-all",
+        cloneFrom: "default-bot",
+      }),
     });
 
     expect(response.status).toBe(200);
@@ -876,7 +930,9 @@ describe("createApp", () => {
       body: JSON.stringify({ name: "Sprint" }),
     });
     expect(createResponse.status).toBe(200);
-    expect(services.profileSessions.create).toHaveBeenCalledWith("coder", { name: "Sprint" });
+    expect(services.profileSessions.create).toHaveBeenCalledWith("coder", {
+      name: "Sprint",
+    });
 
     const renameResponse = await createApp(services).request("/profiles/coder/sessions/session-1", {
       method: "PUT",

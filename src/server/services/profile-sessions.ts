@@ -187,7 +187,10 @@ export class ProfileSessionsStore {
     return { session: toSession(profile, record), chat };
   }
 
-  private async readRecordRaw(dataDir: string, id: string): Promise<SessionRecord & SessionFilePayload> {
+  private async readRecordRaw(
+    dataDir: string,
+    id: string,
+  ): Promise<SessionRecord & SessionFilePayload> {
     validateSessionId(id);
     const filePath = getSessionPath(dataDir, id);
     const raw = await readFile(filePath, "utf8");
