@@ -20,6 +20,8 @@ type SessionRecord = {
   updatedAt: string;
 };
 
+type SessionFilePayload = Record<string, unknown>;
+
 const SESSION_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
 function validateSessionId(id: string): void {
@@ -74,7 +76,10 @@ export class ProfileSessionsStore {
       if (!SESSION_ID_PATTERN.test(id)) {
         continue;
       }
-      const session = await this.readRecord(profile, id).catch(() => null);
+      const session = await this.readRecord(profile, id).catch((cause: unknown) => {
+        console.warn(`Skipping session file "${entry.name}": ${String(cause)}`);
+        return null;
+      });
       if (session !== null) {
         sessions.push(session);
       }
@@ -121,7 +126,7 @@ export class ProfileSessionsStore {
       name: normalizeSessionName(input.name),
       updatedAt: this.clock(),
     };
-    await this.writeRecord(dataDir, updated);
+    await this.writeRecord(dataDir, updated, current);
     return { profile, session: { ...toSession(profile, updated), chat: "" } };
   }
 
@@ -152,7 +157,7 @@ export class ProfileSessionsStore {
       archived,
       updatedAt: this.clock(),
     };
-    await this.writeRecord(dataDir, updated);
+    await this.writeRecord(dataDir, updated, current);
     return toSession(profile, updated);
   }
 
@@ -176,24 +181,30 @@ export class ProfileSessionsStore {
     validateSessionId(id);
     const filePath = getSessionPath(dataDir, id);
     const raw = await readFile(filePath, "utf8");
-    const parsed = JSON.parse(raw) as Partial<SessionRecord> & {
-      chat?: unknown;
-      messages?: unknown;
-    };
+    const parsed = this.parseSessionPayload(raw);
     const record = this.assertSessionRecord(id, parsed);
     const chat = this.extractChatText(parsed);
     return { session: toSession(profile, record), chat };
   }
 
-  private async readRecordRaw(dataDir: string, id: string): Promise<SessionRecord> {
+  private async readRecordRaw(dataDir: string, id: string): Promise<SessionRecord & SessionFilePayload> {
     validateSessionId(id);
     const filePath = getSessionPath(dataDir, id);
     const raw = await readFile(filePath, "utf8");
-    const parsed = JSON.parse(raw) as Partial<SessionRecord>;
-    return this.assertSessionRecord(id, parsed);
+    const parsed = this.parseSessionPayload(raw);
+    const record = this.assertSessionRecord(id, parsed);
+    return { ...parsed, ...record };
   }
 
-  private assertSessionRecord(id: string, parsed: Partial<SessionRecord>): SessionRecord {
+  private parseSessionPayload(raw: string): SessionFilePayload {
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error("Session file must contain a JSON object.");
+    }
+    return parsed as SessionFilePayload;
+  }
+
+  private assertSessionRecord(id: string, parsed: SessionFilePayload): SessionRecord {
     if (
       parsed.id !== id ||
       typeof parsed.name !== "string" ||
@@ -201,7 +212,7 @@ export class ProfileSessionsStore {
       typeof parsed.createdAt !== "string" ||
       typeof parsed.updatedAt !== "string"
     ) {
-      throw new Error(`Invalid session metadata for id "${id}".`);
+      return this.assertLegacySessionRecord(id, parsed);
     }
     return {
       id: parsed.id,
@@ -210,6 +221,34 @@ export class ProfileSessionsStore {
       createdAt: parsed.createdAt,
       updatedAt: parsed.updatedAt,
     };
+  }
+
+  private assertLegacySessionRecord(id: string, parsed: SessionFilePayload): SessionRecord {
+    const model = parsed.model;
+    const name =
+      typeof parsed.name === "string" && parsed.name.trim().length > 0
+        ? normalizeSessionName(parsed.name)
+        : typeof model === "string" && model.trim().length > 0
+          ? `Session (${model.trim()})`
+          : `Session ${id}`;
+    const createdAt = this.readIsoTimestamp(parsed.session_start, id, "session_start");
+    const updatedAt = this.readIsoTimestamp(
+      parsed.last_updated ?? parsed.session_start,
+      id,
+      "last_updated",
+    );
+    const archived = typeof parsed.archived === "boolean" ? parsed.archived : false;
+    return { id, name, archived, createdAt, updatedAt };
+  }
+
+  private readIsoTimestamp(value: unknown, id: string, fieldName: string): string {
+    if (typeof value !== "string" || value.trim().length === 0) {
+      throw new Error(`Missing ${fieldName} for session "${id}".`);
+    }
+    if (Number.isNaN(Date.parse(value))) {
+      throw new Error(`Invalid ${fieldName} for session "${id}".`);
+    }
+    return value;
   }
 
   private extractChatText(parsed: { chat?: unknown; messages?: unknown }): string {
@@ -242,12 +281,17 @@ export class ProfileSessionsStore {
     return lines.join("\n");
   }
 
-  private async writeRecord(dataDir: string, record: SessionRecord): Promise<void> {
+  private async writeRecord(
+    dataDir: string,
+    record: SessionRecord,
+    existingPayload: SessionFilePayload = {},
+  ): Promise<void> {
     const filePath = getSessionPath(dataDir, record.id);
     await mkdir(path.dirname(filePath), { recursive: true });
     const temporaryPath = path.join(path.dirname(filePath), `.${record.id}.${randomUUID()}.tmp`);
+    const payload: SessionFilePayload = { ...existingPayload, ...record };
     try {
-      await writeFile(temporaryPath, `${JSON.stringify(record, null, 2)}\n`);
+      await writeFile(temporaryPath, `${JSON.stringify(payload, null, 2)}\n`);
       await rename(temporaryPath, filePath);
     } catch (cause: unknown) {
       await rm(temporaryPath, { force: true });

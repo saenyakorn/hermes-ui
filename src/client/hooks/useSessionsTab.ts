@@ -44,10 +44,11 @@ export function useSessionsTab(): {
     setState((prev) => ({ ...prev, status: message }));
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (profileOverride?: string | null) => {
     try {
-      const list = await api.getProfileSessions(state.profile);
-      setState((prev) => ({ ...prev, list }));
+      const profile = profileOverride === undefined ? state.profile : profileOverride;
+      const list = await api.getProfileSessions(profile);
+      setState((prev) => ({ ...prev, profile, list }));
     } catch (cause: unknown) {
       setStatus(`Failed to load sessions: ${getErrorMessage(cause)}`);
     }
@@ -56,7 +57,16 @@ export function useSessionsTab(): {
   useSyncExternalStore(
     useCallback(
       (onStoreChange) => {
-        void refresh().finally(onStoreChange);
+        void (async () => {
+          try {
+            const profiles = await api.getProfiles();
+            await refresh(profiles.active ?? null);
+          } catch {
+            await refresh();
+          } finally {
+            onStoreChange();
+          }
+        })();
         const onProfileChanged = (event: Event) => {
           const customEvent = event as CustomEvent<string | null>;
           const nextProfile = customEvent.detail ?? null;

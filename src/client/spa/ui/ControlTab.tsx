@@ -144,7 +144,7 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
           </div>
           <pre
             id="log-lines"
-            className="min-h-[220px] flex-1 overflow-auto rounded-lg border border-frosted bg-background p-3 text-xs text-muted"
+            className="min-h-[220px] max-h-[800px] flex-1 overflow-auto rounded-lg border border-frosted bg-background p-3 text-xs text-muted"
           >
             {logs.lines}
           </pre>

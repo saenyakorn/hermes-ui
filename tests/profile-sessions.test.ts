@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -83,5 +83,74 @@ describe("ProfileSessionsStore", () => {
     expect(defaultList.sessions[0]?.name).toBe("Default Session");
     expect(opsList.sessions).toHaveLength(1);
     expect(opsList.sessions[0]?.name).toBe("Ops Session");
+  });
+
+  it("lists legacy Hermes session JSON files", async () => {
+    const { resolver, sessions } = createStore();
+    await resolver.initialize();
+    const sessionsDir = path.join(rootDir, "data", "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    await writeFile(
+      path.join(sessionsDir, "session_20260427_051016_fc0d3ec1.json"),
+      `${JSON.stringify(
+        {
+          session_id: "20260427_051016_fc0d3ec1",
+          model: "anthropic/claude-sonnet-4.6",
+          session_start: "2026-04-27T05:10:17.847882",
+          last_updated: "2026-04-27T05:10:28.046618",
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const list = await sessions.list(null);
+    expect(list.sessions).toHaveLength(1);
+    expect(list.sessions[0]).toMatchObject({
+      id: "session_20260427_051016_fc0d3ec1",
+      archived: false,
+    });
+    expect(list.sessions[0]?.name).toContain("anthropic/claude-sonnet-4.6");
+    expect(list.sessions[0]?.createdAt).toContain("2026-04-27T05:10:17");
+    expect(list.sessions[0]?.updatedAt).toContain("2026-04-27T05:10:28");
+  });
+
+  it("preserves unknown fields when mutating legacy session metadata", async () => {
+    const { resolver, sessions } = createStore();
+    await resolver.initialize();
+    const sessionsDir = path.join(rootDir, "data", "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const id = "session_20260427_051016_fc0d3ec1";
+    const filePath = path.join(sessionsDir, `${id}.json`);
+    await writeFile(
+      filePath,
+      `${JSON.stringify(
+        {
+          session_id: id,
+          model: "anthropic/claude-sonnet-4.6",
+          session_start: "2026-04-27T05:10:17.847882",
+          last_updated: "2026-04-27T05:10:28.046618",
+          messages: [{ role: "user", content: "hello" }],
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    await sessions.rename(null, id, { name: "Renamed legacy session" });
+    await sessions.archive(null, id);
+    await sessions.restore(null, id);
+
+    const raw = await readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw) as {
+      messages?: unknown[];
+      model?: string;
+      name?: string;
+      archived?: boolean;
+    };
+    expect(parsed.model).toBe("anthropic/claude-sonnet-4.6");
+    expect(parsed.messages).toHaveLength(1);
+    expect(parsed.name).toBe("Renamed legacy session");
+    expect(parsed.archived).toBe(false);
   });
 });
