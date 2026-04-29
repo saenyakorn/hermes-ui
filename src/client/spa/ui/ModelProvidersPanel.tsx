@@ -148,42 +148,44 @@ function DefaultModelForm({
 
   return (
     <form.AppForm>
-      <Card className="p-4">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            Default model
-          </p>
-          {DefaultModelFields.map((providerField) => (
-            <form.AppField
-              key={providerField.name}
-              name={providerField.name}
-              children={(field) => (
-                <field.Field>
-                  <field.FieldLabel>{providerField.label}</field.FieldLabel>
-                  <field.Input
-                    type={providerField.type ?? "text"}
-                    autoComplete={providerField.autoComplete}
-                    placeholder={
-                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
-                    }
-                  />
-                </field.Field>
-              )}
-            />
-          ))}
-          <div className="col-span-full flex gap-2">
-            <form.SubmitButton
-              variant="primary"
-              disabled={isDefaultsLoading || saveMutation.isPending}
-            >
-              Save default model
-            </form.SubmitButton>
-          </div>
-          {saveMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
-          ) : null}
-        </section>
-      </Card>
+      <form.Form>
+        <Card className="p-4">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              Default model
+            </p>
+            {DefaultModelFields.map((providerField) => (
+              <form.AppField
+                key={providerField.name}
+                name={providerField.name}
+                children={(field) => (
+                  <field.Field>
+                    <field.FieldLabel>{providerField.label}</field.FieldLabel>
+                    <field.Input
+                      type={providerField.type ?? "text"}
+                      autoComplete={providerField.autoComplete}
+                      placeholder={
+                        providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
+                      }
+                    />
+                  </field.Field>
+                )}
+              />
+            ))}
+            <div className="col-span-full flex gap-2">
+              <form.SubmitButton
+                variant="primary"
+                disabled={isDefaultsLoading || saveMutation.isPending}
+              >
+                Save default model
+              </form.SubmitButton>
+            </div>
+            {saveMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
+            ) : null}
+          </section>
+        </Card>
+      </form.Form>
     </form.AppForm>
   );
 }
@@ -244,8 +246,9 @@ function OpenRouterForm(props: {
   });
   return (
     <form.AppForm>
-      <Card className="p-4">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <form.Form>
+        <Card className="p-4">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             OpenRouter
           </p>
@@ -291,8 +294,9 @@ function OpenRouterForm(props: {
           {clearMutation.isError ? (
             <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
-        </section>
-      </Card>
+          </section>
+        </Card>
+      </form.Form>
     </form.AppForm>
   );
 }
@@ -337,8 +341,9 @@ function ClaudeForm(props: {
   });
   return (
     <form.AppForm>
-      <Card className="p-4">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <form.Form>
+        <Card className="p-4">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             Claude
           </p>
@@ -384,8 +389,9 @@ function ClaudeForm(props: {
           {clearMutation.isError ? (
             <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
-        </section>
-      </Card>
+          </section>
+        </Card>
+      </form.Form>
     </form.AppForm>
   );
 }
@@ -442,8 +448,9 @@ function OpenAiForm(props: {
   });
   return (
     <form.AppForm>
-      <Card className="p-4">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <form.Form>
+        <Card className="p-4">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             OpenAI
           </p>
@@ -489,8 +496,9 @@ function OpenAiForm(props: {
           {clearMutation.isError ? (
             <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
-        </section>
-      </Card>
+          </section>
+        </Card>
+      </form.Form>
     </form.AppForm>
   );
 }
@@ -547,8 +555,9 @@ function GeminiForm(props: {
   });
   return (
     <form.AppForm>
-      <Card className="p-4">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <form.Form>
+        <Card className="p-4">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             Gemini
           </p>
@@ -594,8 +603,9 @@ function GeminiForm(props: {
           {clearMutation.isError ? (
             <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
           ) : null}
-        </section>
-      </Card>
+          </section>
+        </Card>
+      </form.Form>
     </form.AppForm>
   );
 }
