@@ -60,7 +60,10 @@ function parseTranscript(transcript: string): TranscriptMessage[] {
   return messages.filter((message) => message.content.trim().length > 0);
 }
 
-function extractDisplayNameAndContent(message: TranscriptMessage): { label: string; content: string } {
+function extractDisplayNameAndContent(message: TranscriptMessage): {
+  label: string;
+  content: string;
+} {
   if (!message.fromAuthor) {
     return { label: "Bot", content: message.content };
   }
@@ -154,7 +157,10 @@ export function SessionsTab() {
     () => sessions.sessions.find((s) => s.id === sessions.selectedSessionId) ?? null,
     [sessions.sessions, sessions.selectedSessionId],
   );
-  const transcriptMessages = useMemo(() => parseTranscript(sessions.transcript), [sessions.transcript]);
+  const transcriptMessages = useMemo(
+    () => parseTranscript(sessions.transcript),
+    [sessions.transcript],
+  );
 
   return (
     <section
@@ -283,8 +289,12 @@ export function SessionsTab() {
             transcriptMessages.length > 0 ? (
               <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 pb-8">
                 {transcriptMessages.map((message, index) => {
-                  const formattedContent = formatStructuredPayload(message.content) ?? message.content;
-                  const display = extractDisplayNameAndContent({ ...message, content: formattedContent });
+                  const formattedContent =
+                    formatStructuredPayload(message.content) ?? message.content;
+                  const display = extractDisplayNameAndContent({
+                    ...message,
+                    content: formattedContent,
+                  });
                   const isLastMessage = index === transcriptMessages.length - 1;
                   return (
                     <div

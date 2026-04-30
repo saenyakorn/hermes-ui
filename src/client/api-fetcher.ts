@@ -75,6 +75,14 @@ function getBasicAuthTokenFromLocation(): string | undefined {
   return `Basic ${btoa(`${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`)}`;
 }
 
+function getBasicAuthTokenFromBootstrap(): string | undefined {
+  const token = window.__HERMES_AUTHORIZATION__;
+  if (typeof token !== "string" || !token.startsWith("Basic ")) {
+    return undefined;
+  }
+  return token;
+}
+
 /**
  * HTTP + typed Hono client with URL-embedded Basic Auth support (common on PaaS).
  */
@@ -103,7 +111,7 @@ export class ApiFetcher {
   }
 
   getBasicAuthToken(): string | undefined {
-    return getBasicAuthTokenFromLocation();
+    return getBasicAuthTokenFromLocation() ?? getBasicAuthTokenFromBootstrap();
   }
 
   async getGatewayStatus(): Promise<GatewayStatus> {

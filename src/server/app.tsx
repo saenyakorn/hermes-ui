@@ -118,10 +118,13 @@ export function createApp(services: AppServices) {
     .get("/assets/*", serveStatic({ root: "./dist" }))
     .get("/favicon.ico", (context) => context.body(null, 204))
     .get("/", (context) => {
+      const authHeader = context.req.header("authorization");
+      const authToken = authHeader?.startsWith("Basic ") ? authHeader : undefined;
       return context.html(
         renderHtmlDocument(
           "Hermes Agent",
           encodeURIComponent(JSON.stringify(services.gateway.status())),
+          authToken ? encodeURIComponent(authToken) : undefined,
         ),
       );
     })
@@ -360,14 +363,39 @@ export function createApp(services: AppServices) {
       const { readable, writable } = new TransformStream<Uint8Array>();
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
+      let closed = false;
+      let unsubscribed = false;
+
+      const closeStream = () => {
+        if (closed) {
+          return;
+        }
+        closed = true;
+        if (!unsubscribed) {
+          unsubscribed = true;
+          unsubscribe();
+        }
+        writer.close().catch(() => {
+          // Ignore close races from already closed/errored streams.
+        });
+      };
+
+      const writeLine = async (line: string): Promise<void> => {
+        if (closed) {
+          return;
+        }
+        try {
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ line })}\n\n`));
+        } catch {
+          closeStream();
+        }
+      };
+
       const unsubscribe = services.logs.subscribe((line) => {
-        void writer.write(encoder.encode(`data: ${JSON.stringify({ line })}\n\n`));
+        void writeLine(line);
       });
 
-      context.req.raw.signal.addEventListener("abort", () => {
-        unsubscribe();
-        void writer.close();
-      });
+      context.req.raw.signal.addEventListener("abort", closeStream, { once: true });
 
       return new Response(readable, {
         headers: {

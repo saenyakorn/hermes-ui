@@ -4,7 +4,6 @@
   "description": "Hermes Agent Web UI & Control Plane",
   "type": "module",
   "main": "dist/index.js",
-  "private": true,
   "scripts": {
     "dev": "concurrently -k -n server,client,css -c blue,magenta,yellow \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:css\"",
     "dev:server": "tsx watch src/server/index.ts",

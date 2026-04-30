@@ -3,7 +3,7 @@ FROM node:24-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package*.json ./
-RUN npm ci
+RUN npm i
 COPY . .
 RUN npm run typecheck && npm run build && npm test
 
@@ -23,6 +23,7 @@ RUN apk add --no-cache \
     openssl-dev \
     python3 \
     python3-dev \
+    ripgrep \
     xz
 
 RUN mkdir -p /app/data \
@@ -37,7 +38,7 @@ ARG ADMIN_USERNAME
 ARG ADMIN_PASSWORD
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm i --production
 COPY --from=build /app/dist ./dist
 
 RUN mkdir -p /app/data

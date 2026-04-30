@@ -1,5 +1,14 @@
-export function renderHtmlDocument(title: string, initialStatus: string): string {
+export function renderHtmlDocument(
+  title: string,
+  initialStatus: string,
+  authToken?: string,
+): string {
   const decodedStatus = decodeURIComponent(initialStatus);
+  const decodedAuthToken = authToken ? decodeURIComponent(authToken) : undefined;
+  const authBootstrapScript =
+    decodedAuthToken !== undefined
+      ? `window.__HERMES_AUTHORIZATION__ = ${JSON.stringify(decodedAuthToken)};`
+      : "";
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -12,6 +21,7 @@ export function renderHtmlDocument(title: string, initialStatus: string): string
   <body>
     <div id="root"></div>
     <script>window.__HERMES_INITIAL_STATUS__ = ${decodedStatus};</script>
+    <script>${authBootstrapScript}</script>
     <script type="module" src="/assets/main.js"></script>
   </body>
 </html>`;

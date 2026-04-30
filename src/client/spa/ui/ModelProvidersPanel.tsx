@@ -249,51 +249,51 @@ function OpenRouterForm(props: {
       <form.Form>
         <Card className="p-4">
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            OpenRouter
-          </p>
-          {OpenRouterFields.map((providerField) => (
-            <form.AppField key={providerField.name} name={providerField.name}>
-              {(field) => (
-                <field.Field>
-                  <field.FieldLabel>{providerField.label}</field.FieldLabel>
-                  <field.Input
-                    type={providerField.type ?? "text"}
-                    autoComplete={providerField.autoComplete}
-                    placeholder={
-                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
-                    }
-                  />
-                </field.Field>
-              )}
-            </form.AppField>
-          ))}
-          <div className="col-span-full flex gap-2">
-            <form.SubmitButton
-              variant="primary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-            >
-              Save OpenRouter
-            </form.SubmitButton>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-              onClick={() => void clearMutation.mutateAsync()}
-            >
-              Clear OpenRouter keys
-            </Button>
-          </div>
-          {saveMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
-          ) : null}
-          {clearMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
-          ) : null}
+            <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              OpenRouter
+            </p>
+            {OpenRouterFields.map((providerField) => (
+              <form.AppField key={providerField.name} name={providerField.name}>
+                {(field) => (
+                  <field.Field>
+                    <field.FieldLabel>{providerField.label}</field.FieldLabel>
+                    <field.Input
+                      type={providerField.type ?? "text"}
+                      autoComplete={providerField.autoComplete}
+                      placeholder={
+                        providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
+                      }
+                    />
+                  </field.Field>
+                )}
+              </form.AppField>
+            ))}
+            <div className="col-span-full flex gap-2">
+              <form.SubmitButton
+                variant="primary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+              >
+                Save OpenRouter
+              </form.SubmitButton>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+                onClick={() => void clearMutation.mutateAsync()}
+              >
+                Clear OpenRouter keys
+              </Button>
+            </div>
+            {saveMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
+            ) : null}
+            {clearMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
+            ) : null}
           </section>
         </Card>
       </form.Form>
@@ -344,51 +344,51 @@ function ClaudeForm(props: {
       <form.Form>
         <Card className="p-4">
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            Claude
-          </p>
-          {ClaudeFields.map((providerField) => (
-            <form.AppField key={providerField.name} name={providerField.name}>
-              {(field) => (
-                <field.Field>
-                  <field.FieldLabel>{providerField.label}</field.FieldLabel>
-                  <field.Input
-                    type={providerField.type ?? "text"}
-                    autoComplete={providerField.autoComplete}
-                    placeholder={
-                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
-                    }
-                  />
-                </field.Field>
-              )}
-            </form.AppField>
-          ))}
-          <div className="col-span-full flex gap-2">
-            <form.SubmitButton
-              variant="primary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-            >
-              Save Claude
-            </form.SubmitButton>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-              onClick={() => void clearMutation.mutateAsync()}
-            >
-              Clear Claude keys
-            </Button>
-          </div>
-          {saveMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
-          ) : null}
-          {clearMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
-          ) : null}
+            <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              Claude
+            </p>
+            {ClaudeFields.map((providerField) => (
+              <form.AppField key={providerField.name} name={providerField.name}>
+                {(field) => (
+                  <field.Field>
+                    <field.FieldLabel>{providerField.label}</field.FieldLabel>
+                    <field.Input
+                      type={providerField.type ?? "text"}
+                      autoComplete={providerField.autoComplete}
+                      placeholder={
+                        providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
+                      }
+                    />
+                  </field.Field>
+                )}
+              </form.AppField>
+            ))}
+            <div className="col-span-full flex gap-2">
+              <form.SubmitButton
+                variant="primary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+              >
+                Save Claude
+              </form.SubmitButton>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+                onClick={() => void clearMutation.mutateAsync()}
+              >
+                Clear Claude keys
+              </Button>
+            </div>
+            {saveMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
+            ) : null}
+            {clearMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
+            ) : null}
           </section>
         </Card>
       </form.Form>
@@ -451,51 +451,51 @@ function OpenAiForm(props: {
       <form.Form>
         <Card className="p-4">
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            OpenAI
-          </p>
-          {OpenAiFields.map((providerField) => (
-            <form.AppField key={providerField.name} name={providerField.name}>
-              {(field) => (
-                <field.Field>
-                  <field.FieldLabel>{providerField.label}</field.FieldLabel>
-                  <field.Input
-                    type={providerField.type ?? "text"}
-                    autoComplete={providerField.autoComplete}
-                    placeholder={
-                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
-                    }
-                  />
-                </field.Field>
-              )}
-            </form.AppField>
-          ))}
-          <div className="col-span-full flex gap-2">
-            <form.SubmitButton
-              variant="primary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-            >
-              Save OpenAI
-            </form.SubmitButton>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-              onClick={() => void clearMutation.mutateAsync()}
-            >
-              Clear OpenAI keys
-            </Button>
-          </div>
-          {saveMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
-          ) : null}
-          {clearMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
-          ) : null}
+            <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              OpenAI
+            </p>
+            {OpenAiFields.map((providerField) => (
+              <form.AppField key={providerField.name} name={providerField.name}>
+                {(field) => (
+                  <field.Field>
+                    <field.FieldLabel>{providerField.label}</field.FieldLabel>
+                    <field.Input
+                      type={providerField.type ?? "text"}
+                      autoComplete={providerField.autoComplete}
+                      placeholder={
+                        providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
+                      }
+                    />
+                  </field.Field>
+                )}
+              </form.AppField>
+            ))}
+            <div className="col-span-full flex gap-2">
+              <form.SubmitButton
+                variant="primary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+              >
+                Save OpenAI
+              </form.SubmitButton>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+                onClick={() => void clearMutation.mutateAsync()}
+              >
+                Clear OpenAI keys
+              </Button>
+            </div>
+            {saveMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
+            ) : null}
+            {clearMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
+            ) : null}
           </section>
         </Card>
       </form.Form>
@@ -558,51 +558,51 @@ function GeminiForm(props: {
       <form.Form>
         <Card className="p-4">
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            Gemini
-          </p>
-          {GeminiFields.map((providerField) => (
-            <form.AppField key={providerField.name} name={providerField.name}>
-              {(field) => (
-                <field.Field>
-                  <field.FieldLabel>{providerField.label}</field.FieldLabel>
-                  <field.Input
-                    type={providerField.type ?? "text"}
-                    autoComplete={providerField.autoComplete}
-                    placeholder={
-                      providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
-                    }
-                  />
-                </field.Field>
-              )}
-            </form.AppField>
-          ))}
-          <div className="col-span-full flex gap-2">
-            <form.SubmitButton
-              variant="primary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-            >
-              Save Gemini
-            </form.SubmitButton>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={
-                props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
-              }
-              onClick={() => void clearMutation.mutateAsync()}
-            >
-              Clear Gemini keys
-            </Button>
-          </div>
-          {saveMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
-          ) : null}
-          {clearMutation.isError ? (
-            <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
-          ) : null}
+            <p className="col-span-full text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              Gemini
+            </p>
+            {GeminiFields.map((providerField) => (
+              <form.AppField key={providerField.name} name={providerField.name}>
+                {(field) => (
+                  <field.Field>
+                    <field.FieldLabel>{providerField.label}</field.FieldLabel>
+                    <field.Input
+                      type={providerField.type ?? "text"}
+                      autoComplete={providerField.autoComplete}
+                      placeholder={
+                        providerField.placeholder ?? `Enter ${providerField.label.toLowerCase()}`
+                      }
+                    />
+                  </field.Field>
+                )}
+              </form.AppField>
+            ))}
+            <div className="col-span-full flex gap-2">
+              <form.SubmitButton
+                variant="primary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+              >
+                Save Gemini
+              </form.SubmitButton>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={
+                  props.isDefaultsLoading || saveMutation.isPending || clearMutation.isPending
+                }
+                onClick={() => void clearMutation.mutateAsync()}
+              >
+                Clear Gemini keys
+              </Button>
+            </div>
+            {saveMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{saveMutation.error.message}</p>
+            ) : null}
+            {clearMutation.isError ? (
+              <p className="col-span-full text-xs text-danger">{clearMutation.error.message}</p>
+            ) : null}
           </section>
         </Card>
       </form.Form>

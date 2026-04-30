@@ -7,6 +7,7 @@ import { queryClient } from "./query-client";
 declare global {
   interface Window {
     __HERMES_INITIAL_STATUS__?: GatewayStatus;
+    __HERMES_AUTHORIZATION__?: string;
   }
 }
 

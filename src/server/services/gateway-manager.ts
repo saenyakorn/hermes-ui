@@ -14,7 +14,7 @@ const GATEWAY_ARGS = ["gateway"] as const;
 export type SpawnGateway = (
   command: string,
   args: string[],
-  options: Pick<SpawnOptionsWithoutStdio, "cwd" | "env">,
+  options: Pick<SpawnOptionsWithoutStdio, "cwd" | "env" | "detached" | "stdio">,
 ) => ChildProcessWithoutNullStreams;
 
 const defaultSpawnGateway: SpawnGateway = (command, args, options) => spawn(command, args, options);
@@ -56,9 +56,14 @@ export class GatewayManager {
 
     try {
       const cwd = this.getCwd();
+      // Detach from the control plane session and do not wire stdin to a pipe.
+      // Otherwise some gateway CLIs exit on stdin EOF / session signals when the
+      // web client or dev server lifecycle changes, even though Node keeps running.
       const child = this.spawnGateway("hermes", [...GATEWAY_ARGS], {
         cwd,
         env: { ...process.env, HERMES_HOME: cwd },
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
       });
 
       this.child = child;
