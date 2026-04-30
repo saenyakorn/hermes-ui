@@ -1,7 +1,6 @@
 {
   "name": "@saenyakorn/hermes-ui",
-  "version": "0.0.0",
-  "private": true,
+  "version": "1.0.0",
   "description": "Hermes Agent Web UI & Control Plane",
   "type": "module",
   "main": "dist/index.js",
