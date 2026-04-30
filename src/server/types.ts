@@ -94,6 +94,23 @@ export type ModelYamlPatch = {
   base_url?: string;
 };
 
+/** `discord.*` and related config flags patched from workspace Messaging settings. */
+export type DiscordSettingsPatch = {
+  allowed_users?: string;
+  require_mention?: string;
+  free_response_channels?: string;
+  auto_thread?: string;
+  reactions?: string;
+  ignored_channels?: string;
+  no_thread_channels?: string;
+  channel_prompts?: string;
+  allow_mentions_everyone?: string;
+  allow_mentions_roles?: string;
+  allow_mentions_users?: string;
+  allow_mentions_replied_user?: string;
+  group_sessions_per_user?: string;
+};
+
 /** Values read from `config.yaml` for workspace UI fields (no secrets). */
 export type WorkspaceConfigHints = {
   model: {
@@ -114,11 +131,13 @@ export type WorkspaceConfigHints = {
     reactions: string | null;
     ignored_channels: string | null;
     no_thread_channels: string | null;
+    channel_prompts: string | null;
     allow_mentions_everyone: string | null;
     allow_mentions_roles: string | null;
     allow_mentions_users: string | null;
     allow_mentions_replied_user: string | null;
   };
+  group_sessions_per_user: string | null;
 };
 
 export type ModelProvidersMutationResponse = {

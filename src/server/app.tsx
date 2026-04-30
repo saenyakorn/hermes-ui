@@ -7,6 +7,7 @@ import type {
   AppEnv,
   ConfigReadResult,
   ConfigSaveResult,
+  DiscordSettingsPatch,
   EnvReadResult,
   GatewayStatus,
   LogTail,
@@ -46,7 +47,7 @@ export type AppConfig = {
   save: (content: string) => Promise<ConfigSaveResult>;
   patchModel: (updates: ModelYamlPatch) => Promise<ConfigSaveResult>;
   getWorkspaceConfigHints: () => Promise<WorkspaceConfigHints>;
-  patchDiscordAllowedUsers: (allowed_users: string) => Promise<ConfigSaveResult>;
+  patchDiscordSettings: (updates: DiscordSettingsPatch) => Promise<ConfigSaveResult>;
 };
 
 export type AppProfiles = {
@@ -112,7 +113,15 @@ export type AppServices = {
 
 export function createApp(services: AppServices) {
   const app = new Hono();
-  app.use("*", basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword));
+  const basicAuth = basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword);
+  app.use("*", async (context, next) => {
+    if (context.req.path === "/gateway/health") {
+      await next();
+      return;
+    }
+
+    return basicAuth(context, next);
+  });
 
   return app
     .get("/assets/*", serveStatic({ root: "./dist" }))
@@ -283,7 +292,7 @@ export function createApp(services: AppServices) {
         }
 
         if (input.discord !== undefined) {
-          const patched = await saveDiscordPatch(services.config, input.discord.allowed_users);
+          const patched = await saveDiscordPatch(services.config, input.discord);
           if (!patched.ok) {
             return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
           }
@@ -300,13 +309,28 @@ export function createApp(services: AppServices) {
         }
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to read or patch config: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to read or patch config: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
 
       let envSnapshot: EnvReadResult;
-      const envMutation = input.env;
+      const discordEnvSync =
+        input.discord === undefined
+          ? undefined
+          : typeof input.discord.allowed_users === "string" &&
+              input.discord.allowed_users.trim().length > 0
+            ? {
+                set: {
+                  DISCORD_ALLOWED_USERS: input.discord.allowed_users.trim(),
+                },
+              }
+            : input.discord.allowed_users !== undefined
+              ? { remove: ["DISCORD_ALLOWED_USERS"] }
+              : undefined;
+      const envMutation = mergeEnvBatchMutations(input.env, discordEnvSync);
       if (envMutation !== undefined) {
         const envResult = await mutateEnv(() => services.envVars.applyBatch(envMutation));
         if (!envResult.ok) {
@@ -395,7 +419,9 @@ export function createApp(services: AppServices) {
         void writeLine(line);
       });
 
-      context.req.raw.signal.addEventListener("abort", closeStream, { once: true });
+      context.req.raw.signal.addEventListener("abort", closeStream, {
+        once: true,
+      });
 
       return new Response(readable, {
         headers: {
@@ -523,7 +549,9 @@ export function createApp(services: AppServices) {
         return context.json(await services.profileSessions.list(profile));
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to list profile sessions: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to list profile sessions: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
@@ -537,7 +565,9 @@ export function createApp(services: AppServices) {
         return context.json(await services.profileSessions.get(profile, context.req.param("id")));
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to read profile session: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to read profile session: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
@@ -555,7 +585,9 @@ export function createApp(services: AppServices) {
         return context.json(await services.profileSessions.create(profile, input));
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to create profile session: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to create profile session: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
@@ -575,7 +607,9 @@ export function createApp(services: AppServices) {
         );
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to rename profile session: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to rename profile session: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
@@ -591,7 +625,9 @@ export function createApp(services: AppServices) {
         );
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to delete profile session: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to delete profile session: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
@@ -607,7 +643,9 @@ export function createApp(services: AppServices) {
         );
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to archive profile session: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to archive profile session: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
@@ -623,7 +661,9 @@ export function createApp(services: AppServices) {
         );
       } catch (cause: unknown) {
         return context.json(
-          { error: `Failed to restore profile session: ${getErrorMessage(cause)}` },
+          {
+            error: `Failed to restore profile session: ${getErrorMessage(cause)}`,
+          },
           500,
         );
       }
@@ -685,10 +725,13 @@ async function saveConfigPatch(
 
 async function saveDiscordPatch(
   config: AppConfig,
-  allowed_users: string,
+  updates: DiscordSettingsPatch,
 ): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
   try {
-    return { ok: true, value: await config.patchDiscordAllowedUsers(allowed_users) };
+    return {
+      ok: true,
+      value: await config.patchDiscordSettings(updates),
+    };
   } catch (cause: unknown) {
     return { ok: false, error: getErrorMessage(cause) };
   }
@@ -783,10 +826,35 @@ function hasEnvBatchMutation(env: { set?: Record<string, string>; remove?: strin
   return hasSet || hasRemove;
 }
 
+function mergeEnvBatchMutations(
+  left: { set?: Record<string, string>; remove?: string[] } | undefined,
+  right: { set?: Record<string, string>; remove?: string[] } | undefined,
+): { set?: Record<string, string>; remove?: string[] } | undefined {
+  if (left === undefined) {
+    return right;
+  }
+  if (right === undefined) {
+    return left;
+  }
+
+  const mergedSet = { ...left.set, ...right.set };
+  const remove = [...new Set([...(left.remove ?? []), ...(right.remove ?? [])])].filter(
+    (key) => !(key in mergedSet),
+  );
+  const result: { set?: Record<string, string>; remove?: string[] } = {};
+  if (Object.keys(mergedSet).length > 0) {
+    result.set = mergedSet;
+  }
+  if (remove.length > 0) {
+    result.remove = remove;
+  }
+  return hasEnvBatchMutation(result) ? result : undefined;
+}
+
 async function parseModelProvidersInput(bodyPromise: Promise<unknown>): Promise<{
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
-  discord?: { allowed_users: string };
+  discord?: DiscordSettingsPatch;
 } | null> {
   try {
     const body = await bodyPromise;
@@ -822,12 +890,40 @@ async function parseModelProvidersInput(bodyPromise: Promise<unknown>): Promise<
       }
     }
 
-    let discord: { allowed_users: string } | undefined;
+    let discord: DiscordSettingsPatch | undefined;
     if (body.discord !== undefined) {
-      if (!isRecord(body.discord) || typeof body.discord.allowed_users !== "string") {
+      if (!isRecord(body.discord)) {
         return null;
       }
-      discord = { allowed_users: body.discord.allowed_users };
+      const parsed: DiscordSettingsPatch = {};
+      for (const key of [
+        "allowed_users",
+        "require_mention",
+        "free_response_channels",
+        "auto_thread",
+        "reactions",
+        "ignored_channels",
+        "no_thread_channels",
+        "channel_prompts",
+        "allow_mentions_everyone",
+        "allow_mentions_roles",
+        "allow_mentions_users",
+        "allow_mentions_replied_user",
+        "group_sessions_per_user",
+      ] as const) {
+        const value = body.discord[key];
+        if (value === undefined) {
+          continue;
+        }
+        if (typeof value !== "string") {
+          return null;
+        }
+        parsed[key] = value;
+      }
+      if (Object.keys(parsed).length === 0) {
+        return null;
+      }
+      discord = parsed;
     }
 
     const hasModel = model !== undefined && Object.keys(model).length > 0;
@@ -839,7 +935,7 @@ async function parseModelProvidersInput(bodyPromise: Promise<unknown>): Promise<
     const result: {
       model?: ModelYamlPatch;
       env?: { set?: Record<string, string>; remove?: string[] };
-      discord?: { allowed_users: string };
+      discord?: DiscordSettingsPatch;
     } = {};
     if (model !== undefined) {
       result.model = model;

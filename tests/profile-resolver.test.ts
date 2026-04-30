@@ -211,7 +211,7 @@ describe("services follow profile switches", () => {
       cwd: path.join(rootDir, "data"),
       env: expect.objectContaining({ HERMES_HOME: path.join(rootDir, "data") }),
       detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe"],
     });
 
     await manager.stop();
@@ -227,7 +227,7 @@ describe("services follow profile switches", () => {
         HERMES_HOME: path.join(rootDir, "data", "profiles", "coder"),
       }),
       detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe"],
     });
   });
 });

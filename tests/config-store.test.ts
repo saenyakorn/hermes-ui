@@ -130,13 +130,13 @@ describe("ConfigStore", () => {
   it("writes valid config atomically", async () => {
     const store = createStore();
 
-    const result = await store.save("gateway:\n  port: 8080\n");
+    const result = await store.save("gateway:\n  port: 3000\n");
 
     expect(result.saved).toBe(true);
-    expect(result.content).toBe("gateway:\n  port: 8080\n");
+    expect(result.content).toBe("gateway:\n  port: 3000\n");
     expect(result.validation).toEqual({ ok: true, issues: [] });
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(
-      "gateway:\n  port: 8080\n",
+      "gateway:\n  port: 3000\n",
     );
     await expect(readAuditLog()).resolves.toContain("Config saved");
   });
@@ -146,7 +146,7 @@ describe("ConfigStore", () => {
     const store = createStore();
 
     const results = await Promise.all([
-      store.save("gateway:\n  port: 8080\n"),
+      store.save("gateway:\n  port: 3000\n"),
       store.save("gateway:\n  port: 9090\n"),
     ]);
 
@@ -156,7 +156,7 @@ describe("ConfigStore", () => {
       expect(result.validation).toEqual({ ok: true, issues: [] });
     }
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toMatch(
-      /^gateway:\n  port: (8080|9090)\n$/,
+      /^gateway:\n  port: (3000|9090)\n$/,
     );
   });
 
@@ -207,6 +207,7 @@ describe("ConfigStore", () => {
     expect(hints.model.provider).toBe("openrouter");
     expect(hints.model.base_url).toBeNull();
     expect(hints.discord.allowed_users).toBe("1,2");
+    expect(hints.group_sessions_per_user).toBeNull();
   });
 
   it("patchDiscordAllowedUsers writes and empty string clears the key", async () => {
@@ -248,6 +249,7 @@ describe("ConfigStore", () => {
         "    roles: false",
         "    users: true",
         "    replied_user: false",
+        "group_sessions_per_user: true",
         "",
       ].join("\n"),
       "utf8",
@@ -260,5 +262,38 @@ describe("ConfigStore", () => {
     expect(hints.discord.allow_mentions_roles).toBe("false");
     expect(hints.discord.allow_mentions_users).toBe("true");
     expect(hints.discord.allow_mentions_replied_user).toBe("false");
+    expect(hints.group_sessions_per_user).toBe("true");
+  });
+
+  it("patchDiscordSettings writes discord booleans and group session isolation", async () => {
+    const store = createStore();
+
+    const saved = await store.patchDiscordSettings({
+      require_mention: "false",
+      auto_thread: "true",
+      allow_mentions_users: "false",
+      channel_prompts: '"123": hello from prompt',
+      group_sessions_per_user: "true",
+    });
+
+    expect(saved.saved).toBe(true);
+    const hints = await store.getWorkspaceConfigHints();
+    expect(hints.discord.require_mention).toBe("false");
+    expect(hints.discord.auto_thread).toBe("true");
+    expect(hints.discord.allow_mentions_users).toBe("false");
+    expect(hints.discord.channel_prompts).toBe('"123": hello from prompt');
+    expect(hints.group_sessions_per_user).toBe("true");
+  });
+
+  it("patchDiscordSettings accepts legacy JSON object string for channel_prompts", async () => {
+    const store = createStore();
+
+    const saved = await store.patchDiscordSettings({
+      channel_prompts: '{"456":"legacy prompt"}',
+    });
+
+    expect(saved.saved).toBe(true);
+    const hints = await store.getWorkspaceConfigHints();
+    expect(hints.discord.channel_prompts).toBe('"456": legacy prompt');
   });
 });

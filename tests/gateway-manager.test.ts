@@ -57,7 +57,7 @@ describe("GatewayManager", () => {
       cwd: "/workspace/project",
       env: { ...process.env, HERMES_HOME: "/workspace/project" },
       detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe"],
     });
     expect(status).toMatchObject({
       state: "running",
@@ -164,7 +164,7 @@ describe("GatewayManager", () => {
       cwd: "/workspace/project",
       env: { ...process.env, HERMES_HOME: "/workspace/project" },
       detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe"],
     });
   });
 

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "../../lib/sonner";
 import { z } from "zod";
 import { ApiFetcher, type ModelProvidersSavePayload } from "../../api-fetcher";
 import { Button } from "../../components/Button";
@@ -11,6 +12,22 @@ import {
   dispatchEnvSnapshot,
   dispatchGatewayStatus,
 } from "../../lib/event";
+import { createEnvSet, createFormKey } from "./integrations/formHelpers";
+
+export { createEnvSet, createFormKey, normalizeEnvSetValue } from "./integrations/formHelpers";
+
+/** Keep aligned with each section `*Fields` array names below. */
+const MODEL_PROVIDER_SECTION_FIELD_IDS = {
+  defaultModel: [
+    "model-provider-default-model-id",
+    "model-provider-default-model-provider",
+    "model-provider-default-model-base-url",
+  ],
+  openRouter: ["model-provider-openrouter-api-key", "model-provider-openrouter-base-url"],
+  claude: ["model-provider-anthropic-api-key"],
+  openAi: ["model-provider-openai-api-key", "model-provider-openai-base-url"],
+  gemini: ["model-provider-google-api-key", "model-provider-gemini-base-url"],
+} as const satisfies Record<string, readonly string[]>;
 
 type ProviderFieldSpec = {
   name: string;
@@ -42,6 +59,8 @@ export function ModelProvidersPanel() {
     return response;
   };
 
+  const defaultFieldValues = defaultsQuery.data ?? {};
+
   return (
     <section
       data-tab-panel="model-providers"
@@ -59,27 +78,34 @@ export function ModelProvidersPanel() {
       </p>
       <div className="mt-3 flex w-full min-w-0 flex-col gap-3">
         <DefaultModelForm
-          defaultFieldValues={defaultsQuery.data ?? {}}
+          key={createFormKey(defaultFieldValues, [
+            ...MODEL_PROVIDER_SECTION_FIELD_IDS.defaultModel,
+          ])}
+          defaultFieldValues={defaultFieldValues}
           isDefaultsLoading={defaultsQuery.isLoading}
           onMutate={onMutate}
         />
         <OpenRouterForm
-          defaultFieldValues={defaultsQuery.data ?? {}}
+          key={createFormKey(defaultFieldValues, [...MODEL_PROVIDER_SECTION_FIELD_IDS.openRouter])}
+          defaultFieldValues={defaultFieldValues}
           isDefaultsLoading={defaultsQuery.isLoading}
           onMutate={onMutate}
         />
         <ClaudeForm
-          defaultFieldValues={defaultsQuery.data ?? {}}
+          key={createFormKey(defaultFieldValues, [...MODEL_PROVIDER_SECTION_FIELD_IDS.claude])}
+          defaultFieldValues={defaultFieldValues}
           isDefaultsLoading={defaultsQuery.isLoading}
           onMutate={onMutate}
         />
         <OpenAiForm
-          defaultFieldValues={defaultsQuery.data ?? {}}
+          key={createFormKey(defaultFieldValues, [...MODEL_PROVIDER_SECTION_FIELD_IDS.openAi])}
+          defaultFieldValues={defaultFieldValues}
           isDefaultsLoading={defaultsQuery.isLoading}
           onMutate={onMutate}
         />
         <GeminiForm
-          defaultFieldValues={defaultsQuery.data ?? {}}
+          key={createFormKey(defaultFieldValues, [...MODEL_PROVIDER_SECTION_FIELD_IDS.gemini])}
+          defaultFieldValues={defaultFieldValues}
           isDefaultsLoading={defaultsQuery.isLoading}
           onMutate={onMutate}
         />
@@ -142,7 +168,16 @@ function DefaultModelForm({
     ) as Record<string, string>,
     validators: { onSubmit: DefaultModelFormSchema },
     onSubmit: async ({ value }) => {
-      await saveMutation.mutateAsync(value as z.infer<typeof DefaultModelFormSchema>);
+      const toastId = toast.loading("Submitting default model...");
+      try {
+        await saveMutation.mutateAsync(value as z.infer<typeof DefaultModelFormSchema>);
+        toast.success("Default model saved.", { id: toastId });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to save default model.", {
+          id: toastId,
+        });
+        throw error;
+      }
     },
   });
 
@@ -213,18 +248,10 @@ function OpenRouterForm(props: {
     mutationFn: async (values: z.infer<typeof OpenRouterFormSchema>) =>
       props.onMutate({
         env: {
-          set: {
-            ...(values["model-provider-openrouter-api-key"]
-              ? {
-                  OPENROUTER_API_KEY: values["model-provider-openrouter-api-key"],
-                }
-              : {}),
-            ...(values["model-provider-openrouter-base-url"]
-              ? {
-                  OPENROUTER_BASE_URL: values["model-provider-openrouter-base-url"],
-                }
-              : {}),
-          },
+          set: createEnvSet([
+            ["OPENROUTER_API_KEY", values["model-provider-openrouter-api-key"]],
+            ["OPENROUTER_BASE_URL", values["model-provider-openrouter-base-url"]],
+          ]),
         },
       }),
   });
@@ -241,7 +268,19 @@ function OpenRouterForm(props: {
     ) as Record<string, string>,
     validators: { onSubmit: OpenRouterFormSchema },
     onSubmit: async ({ value }) => {
-      await saveMutation.mutateAsync(value as z.infer<typeof OpenRouterFormSchema>);
+      const toastId = toast.loading("Submitting OpenRouter settings...");
+      try {
+        await saveMutation.mutateAsync(value as z.infer<typeof OpenRouterFormSchema>);
+        toast.success("OpenRouter settings saved.", { id: toastId });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to save OpenRouter settings.",
+          {
+            id: toastId,
+          },
+        );
+        throw error;
+      }
     },
   });
   return (
@@ -322,7 +361,9 @@ function ClaudeForm(props: {
     mutationFn: async (values: z.infer<typeof ClaudeFormSchema>) => {
       const anthropicKey = values["model-provider-anthropic-api-key"];
       return props.onMutate({
-        env: { set: anthropicKey ? { ANTHROPIC_API_KEY: anthropicKey } : {} },
+        env: {
+          set: createEnvSet([["ANTHROPIC_API_KEY", anthropicKey]]),
+        },
       });
     },
   });
@@ -336,7 +377,16 @@ function ClaudeForm(props: {
     ) as Record<string, string>,
     validators: { onSubmit: ClaudeFormSchema },
     onSubmit: async ({ value }) => {
-      await saveMutation.mutateAsync(value as z.infer<typeof ClaudeFormSchema>);
+      const toastId = toast.loading("Submitting Claude settings...");
+      try {
+        await saveMutation.mutateAsync(value as z.infer<typeof ClaudeFormSchema>);
+        toast.success("Claude settings saved.", { id: toastId });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to save Claude settings.", {
+          id: toastId,
+        });
+        throw error;
+      }
     },
   });
   return (
@@ -419,14 +469,10 @@ function OpenAiForm(props: {
     mutationFn: async (values: z.infer<typeof OpenAiFormSchema>) =>
       props.onMutate({
         env: {
-          set: {
-            ...(values["model-provider-openai-api-key"]
-              ? { OPENAI_API_KEY: values["model-provider-openai-api-key"] }
-              : {}),
-            ...(values["model-provider-openai-base-url"]
-              ? { OPENAI_BASE_URL: values["model-provider-openai-base-url"] }
-              : {}),
-          },
+          set: createEnvSet([
+            ["OPENAI_API_KEY", values["model-provider-openai-api-key"]],
+            ["OPENAI_BASE_URL", values["model-provider-openai-base-url"]],
+          ]),
         },
       }),
   });
@@ -443,7 +489,16 @@ function OpenAiForm(props: {
     ) as Record<string, string>,
     validators: { onSubmit: OpenAiFormSchema },
     onSubmit: async ({ value }) => {
-      await saveMutation.mutateAsync(value as z.infer<typeof OpenAiFormSchema>);
+      const toastId = toast.loading("Submitting OpenAI settings...");
+      try {
+        await saveMutation.mutateAsync(value as z.infer<typeof OpenAiFormSchema>);
+        toast.success("OpenAI settings saved.", { id: toastId });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to save OpenAI settings.", {
+          id: toastId,
+        });
+        throw error;
+      }
     },
   });
   return (
@@ -526,14 +581,10 @@ function GeminiForm(props: {
     mutationFn: async (values: z.infer<typeof GeminiFormSchema>) =>
       props.onMutate({
         env: {
-          set: {
-            ...(values["model-provider-google-api-key"]
-              ? { GOOGLE_API_KEY: values["model-provider-google-api-key"] }
-              : {}),
-            ...(values["model-provider-gemini-base-url"]
-              ? { GEMINI_BASE_URL: values["model-provider-gemini-base-url"] }
-              : {}),
-          },
+          set: createEnvSet([
+            ["GOOGLE_API_KEY", values["model-provider-google-api-key"]],
+            ["GEMINI_BASE_URL", values["model-provider-gemini-base-url"]],
+          ]),
         },
       }),
   });
@@ -550,7 +601,16 @@ function GeminiForm(props: {
     ) as Record<string, string>,
     validators: { onSubmit: GeminiFormSchema },
     onSubmit: async ({ value }) => {
-      await saveMutation.mutateAsync(value as z.infer<typeof GeminiFormSchema>);
+      const toastId = toast.loading("Submitting Gemini settings...");
+      try {
+        await saveMutation.mutateAsync(value as z.infer<typeof GeminiFormSchema>);
+        toast.success("Gemini settings saved.", { id: toastId });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to save Gemini settings.", {
+          id: toastId,
+        });
+        throw error;
+      }
     },
   });
   return (

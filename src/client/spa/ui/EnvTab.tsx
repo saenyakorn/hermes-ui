@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { toast } from "../../lib/sonner";
 import type { EnvReadResult } from "../../../server/types";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
@@ -20,7 +21,16 @@ export function EnvTab() {
       onSubmit: envFormSchema,
     },
     onSubmit: async () => {
-      await env.upsert();
+      const toastId = toast.loading("Submitting environment update...");
+      try {
+        await env.upsert();
+        toast.success("Environment updated.", { id: toastId });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to update environment.", {
+          id: toastId,
+        });
+        throw error;
+      }
     },
   });
   const envFormKey = `${env.key}\u0000${env.value}`;

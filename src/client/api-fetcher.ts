@@ -3,6 +3,7 @@ import type { AppType } from "../server/app";
 import type {
   ConfigReadResult,
   ConfigSaveResponse,
+  DiscordSettingsPatch,
   EnvMutationResponse,
   EnvReadResult,
   GatewayStatus,
@@ -64,15 +65,34 @@ export function parseLogStreamFrames(frame: string): string[] {
 export type ModelProvidersSavePayload = {
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
-  discord?: { allowed_users: string };
+  discord?: DiscordSettingsPatch;
 };
+
+function toBase64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 function getBasicAuthTokenFromLocation(): string | undefined {
   const url = new URL(window.location.href);
-  if (!url.username || !url.password) {
+  if (!url.username && !url.password) {
     return undefined;
   }
-  return `Basic ${btoa(`${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`)}`;
+  const username = safeDecodeURIComponent(url.username);
+  const password = safeDecodeURIComponent(url.password);
+  return `Basic ${toBase64Utf8(`${username}:${password}`)}`;
 }
 
 function getBasicAuthTokenFromBootstrap(): string | undefined {
@@ -99,7 +119,7 @@ export class ApiFetcher {
 
   authenticatedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const headers = new Headers(init?.headers);
-    const token = getBasicAuthTokenFromLocation();
+    const token = this.getBasicAuthToken();
     if (token !== undefined && !headers.has("Authorization")) {
       headers.set("Authorization", token);
     }

@@ -82,11 +82,13 @@ const workspaceHints: WorkspaceConfigHints = {
     reactions: null,
     ignored_channels: null,
     no_thread_channels: null,
+    channel_prompts: null,
     allow_mentions_everyone: null,
     allow_mentions_roles: null,
     allow_mentions_users: null,
     allow_mentions_replied_user: null,
   },
+  group_sessions_per_user: null,
 };
 
 function createServices(): AppServices {
@@ -113,7 +115,7 @@ function createServices(): AppServices {
       save: vi.fn(async () => configSave),
       patchModel: vi.fn(async (_updates: ModelYamlPatch) => configSave),
       getWorkspaceConfigHints: vi.fn(async () => workspaceHints),
-      patchDiscordAllowedUsers: vi.fn(async () => configSave),
+      patchDiscordSettings: vi.fn(async () => configSave),
     },
     envVars: {
       read: vi.fn(async () => envRead),
@@ -230,6 +232,13 @@ describe("createApp", () => {
     const response = await createApp(createServices()).request("/");
 
     expect(response.status).toBe(401);
+  });
+
+  it("allows unauthenticated gateway health checks", async () => {
+    const response = await createApp(createServices()).request("/gateway/health");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ state: "stopped" });
   });
 
   it("renders plain HTML shell with React root and SPA script", async () => {
@@ -703,7 +712,7 @@ describe("createApp", () => {
 
     expect(response.status).toBe(200);
     expect(services.config.patchModel).not.toHaveBeenCalled();
-    expect(services.config.patchDiscordAllowedUsers).not.toHaveBeenCalled();
+    expect(services.config.patchDiscordSettings).not.toHaveBeenCalled();
     expect(services.envVars.applyBatch).toHaveBeenCalledOnce();
     expect(services.gateway.restart).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
@@ -712,7 +721,7 @@ describe("createApp", () => {
     });
   });
 
-  it("model-providers discord-only patches discord allowlist and skips env batch", async () => {
+  it("model-providers discord-only patches discord allowlist and syncs env allowlist", async () => {
     const services = createServices();
     services.gateway.restart = vi.fn(async () => runningStatus);
     const afterDiscordPatch: ConfigSaveResult = {
@@ -720,7 +729,7 @@ describe("createApp", () => {
       content: 'discord:\n  allowed_users: "1,2"\n',
       saved: true,
     };
-    services.config.patchDiscordAllowedUsers = vi.fn(async () => afterDiscordPatch);
+    services.config.patchDiscordSettings = vi.fn(async () => afterDiscordPatch);
 
     const response = await createApp(services).request("/settings/model-providers", {
       method: "POST",
@@ -730,14 +739,63 @@ describe("createApp", () => {
 
     expect(response.status).toBe(200);
     expect(services.config.patchModel).not.toHaveBeenCalled();
-    expect(services.config.patchDiscordAllowedUsers).toHaveBeenCalledWith("1, 2");
-    expect(services.envVars.applyBatch).not.toHaveBeenCalled();
+    expect(services.config.patchDiscordSettings).toHaveBeenCalledWith({ allowed_users: "1, 2" });
+    expect(services.envVars.applyBatch).toHaveBeenCalledWith({
+      set: { DISCORD_ALLOWED_USERS: "1, 2" },
+    });
     expect(services.gateway.restart).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
       config: afterDiscordPatch,
       restart: { attempted: false, ok: true, error: null },
       gateway: stoppedStatus,
     });
+  });
+
+  it("model-providers discord clear removes env allowlist key", async () => {
+    const services = createServices();
+    const afterDiscordPatch: ConfigSaveResult = {
+      ...configRead,
+      content: "discord: {}\n",
+      saved: true,
+    };
+    services.config.patchDiscordSettings = vi.fn(async () => afterDiscordPatch);
+
+    const response = await createApp(services).request("/settings/model-providers", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({ discord: { allowed_users: "   " } }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.config.patchDiscordSettings).toHaveBeenCalledWith({ allowed_users: "   " });
+    expect(services.envVars.applyBatch).toHaveBeenCalledWith({
+      remove: ["DISCORD_ALLOWED_USERS"],
+    });
+  });
+
+  it("model-providers discord config patch persists config fields without env sync when allowlist omitted", async () => {
+    const services = createServices();
+    const response = await createApp(services).request("/settings/model-providers", {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({
+        discord: {
+          require_mention: "false",
+          auto_thread: "true",
+          channel_prompts: '{"123":"hello"}',
+          group_sessions_per_user: "true",
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(services.config.patchDiscordSettings).toHaveBeenCalledWith({
+      require_mention: "false",
+      auto_thread: "true",
+      channel_prompts: '{"123":"hello"}',
+      group_sessions_per_user: "true",
+    });
+    expect(services.envVars.applyBatch).not.toHaveBeenCalled();
   });
 
   it("returns 422 when discord yaml patch does not save and does not apply env", async () => {
@@ -751,7 +809,7 @@ describe("createApp", () => {
       },
       saved: false,
     };
-    services.config.patchDiscordAllowedUsers = vi.fn(async () => invalidDiscordPatch);
+    services.config.patchDiscordSettings = vi.fn(async () => invalidDiscordPatch);
 
     const response = await createApp(services).request("/settings/model-providers", {
       method: "POST",
@@ -763,7 +821,7 @@ describe("createApp", () => {
     });
 
     expect(response.status).toBe(422);
-    expect(services.config.patchDiscordAllowedUsers).toHaveBeenCalledOnce();
+    expect(services.config.patchDiscordSettings).toHaveBeenCalledOnce();
     expect(services.envVars.applyBatch).not.toHaveBeenCalled();
     expect(services.gateway.restart).not.toHaveBeenCalled();
   });

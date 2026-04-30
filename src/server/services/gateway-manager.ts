@@ -63,7 +63,7 @@ export class GatewayManager {
         cwd,
         env: { ...process.env, HERMES_HOME: cwd },
         detached: true,
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["pipe"],
       });
 
       this.child = child;
@@ -141,7 +141,11 @@ export class GatewayManager {
   async refreshHealth(): Promise<GatewayStatus> {
     const health = await checkGatewayHealth(this.state === "running");
 
-    if (health === "unhealthy" || health === "unreachable") {
+    if (
+      health === "unhealthy" ||
+      health === "unreachable" ||
+      (health === "unknown" && this.state === "running")
+    ) {
       await this.logs.append("health", `Gateway health check failed: ${health}`);
     }
 
