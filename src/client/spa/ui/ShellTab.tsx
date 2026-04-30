@@ -14,6 +14,7 @@ export function ShellTab() {
   const xtermOptions = useMemo(
     () => ({
       cursorBlink: true,
+      scrollback: 10_000,
       fontFamily: '"Azeret Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 13,
       theme: {
@@ -68,11 +69,27 @@ export function ShellTab() {
       const resizeObserver = new ResizeObserver(() => resize());
       resizeObserver.observe(host);
       window.addEventListener("resize", resize);
+      const onPointerDown = (): void => {
+        terminalInstance.focus();
+      };
+      const onWheel = (event: WheelEvent): void => {
+        if (event.deltaY === 0) {
+          return;
+        }
+        // Keep scrolling inside xterm instead of bubbling to page containers.
+        event.preventDefault();
+        const lineStep = Math.max(1, Math.round(Math.abs(event.deltaY) / 16));
+        terminalInstance.scrollLines(event.deltaY > 0 ? lineStep : -lineStep);
+      };
+      host.addEventListener("pointerdown", onPointerDown);
+      host.addEventListener("wheel", onWheel, { passive: false });
       resize();
 
       const originalDisconnect = socket.disconnect.bind(socket);
       socket.disconnect = () => {
         window.removeEventListener("resize", resize);
+        host.removeEventListener("pointerdown", onPointerDown);
+        host.removeEventListener("wheel", onWheel);
         resizeObserver.disconnect();
         originalDisconnect();
         return socket;
@@ -133,11 +150,11 @@ export function ShellTab() {
           Clear
         </Button>
       </div>
-      <Card className="min-h-[1000px] min-w-0 flex-1 p-3">
+      <Card className="flex min-h-0 min-w-0 flex-1 flex-col p-3">
         <div
           ref={ref}
           id="terminal"
-          className="min-h-[1000px] flex-1 rounded-lg border border-frosted bg-background"
+          className="min-h-0 flex-1 overflow-hidden overscroll-contain rounded-lg border border-frosted bg-background"
         />
       </Card>
     </section>

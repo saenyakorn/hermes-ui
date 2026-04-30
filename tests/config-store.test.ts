@@ -130,13 +130,13 @@ describe("ConfigStore", () => {
   it("writes valid config atomically", async () => {
     const store = createStore();
 
-    const result = await store.save("gateway:\n  port: 8080\n");
+    const result = await store.save("gateway:\n  port: 3000\n");
 
     expect(result.saved).toBe(true);
-    expect(result.content).toBe("gateway:\n  port: 8080\n");
+    expect(result.content).toBe("gateway:\n  port: 3000\n");
     expect(result.validation).toEqual({ ok: true, issues: [] });
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toBe(
-      "gateway:\n  port: 8080\n",
+      "gateway:\n  port: 3000\n",
     );
     await expect(readAuditLog()).resolves.toContain("Config saved");
   });
@@ -146,7 +146,7 @@ describe("ConfigStore", () => {
     const store = createStore();
 
     const results = await Promise.all([
-      store.save("gateway:\n  port: 8080\n"),
+      store.save("gateway:\n  port: 3000\n"),
       store.save("gateway:\n  port: 9090\n"),
     ]);
 
@@ -156,7 +156,7 @@ describe("ConfigStore", () => {
       expect(result.validation).toEqual({ ok: true, issues: [] });
     }
     await expect(readFile(path.join(tmpDir, "config.yaml"), "utf8")).resolves.toMatch(
-      /^gateway:\n  port: (8080|9090)\n$/,
+      /^gateway:\n  port: (3000|9090)\n$/,
     );
   });
 

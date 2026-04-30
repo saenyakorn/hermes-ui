@@ -63,4 +63,58 @@ describe("ApiFetcher auth token resolution", () => {
     const api = new ApiFetcher("https://example.test");
     expect(api.getBasicAuthToken()).toBe("Basic dGVzdDp0b2tlbg==");
   });
+
+  it("adds bootstrap auth token header in authenticatedFetch", async () => {
+    setTestWindow({
+      location: {
+        href: "https://example.test/",
+        origin: "https://example.test",
+      },
+      __HERMES_AUTHORIZATION__: "Basic dGVzdDp0b2tlbg==",
+    });
+
+    const originalFetch = globalThis.fetch;
+    let authHeaderValue: string | null = null;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      authHeaderValue = headers.get("Authorization");
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const api = new ApiFetcher("https://example.test");
+      await api.authenticatedFetch("https://example.test/env");
+      expect(authHeaderValue).toBe("Basic dGVzdDp0b2tlbg==");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("encodes non-ascii URL credentials and still sends request", async () => {
+    setTestWindow({
+      location: {
+        href: "https://admin:p%C3%A4ss@example.test/",
+        origin: "https://example.test",
+      },
+    });
+
+    const originalFetch = globalThis.fetch;
+    let called = false;
+    let authHeaderValue: string | null = null;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      called = true;
+      const headers = new Headers(init?.headers);
+      authHeaderValue = headers.get("Authorization");
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const api = new ApiFetcher("https://example.test");
+      await api.authenticatedFetch("https://example.test/env");
+      expect(called).toBe(true);
+      expect(authHeaderValue).toBe("Basic YWRtaW46cMOkc3M=");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
