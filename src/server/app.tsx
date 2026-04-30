@@ -118,10 +118,13 @@ export function createApp(services: AppServices) {
     .get("/assets/*", serveStatic({ root: "./dist" }))
     .get("/favicon.ico", (context) => context.body(null, 204))
     .get("/", (context) => {
+      const authHeader = context.req.header("authorization");
+      const authToken = authHeader?.startsWith("Basic ") ? authHeader : undefined;
       return context.html(
         renderHtmlDocument(
           "Hermes Agent",
           encodeURIComponent(JSON.stringify(services.gateway.status())),
+          authToken ? encodeURIComponent(authToken) : undefined,
         ),
       );
     })

@@ -56,6 +56,8 @@ describe("GatewayManager", () => {
     expect(spawnGateway).toHaveBeenCalledWith("hermes", ["gateway"], {
       cwd: "/workspace/project",
       env: { ...process.env, HERMES_HOME: "/workspace/project" },
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
     });
     expect(status).toMatchObject({
       state: "running",
@@ -161,6 +163,8 @@ describe("GatewayManager", () => {
     expect(spawnGateway).toHaveBeenLastCalledWith("hermes", ["gateway"], {
       cwd: "/workspace/project",
       env: { ...process.env, HERMES_HOME: "/workspace/project" },
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
     });
   });
 

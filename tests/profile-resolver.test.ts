@@ -210,6 +210,8 @@ describe("services follow profile switches", () => {
     expect(spawnGateway).toHaveBeenLastCalledWith("hermes", ["gateway"], {
       cwd: path.join(rootDir, "data"),
       env: expect.objectContaining({ HERMES_HOME: path.join(rootDir, "data") }),
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
     });
 
     await manager.stop();
@@ -224,6 +226,8 @@ describe("services follow profile switches", () => {
       env: expect.objectContaining({
         HERMES_HOME: path.join(rootDir, "data", "profiles", "coder"),
       }),
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
     });
   });
 });
