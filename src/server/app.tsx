@@ -7,6 +7,7 @@ import type {
   AppEnv,
   ConfigReadResult,
   ConfigSaveResult,
+  DiscordSettingsPatch,
   EnvReadResult,
   GatewayStatus,
   LogTail,
@@ -46,7 +47,7 @@ export type AppConfig = {
   save: (content: string) => Promise<ConfigSaveResult>;
   patchModel: (updates: ModelYamlPatch) => Promise<ConfigSaveResult>;
   getWorkspaceConfigHints: () => Promise<WorkspaceConfigHints>;
-  patchDiscordAllowedUsers: (allowed_users: string) => Promise<ConfigSaveResult>;
+  patchDiscordSettings: (updates: DiscordSettingsPatch) => Promise<ConfigSaveResult>;
 };
 
 export type AppProfiles = {
@@ -291,7 +292,7 @@ export function createApp(services: AppServices) {
         }
 
         if (input.discord !== undefined) {
-          const patched = await saveDiscordPatch(services.config, input.discord.allowed_users);
+          const patched = await saveDiscordPatch(services.config, input.discord);
           if (!patched.ok) {
             return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
           }
@@ -319,13 +320,16 @@ export function createApp(services: AppServices) {
       const discordEnvSync =
         input.discord === undefined
           ? undefined
-          : input.discord.allowed_users.trim().length > 0
+          : typeof input.discord.allowed_users === "string" &&
+              input.discord.allowed_users.trim().length > 0
             ? {
                 set: {
                   DISCORD_ALLOWED_USERS: input.discord.allowed_users.trim(),
                 },
               }
-            : { remove: ["DISCORD_ALLOWED_USERS"] };
+            : input.discord.allowed_users !== undefined
+              ? { remove: ["DISCORD_ALLOWED_USERS"] }
+              : undefined;
       const envMutation = mergeEnvBatchMutations(input.env, discordEnvSync);
       if (envMutation !== undefined) {
         const envResult = await mutateEnv(() => services.envVars.applyBatch(envMutation));
@@ -721,12 +725,12 @@ async function saveConfigPatch(
 
 async function saveDiscordPatch(
   config: AppConfig,
-  allowed_users: string,
+  updates: DiscordSettingsPatch,
 ): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
   try {
     return {
       ok: true,
-      value: await config.patchDiscordAllowedUsers(allowed_users),
+      value: await config.patchDiscordSettings(updates),
     };
   } catch (cause: unknown) {
     return { ok: false, error: getErrorMessage(cause) };
@@ -833,7 +837,7 @@ function mergeEnvBatchMutations(
     return left;
   }
 
-  const mergedSet = { ...(left.set ?? {}), ...(right.set ?? {}) };
+  const mergedSet = { ...left.set, ...right.set };
   const remove = [...new Set([...(left.remove ?? []), ...(right.remove ?? [])])].filter(
     (key) => !(key in mergedSet),
   );
@@ -850,7 +854,7 @@ function mergeEnvBatchMutations(
 async function parseModelProvidersInput(bodyPromise: Promise<unknown>): Promise<{
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
-  discord?: { allowed_users: string };
+  discord?: DiscordSettingsPatch;
 } | null> {
   try {
     const body = await bodyPromise;
@@ -886,12 +890,40 @@ async function parseModelProvidersInput(bodyPromise: Promise<unknown>): Promise<
       }
     }
 
-    let discord: { allowed_users: string } | undefined;
+    let discord: DiscordSettingsPatch | undefined;
     if (body.discord !== undefined) {
-      if (!isRecord(body.discord) || typeof body.discord.allowed_users !== "string") {
+      if (!isRecord(body.discord)) {
         return null;
       }
-      discord = { allowed_users: body.discord.allowed_users };
+      const parsed: DiscordSettingsPatch = {};
+      for (const key of [
+        "allowed_users",
+        "require_mention",
+        "free_response_channels",
+        "auto_thread",
+        "reactions",
+        "ignored_channels",
+        "no_thread_channels",
+        "channel_prompts",
+        "allow_mentions_everyone",
+        "allow_mentions_roles",
+        "allow_mentions_users",
+        "allow_mentions_replied_user",
+        "group_sessions_per_user",
+      ] as const) {
+        const value = body.discord[key];
+        if (value === undefined) {
+          continue;
+        }
+        if (typeof value !== "string") {
+          return null;
+        }
+        parsed[key] = value;
+      }
+      if (Object.keys(parsed).length === 0) {
+        return null;
+      }
+      discord = parsed;
     }
 
     const hasModel = model !== undefined && Object.keys(model).length > 0;
@@ -903,7 +935,7 @@ async function parseModelProvidersInput(bodyPromise: Promise<unknown>): Promise<
     const result: {
       model?: ModelYamlPatch;
       env?: { set?: Record<string, string>; remove?: string[] };
-      discord?: { allowed_users: string };
+      discord?: DiscordSettingsPatch;
     } = {};
     if (model !== undefined) {
       result.model = model;

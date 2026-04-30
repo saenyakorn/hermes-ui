@@ -180,12 +180,12 @@ If your GHCR package is private, configure Railway registry credentials that can
 
 ### Application Variables
 
-| Variable                    | Required | Default                        | Description                                                          |
-| --------------------------- | -------- | ------------------------------ | -------------------------------------------------------------------- |
-| `ADMIN_USERNAME`            | Yes      | -                              | Basic Auth username for HTTP/SSE/WebSocket access                    |
-| `ADMIN_PASSWORD`            | Yes      | -                              | Basic Auth password for HTTP/SSE/WebSocket access                    |
-| `PORT`                      | No       | `3000`                         | HTTP server port (must be 1-65535)                                   |
-| `LOG_LEVEL`                 | No       | `info`                         | One of: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent` |
+| Variable         | Required | Default | Description                                                          |
+| ---------------- | -------- | ------- | -------------------------------------------------------------------- |
+| `ADMIN_USERNAME` | Yes      | -       | Basic Auth username for HTTP/SSE/WebSocket access                    |
+| `ADMIN_PASSWORD` | Yes      | -       | Basic Auth password for HTTP/SSE/WebSocket access                    |
+| `PORT`           | No       | `3000`  | HTTP server port (must be 1-65535)                                   |
+| `LOG_LEVEL`      | No       | `info`  | One of: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent` |
 
 Gateway health checks now use `hermes gateway status` output; `HERMES_GATEWAY_HEALTH_URL` is no longer used.
 

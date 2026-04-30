@@ -141,5 +141,7 @@ function containsUnhealthySignal(output: string): boolean {
 }
 
 function containsHealthySignal(output: string): boolean {
-  return output.includes("ok") || output.includes("healthy") || output.includes("all checks passed");
+  return (
+    output.includes("ok") || output.includes("healthy") || output.includes("all checks passed")
+  );
 }

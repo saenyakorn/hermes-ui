@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkGatewayHealth,
-  type GatewayStatusRunner,
-} from "../src/server/services/health";
+import { checkGatewayHealth, type GatewayStatusRunner } from "../src/server/services/health";
 
 describe("checkGatewayHealth", () => {
   it("returns unknown when gateway is not running", async () => {

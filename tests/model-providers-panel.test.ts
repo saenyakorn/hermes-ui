@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { createEnvSet } from "../src/client/spa/ui/ModelProvidersPanel";
 
 describe("ModelProvidersPanel form wiring", () => {
   it("wraps each provider section with form.Form so submit buttons work", () => {
@@ -9,5 +10,17 @@ describe("ModelProvidersPanel form wiring", () => {
     const formTagCount = source.match(/<form\.Form>/g)?.length ?? 0;
 
     expect(formTagCount).toBe(5);
+  });
+
+  it("filters placeholder values from env mutation payloads", () => {
+    const set = createEnvSet([
+      ["OPENROUTER_API_KEY", "*****"],
+      ["OPENROUTER_BASE_URL", "  https://openrouter.example  "],
+      ["OPENAI_BASE_URL", "   "],
+    ]);
+
+    expect(set).toEqual({
+      OPENROUTER_BASE_URL: "https://openrouter.example",
+    });
   });
 });

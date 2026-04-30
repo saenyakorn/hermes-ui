@@ -1,5 +1,6 @@
 import { Tabs } from "@base-ui/react";
 import { useCallback, useState } from "react";
+import { Toaster } from "../lib/sonner";
 import type { GatewayStatus } from "../../server/types";
 import { Card } from "../components/Card";
 import { useGatewayStatus } from "../hooks/useGatewayStatus";
@@ -94,6 +95,7 @@ export function App({ initialStatus }: AppProps) {
 
   return (
     <main className="h-screen overflow-y-auto bg-[radial-gradient(circle_at_85%_-10%,rgba(0,122,255,0.16),transparent_38%),radial-gradient(circle_at_20%_-20%,rgba(98,129,199,0.2),transparent_45%),var(--color-background)] text-text">
+      <Toaster richColors position="top-right" />
       <section id="workspace" className="mx-auto flex h-full min-w-0 max-w-[1700px] p-3 lg:p-4">
         <ProfileProvider>
           <Tabs.Root

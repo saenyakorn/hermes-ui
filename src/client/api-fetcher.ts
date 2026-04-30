@@ -3,6 +3,7 @@ import type { AppType } from "../server/app";
 import type {
   ConfigReadResult,
   ConfigSaveResponse,
+  DiscordSettingsPatch,
   EnvMutationResponse,
   EnvReadResult,
   GatewayStatus,
@@ -64,7 +65,7 @@ export function parseLogStreamFrames(frame: string): string[] {
 export type ModelProvidersSavePayload = {
   model?: ModelYamlPatch;
   env?: { set?: Record<string, string>; remove?: string[] };
-  discord?: { allowed_users: string };
+  discord?: DiscordSettingsPatch;
 };
 
 function toBase64Utf8(value: string): string {

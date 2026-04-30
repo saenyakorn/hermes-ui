@@ -6,11 +6,7 @@ import {
 import { checkGatewayHealth } from "./health";
 import type { LogStore } from "./log-store";
 import { asDirProvider, type DirProvider } from "./paths";
-import type {
-  GatewayHealthState,
-  GatewayProcessState,
-  GatewayStatus,
-} from "../types";
+import type { GatewayHealthState, GatewayProcessState, GatewayStatus } from "../types";
 
 const STOP_FORCE_TIMEOUT_MS = 5_000;
 const GATEWAY_ARGS = ["gateway"] as const;
@@ -21,8 +17,7 @@ export type SpawnGateway = (
   options: Pick<SpawnOptionsWithoutStdio, "cwd" | "env" | "detached" | "stdio">,
 ) => ChildProcessWithoutNullStreams;
 
-const defaultSpawnGateway: SpawnGateway = (command, args, options) =>
-  spawn(command, args, options);
+const defaultSpawnGateway: SpawnGateway = (command, args, options) => spawn(command, args, options);
 
 export class GatewayManager {
   private state: GatewayProcessState = "stopped";
@@ -77,20 +72,14 @@ export class GatewayManager {
         await this.waitForSpawn(child);
       }
       this.state = "running";
-      await this.logs.append(
-        "gateway",
-        `Started hermes gateway pid=${child.pid ?? "unknown"}`,
-      );
+      await this.logs.append("gateway", `Started hermes gateway pid=${child.pid ?? "unknown"}`);
 
       return this.status();
     } catch (cause: unknown) {
       this.state = "crashed";
       this.child = null;
       this.lastError = this.formatCause(cause);
-      await this.logs.append(
-        "gateway",
-        `Failed to start hermes gateway: ${this.lastError}`,
-      );
+      await this.logs.append("gateway", `Failed to start hermes gateway: ${this.lastError}`);
       throw cause;
     }
   }
@@ -107,10 +96,7 @@ export class GatewayManager {
 
     this.state = "stopping";
     this.controlledShutdownChild = child;
-    await this.logs.append(
-      "gateway",
-      `Stopping hermes gateway pid=${child.pid ?? "unknown"}`,
-    );
+    await this.logs.append("gateway", `Stopping hermes gateway pid=${child.pid ?? "unknown"}`);
     child.kill("SIGTERM");
 
     this.clearStopTimer();
@@ -160,10 +146,7 @@ export class GatewayManager {
       health === "unreachable" ||
       (health === "unknown" && this.state === "running")
     ) {
-      await this.logs.append(
-        "health",
-        `Gateway health check failed: ${health}`,
-      );
+      await this.logs.append("health", `Gateway health check failed: ${health}`);
     }
 
     return this.status(health);
@@ -201,10 +184,7 @@ export class GatewayManager {
         this.startedAt = null;
         this.state = "crashed";
       }
-      void this.logs.append(
-        "gateway",
-        `Gateway process error: ${this.lastError}`,
-      );
+      void this.logs.append("gateway", `Gateway process error: ${this.lastError}`);
     });
 
     child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
@@ -251,9 +231,7 @@ export class GatewayManager {
     }
   }
 
-  private waitForChildExit(
-    child: ChildProcessWithoutNullStreams | null,
-  ): Promise<void> {
+  private waitForChildExit(child: ChildProcessWithoutNullStreams | null): Promise<void> {
     if (child === null || this.child !== child) {
       return Promise.resolve();
     }
@@ -287,8 +265,6 @@ export class GatewayManager {
   private isMissingGatewayCommand(cause: Error): boolean {
     const error = cause as NodeJS.ErrnoException;
 
-    return (
-      error.code === "ENOENT" || cause.message.includes("spawn hermes ENOENT")
-    );
+    return error.code === "ENOENT" || cause.message.includes("spawn hermes ENOENT");
   }
 }

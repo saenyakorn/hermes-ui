@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Document } from "yaml";
-import { isMap, isScalar, isSeq, parseDocument } from "yaml";
+import { isMap, isScalar, isSeq, parse, parseDocument, stringify } from "yaml";
 import type {
   ConfigReadResult,
   ConfigSaveResult,
   ConfigValidationIssue,
+  DiscordSettingsPatch,
   ModelYamlPatch,
   WorkspaceConfigHints,
 } from "../types";
@@ -40,6 +40,7 @@ function emptyDiscordHints(): WorkspaceConfigHints["discord"] {
     reactions: null,
     ignored_channels: null,
     no_thread_channels: null,
+    channel_prompts: null,
     allow_mentions_everyone: null,
     allow_mentions_roles: null,
     allow_mentions_users: null,
@@ -168,6 +169,7 @@ export class ConfigStore {
     const empty: WorkspaceConfigHints = {
       model: { default: null, provider: null, base_url: null },
       discord: emptyDiscordHints(),
+      group_sessions_per_user: null,
     };
     const { content } = await this.read();
     const document = parseDocument(content);
@@ -200,6 +202,9 @@ export class ConfigStore {
         no_thread_channels: this.yamlNodeToListOrScalarDisplay(
           document.getIn(["discord", "no_thread_channels"]),
         ),
+        channel_prompts: this.yamlMappingNodeToChannelPromptsDisplay(
+          document.getIn(["discord", "channel_prompts"]),
+        ),
         allow_mentions_everyone: this.yamlScalarToString(
           document.getIn(["discord", "allow_mentions", "everyone"]),
         ),
@@ -213,14 +218,14 @@ export class ConfigStore {
           document.getIn(["discord", "allow_mentions", "replied_user"]),
         ),
       },
+      group_sessions_per_user: this.yamlScalarToString(document.getIn(["group_sessions_per_user"])),
     };
   }
 
   /**
-   * Sets or clears `discord.allowed_users` in config.yaml (comma-separated user IDs).
-   * Pass an empty string to remove the key.
+   * Sets/clears workspace-managed Discord settings in config.yaml.
    */
-  async patchDiscordAllowedUsers(allowed_users: string): Promise<ConfigSaveResult> {
+  async patchDiscordSettings(updates: DiscordSettingsPatch): Promise<ConfigSaveResult> {
     const { content } = await this.read();
     const document = parseDocument(content);
     const parseIssues: ConfigValidationIssue[] = document.errors.map((error) => ({
@@ -251,41 +256,97 @@ export class ConfigStore {
       };
     }
 
-    const trimmed = allowed_users.trim();
-    if (trimmed.length === 0) {
-      const discordMap = document.getIn(["discord"]);
-      if (isMap(discordMap)) {
-        discordMap.delete("allowed_users");
+    const applyStringValue = (pathParts: readonly string[], value: string | undefined): void => {
+      if (value === undefined) {
+        return;
       }
-    } else {
-      document.setIn(["discord", "allowed_users"], trimmed);
-    }
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        const parentPath = pathParts.slice(0, -1);
+        const leaf = pathParts[pathParts.length - 1];
+        const parent = document.getIn(parentPath);
+        if (isMap(parent)) {
+          parent.delete(leaf);
+        }
+        return;
+      }
+      document.setIn(pathParts, trimmed);
+    };
+    const applyBooleanString = (pathParts: readonly string[], value: string | undefined): void => {
+      if (value === undefined) {
+        return;
+      }
+      const normalized = value.trim().toLowerCase();
+      if (normalized.length === 0) {
+        const parentPath = pathParts.slice(0, -1);
+        const leaf = pathParts[pathParts.length - 1];
+        const parent = document.getIn(parentPath);
+        if (isMap(parent)) {
+          parent.delete(leaf);
+        }
+        return;
+      }
+      if (normalized === "true" || normalized === "false") {
+        document.setIn(pathParts, normalized === "true");
+      }
+    };
+    const applyChannelPromptsMappingString = (
+      pathParts: readonly string[],
+      value: string | undefined,
+    ): void => {
+      if (value === undefined) {
+        return;
+      }
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        const parentPath = pathParts.slice(0, -1);
+        const leaf = pathParts[pathParts.length - 1];
+        const parent = document.getIn(parentPath);
+        if (isMap(parent)) {
+          parent.delete(leaf);
+        }
+        return;
+      }
+      let parsed: unknown;
+      try {
+        parsed = parse(trimmed);
+      } catch {
+        try {
+          parsed = JSON.parse(trimmed) as unknown;
+        } catch {
+          return;
+        }
+      }
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        document.setIn(pathParts, parsed);
+      }
+    };
+
+    applyStringValue(["discord", "allowed_users"], updates.allowed_users);
+    applyBooleanString(["discord", "require_mention"], updates.require_mention);
+    applyStringValue(["discord", "free_response_channels"], updates.free_response_channels);
+    applyBooleanString(["discord", "auto_thread"], updates.auto_thread);
+    applyBooleanString(["discord", "reactions"], updates.reactions);
+    applyStringValue(["discord", "ignored_channels"], updates.ignored_channels);
+    applyStringValue(["discord", "no_thread_channels"], updates.no_thread_channels);
+    applyChannelPromptsMappingString(["discord", "channel_prompts"], updates.channel_prompts);
+    applyBooleanString(["discord", "allow_mentions", "everyone"], updates.allow_mentions_everyone);
+    applyBooleanString(["discord", "allow_mentions", "roles"], updates.allow_mentions_roles);
+    applyBooleanString(["discord", "allow_mentions", "users"], updates.allow_mentions_users);
+    applyBooleanString(
+      ["discord", "allow_mentions", "replied_user"],
+      updates.allow_mentions_replied_user,
+    );
+    applyBooleanString(["group_sessions_per_user"], updates.group_sessions_per_user);
 
     return this.save(String(document));
   }
 
-  async initialize(): Promise<void> {
-    await this.ensureConfigFile();
-  }
-
-  private yamlScalarToString(node: unknown): string | null {
-    if (node === null || node === undefined) {
-      return null;
-    }
-    if (typeof node === "string") {
-      return node;
-    }
-    if (typeof node === "number" || typeof node === "boolean") {
-      return String(node);
-    }
-    if (isScalar(node)) {
-      const value = node.value;
-      if (value === null || value === undefined) {
-        return null;
-      }
-      return typeof value === "string" ? value : String(value);
-    }
-    return null;
+  /**
+   * Backward-compatible helper for allowlist-only patching.
+   */
+  async patchDiscordAllowedUsers(allowed_users: string): Promise<ConfigSaveResult> {
+    return this.patchDiscordSettings({ allowed_users });
   }
 
   /**
@@ -319,6 +380,59 @@ export class ConfigStore {
         }
       }
       return parts.length > 0 ? parts.join(",") : null;
+    }
+    return null;
+  }
+
+  /**
+   * `discord.channel_prompts` is a mapping in YAML; surface it as plain YAML text in the workspace UI.
+   * Legacy configs may store a JSON object string — normalize to YAML for display.
+   */
+  private yamlMappingNodeToChannelPromptsDisplay(node: unknown): string | null {
+    if (node === null || node === undefined) {
+      return null;
+    }
+    if (isMap(node)) {
+      return stringify(node.toJSON()).trimEnd();
+    }
+    const scalarText = this.yamlScalarToString(node);
+    if (scalarText === null) {
+      return null;
+    }
+    const trimmed = scalarText.trim();
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+          return stringify(parsed).trimEnd();
+        }
+      } catch {
+        return scalarText;
+      }
+    }
+    return scalarText;
+  }
+
+  async initialize(): Promise<void> {
+    await this.ensureConfigFile();
+  }
+
+  private yamlScalarToString(node: unknown): string | null {
+    if (node === null || node === undefined) {
+      return null;
+    }
+    if (typeof node === "string") {
+      return node;
+    }
+    if (typeof node === "number" || typeof node === "boolean") {
+      return String(node);
+    }
+    if (isScalar(node)) {
+      const value = node.value;
+      if (value === null || value === undefined) {
+        return null;
+      }
+      return typeof value === "string" ? value : String(value);
     }
     return null;
   }

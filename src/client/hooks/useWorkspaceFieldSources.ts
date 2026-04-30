@@ -29,7 +29,7 @@ export const MESSAGING_DISCORD_FIELD_SOURCES: Record<string, MessagingDiscordFie
   "discord-advanced-allowed-roles": {
     source: "env",
     envKey: "DISCORD_ALLOWED_ROLES",
-    kind: "maskedText",
+    kind: "plainText",
   },
   "discord-advanced-allowed-channels": [
     { source: "config", configPath: "discord.allowed_channels" },
@@ -76,6 +76,7 @@ export const MESSAGING_DISCORD_FIELD_SOURCES: Record<string, MessagingDiscordFie
     { source: "config", configPath: "discord.no_thread_channels" },
     { source: "env", envKey: "DISCORD_NO_THREAD_CHANNELS", kind: "maskedText" },
   ],
+  "discord-advanced-channel-prompts": [{ source: "config", configPath: "discord.channel_prompts" }],
   "discord-advanced-allow-mention-everyone": [
     { source: "config", configPath: "discord.allow_mentions.everyone" },
     { source: "env", envKey: "DISCORD_ALLOW_MENTION_EVERYONE", kind: "select" },
@@ -97,6 +98,9 @@ export const MESSAGING_DISCORD_FIELD_SOURCES: Record<string, MessagingDiscordFie
     envKey: "DISCORD_IGNORE_NO_MENTION",
     kind: "select",
   },
+  "discord-advanced-group-sessions-per-user": [
+    { source: "config", configPath: "group_sessions_per_user" },
+  ],
 };
 
 export const MESSAGING_SLACK_FIELD_SOURCES: Record<
@@ -224,6 +228,11 @@ function resolveDiscordWorkspaceFieldValue(
     (s): s is Extract<MessagingDiscordFieldSpec, { source: "config" }> => s.source === "config",
   );
 
+  for (const spec of configSpecs) {
+    const value = resolveConfigBackedInput(hints, spec.configPath);
+    if (value !== undefined) return value;
+  }
+
   for (const spec of envSpecs) {
     if (spec.kind === "secret" || spec.kind === "maskedText") {
       if (envKeyHasNonEmptyValue(env, spec.envKey)) return placeholderIfEnvKeySet(env, spec.envKey);
@@ -231,11 +240,6 @@ function resolveDiscordWorkspaceFieldValue(
       const value = selectValueFromEnv(env, spec.envKey);
       if (value !== "") return value;
     }
-  }
-
-  for (const spec of configSpecs) {
-    const value = resolveConfigBackedInput(hints, spec.configPath);
-    if (value !== undefined) return value;
   }
 
   const loneEnvSpec = envSpecs.length === 1 ? envSpecs[0] : undefined;
@@ -274,6 +278,8 @@ function configScalarFromHints(hints: WorkspaceConfigHints, path: string): strin
       return hints.discord.ignored_channels;
     case "discord.no_thread_channels":
       return hints.discord.no_thread_channels;
+    case "discord.channel_prompts":
+      return hints.discord.channel_prompts;
     case "discord.allow_mentions.everyone":
       return hints.discord.allow_mentions_everyone;
     case "discord.allow_mentions.roles":
@@ -288,6 +294,8 @@ function configScalarFromHints(hints: WorkspaceConfigHints, path: string): strin
       return hints.model.provider;
     case "model.base_url":
       return hints.model.base_url;
+    case "group_sessions_per_user":
+      return hints.group_sessions_per_user;
     default:
       return null;
   }
@@ -317,7 +325,10 @@ function resolveModelProviderFieldFromSources(
     }
     sawEnvSource = true;
     if (envKeyHasNonEmptyValue(env, spec.envKey)) {
-      return UI_CONFIGURED_SECRET_PLACEHOLDER;
+      if (spec.kind === "secret") {
+        return UI_CONFIGURED_SECRET_PLACEHOLDER;
+      }
+      return selectValueFromEnv(env, spec.envKey);
     }
   }
   if (sawEnvSource) return "";
