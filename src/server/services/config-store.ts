@@ -11,23 +11,17 @@ import type {
   WorkspaceConfigHints,
 } from "../types";
 import { DEFAULT_HERMES_CONFIG_YAML } from "../config/default-hermes-config";
-import type { LogStore } from "./log-store";
-import { asDirProvider, type DirProvider } from "./paths";
+import type { LogStoreRegistry } from "./log-store-registry";
+import type { ProfileResolver } from "./paths";
+import { validateProfileName } from "./paths";
 
 const CONFIG_FILE_NAME = "config.yaml";
-const PROFILE_PATH_MARKER = "/data/profiles/";
 
-function getDisplayConfigPath(dataDir: string): string {
-  const normalized = dataDir.split(path.sep).join("/");
-  const markerIndex = normalized.indexOf(PROFILE_PATH_MARKER);
-  if (markerIndex >= 0) {
-    const remainder = normalized.slice(markerIndex + PROFILE_PATH_MARKER.length);
-    const profileName = remainder.split("/")[0];
-    if (profileName) {
-      return `data/profiles/${profileName}/config.yaml`;
-    }
+function getDisplayConfigPath(profile: string | null): string {
+  if (profile === null) {
+    return "data/config.yaml";
   }
-  return "data/config.yaml";
+  return `data/profiles/${profile}/config.yaml`;
 }
 
 function emptyDiscordHints(): WorkspaceConfigHints["discord"] {
@@ -48,24 +42,27 @@ function emptyDiscordHints(): WorkspaceConfigHints["discord"] {
   };
 }
 
+/**
+ * Reads and writes `<profileDataDir>/config.yaml` for an explicit profile.
+ * Methods take `profile: string | null` ("null" = default profile) — there is
+ * no global active profile.
+ */
 export class ConfigStore {
-  private readonly getDataDir: DirProvider;
-
   constructor(
-    dataDir: string | DirProvider,
-    private readonly logs: LogStore,
+    private readonly resolver: ProfileResolver,
+    private readonly logsRegistry: LogStoreRegistry,
     private readonly clock: () => string = () => new Date().toISOString(),
-  ) {
-    this.getDataDir = asDirProvider(dataDir);
-  }
+  ) {}
 
-  async read(): Promise<ConfigReadResult> {
-    await this.ensureConfigFile();
-    const content = await readFile(this.getConfigPath(), "utf8");
-    const metadata = await stat(this.getConfigPath());
+  async read(profile: string | null): Promise<ConfigReadResult> {
+    this.assertValidProfile(profile);
+    await this.ensureConfigFile(profile);
+    const configPath = this.getConfigPath(profile);
+    const content = await readFile(configPath, "utf8");
+    const metadata = await stat(configPath);
 
     return {
-      path: getDisplayConfigPath(this.getDataDir()),
+      path: getDisplayConfigPath(profile),
       content,
       updatedAt: metadata.mtime.toISOString(),
       validation: this.validate(content),
@@ -76,7 +73,8 @@ export class ConfigStore {
    * Merges non-empty string fields into `model` in config.yaml and saves.
    * Omitted or blank fields are left unchanged on disk.
    */
-  async patchModel(updates: ModelYamlPatch): Promise<ConfigSaveResult> {
+  async patchModel(profile: string | null, updates: ModelYamlPatch): Promise<ConfigSaveResult> {
+    this.assertValidProfile(profile);
     const trimmed: Record<string, string> = {};
     for (const key of ["default", "provider", "base_url"] as const) {
       const value = updates[key];
@@ -85,20 +83,20 @@ export class ConfigStore {
       }
     }
     if (Object.keys(trimmed).length === 0) {
-      const current = await this.read();
+      const current = await this.read(profile);
       return { ...current, saved: false };
     }
 
-    const { content } = await this.read();
+    const { content } = await this.read(profile);
     const document = parseDocument(content);
     const parseIssues: ConfigValidationIssue[] = document.errors.map((error) => ({
       message: `YAML parse error: ${error.message}`,
       path: null,
     }));
     if (parseIssues.length > 0) {
-      const updatedAt = await this.getExistingUpdatedAt();
+      const updatedAt = await this.getExistingUpdatedAt(profile);
       return {
-        path: getDisplayConfigPath(this.getDataDir()),
+        path: getDisplayConfigPath(profile),
         content,
         updatedAt,
         validation: { ok: false, issues: parseIssues },
@@ -106,9 +104,9 @@ export class ConfigStore {
       };
     }
     if (document.contents === null || !isMap(document.contents)) {
-      const updatedAt = await this.getExistingUpdatedAt();
+      const updatedAt = await this.getExistingUpdatedAt(profile);
       return {
-        path: getDisplayConfigPath(this.getDataDir()),
+        path: getDisplayConfigPath(profile),
         content,
         updatedAt,
         validation: {
@@ -123,19 +121,21 @@ export class ConfigStore {
       document.setIn(["model", yamlKey], value);
     }
 
-    return this.save(String(document));
+    return this.save(profile, String(document));
   }
 
-  async save(content: string): Promise<ConfigSaveResult> {
-    await this.ensureDataDir();
+  async save(profile: string | null, content: string): Promise<ConfigSaveResult> {
+    this.assertValidProfile(profile);
+    await this.ensureDataDir(profile);
     const validation = this.validate(content);
+    const logs = this.logsRegistry.get(profile);
 
     if (!validation.ok) {
-      await this.logs.append("gateway", "Config validation failed");
-      const updatedAt = await this.getExistingUpdatedAt();
+      await logs.append("gateway", "Config validation failed");
+      const updatedAt = await this.getExistingUpdatedAt(profile);
 
       return {
-        path: getDisplayConfigPath(this.getDataDir()),
+        path: getDisplayConfigPath(profile),
         content,
         updatedAt,
         validation,
@@ -143,18 +143,19 @@ export class ConfigStore {
       };
     }
 
-    const temporaryPath = path.join(this.getDataDir(), `.config.yaml.${randomUUID()}.tmp`);
+    const dataDir = this.resolver.resolveDataDir(profile);
+    const temporaryPath = path.join(dataDir, `.config.yaml.${randomUUID()}.tmp`);
 
     try {
       await writeFile(temporaryPath, content);
-      await rename(temporaryPath, this.getConfigPath());
+      await rename(temporaryPath, this.getConfigPath(profile));
     } catch (cause: unknown) {
       await rm(temporaryPath, { force: true });
       throw cause;
     }
 
-    await this.logs.append("gateway", "Config saved");
-    const saved = await this.read();
+    await logs.append("gateway", "Config saved");
+    const saved = await this.read(profile);
 
     return {
       ...saved,
@@ -165,13 +166,14 @@ export class ConfigStore {
   /**
    * Reads `model.*` and `discord.*` keys used by the workspace Messaging UI (best-effort if YAML is invalid).
    */
-  async getWorkspaceConfigHints(): Promise<WorkspaceConfigHints> {
+  async getWorkspaceConfigHints(profile: string | null): Promise<WorkspaceConfigHints> {
+    this.assertValidProfile(profile);
     const empty: WorkspaceConfigHints = {
       model: { default: null, provider: null, base_url: null },
       discord: emptyDiscordHints(),
       group_sessions_per_user: null,
     };
-    const { content } = await this.read();
+    const { content } = await this.read(profile);
     const document = parseDocument(content);
     if (document.errors.length > 0 || document.contents === null || !isMap(document.contents)) {
       return empty;
@@ -225,17 +227,21 @@ export class ConfigStore {
   /**
    * Sets/clears workspace-managed Discord settings in config.yaml.
    */
-  async patchDiscordSettings(updates: DiscordSettingsPatch): Promise<ConfigSaveResult> {
-    const { content } = await this.read();
+  async patchDiscordSettings(
+    profile: string | null,
+    updates: DiscordSettingsPatch,
+  ): Promise<ConfigSaveResult> {
+    this.assertValidProfile(profile);
+    const { content } = await this.read(profile);
     const document = parseDocument(content);
     const parseIssues: ConfigValidationIssue[] = document.errors.map((error) => ({
       message: `YAML parse error: ${error.message}`,
       path: null,
     }));
     if (parseIssues.length > 0) {
-      const updatedAt = await this.getExistingUpdatedAt();
+      const updatedAt = await this.getExistingUpdatedAt(profile);
       return {
-        path: getDisplayConfigPath(this.getDataDir()),
+        path: getDisplayConfigPath(profile),
         content,
         updatedAt,
         validation: { ok: false, issues: parseIssues },
@@ -243,9 +249,9 @@ export class ConfigStore {
       };
     }
     if (document.contents === null || !isMap(document.contents)) {
-      const updatedAt = await this.getExistingUpdatedAt();
+      const updatedAt = await this.getExistingUpdatedAt(profile);
       return {
-        path: getDisplayConfigPath(this.getDataDir()),
+        path: getDisplayConfigPath(profile),
         content,
         updatedAt,
         validation: {
@@ -339,19 +345,24 @@ export class ConfigStore {
     );
     applyBooleanString(["group_sessions_per_user"], updates.group_sessions_per_user);
 
-    return this.save(String(document));
+    return this.save(profile, String(document));
   }
 
   /**
    * Backward-compatible helper for allowlist-only patching.
    */
-  async patchDiscordAllowedUsers(allowed_users: string): Promise<ConfigSaveResult> {
-    return this.patchDiscordSettings({ allowed_users });
+  async patchDiscordAllowedUsers(
+    profile: string | null,
+    allowed_users: string,
+  ): Promise<ConfigSaveResult> {
+    return this.patchDiscordSettings(profile, { allowed_users });
   }
 
-  /**
-   * String, scalar, or YAML sequence of IDs → comma-separated text for workspace inputs.
-   */
+  /** Ensures `<profileDataDir>/config.yaml` exists for the default profile at boot. */
+  async initializeDefault(): Promise<void> {
+    await this.ensureConfigFile(null);
+  }
+
   private yamlNodeToListOrScalarDisplay(node: unknown): string | null {
     if (node === null || node === undefined) {
       return null;
@@ -413,10 +424,6 @@ export class ConfigStore {
     return scalarText;
   }
 
-  async initialize(): Promise<void> {
-    await this.ensureConfigFile();
-  }
-
   private yamlScalarToString(node: unknown): string | null {
     if (node === null || node === undefined) {
       return null;
@@ -437,19 +444,22 @@ export class ConfigStore {
     return null;
   }
 
-  private async ensureConfigFile(): Promise<void> {
-    await this.ensureDataDir();
+  private async ensureConfigFile(profile: string | null): Promise<void> {
+    await this.ensureDataDir(profile);
+    const configPath = this.getConfigPath(profile);
 
     try {
-      await stat(this.getConfigPath());
+      await stat(configPath);
     } catch (cause: unknown) {
       if (!this.isMissingFileError(cause)) {
         throw cause;
       }
 
       try {
-        await writeFile(this.getConfigPath(), DEFAULT_HERMES_CONFIG_YAML, { flag: "wx" });
-        await this.logs.append("gateway", "Created starter config at data/config.yaml");
+        await writeFile(configPath, DEFAULT_HERMES_CONFIG_YAML, { flag: "wx" });
+        await this.logsRegistry
+          .get(profile)
+          .append("gateway", `Created starter config at ${getDisplayConfigPath(profile)}`);
       } catch (writeCause: unknown) {
         if (!this.isFileErrorCode(writeCause, "EEXIST")) {
           throw writeCause;
@@ -458,8 +468,8 @@ export class ConfigStore {
     }
   }
 
-  private async ensureDataDir(): Promise<void> {
-    await mkdir(this.getDataDir(), { recursive: true });
+  private async ensureDataDir(profile: string | null): Promise<void> {
+    await mkdir(this.resolver.resolveDataDir(profile), { recursive: true });
   }
 
   private validate(content: string): { ok: boolean; issues: ConfigValidationIssue[] } {
@@ -483,14 +493,13 @@ export class ConfigStore {
     return { ok: true, issues: [] };
   }
 
-  private getConfigPath(): string {
-    return path.join(this.getDataDir(), CONFIG_FILE_NAME);
+  private getConfigPath(profile: string | null): string {
+    return path.join(this.resolver.resolveDataDir(profile), CONFIG_FILE_NAME);
   }
 
-  private async getExistingUpdatedAt(): Promise<string | null> {
+  private async getExistingUpdatedAt(profile: string | null): Promise<string | null> {
     try {
-      const metadata = await stat(this.getConfigPath());
-
+      const metadata = await stat(this.getConfigPath(profile));
       return metadata.mtime.toISOString();
     } catch (cause: unknown) {
       if (this.isMissingFileError(cause)) {
@@ -498,6 +507,12 @@ export class ConfigStore {
       }
 
       throw cause;
+    }
+  }
+
+  private assertValidProfile(profile: string | null): void {
+    if (profile !== null) {
+      validateProfileName(profile);
     }
   }
 

@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { checkGatewayHealth, type GatewayStatusRunner } from "../src/server/services/health";
+import {
+  buildGatewayStatusArgs,
+  checkGatewayHealth,
+  type GatewayStatusRunner,
+} from "../src/server/services/health";
+
+describe("buildGatewayStatusArgs", () => {
+  it("omits --profile for the default profile", () => {
+    expect(buildGatewayStatusArgs(null)).toEqual(["gateway", "status"]);
+  });
+
+  it("prepends --profile <name> for named profiles", () => {
+    expect(buildGatewayStatusArgs("alpha")).toEqual(["--profile", "alpha", "gateway", "status"]);
+  });
+});
 
 describe("checkGatewayHealth", () => {
   it("returns unknown when gateway is not running", async () => {
@@ -12,7 +26,7 @@ describe("checkGatewayHealth", () => {
       stderr: "",
     });
 
-    await expect(checkGatewayHealth(false, statusRunner)).resolves.toBe("unknown");
+    await expect(checkGatewayHealth(false, null, statusRunner)).resolves.toBe("unknown");
   });
 
   it("returns healthy when gateway status exits cleanly", async () => {
@@ -25,7 +39,25 @@ describe("checkGatewayHealth", () => {
       stderr: "",
     });
 
-    await expect(checkGatewayHealth(true, statusRunner)).resolves.toBe("healthy");
+    await expect(checkGatewayHealth(true, null, statusRunner)).resolves.toBe("healthy");
+  });
+
+  it("forwards the profile flag to the runner", async () => {
+    const seen: string[][] = [];
+    const statusRunner: GatewayStatusRunner = async (_command, args) => {
+      seen.push([...args]);
+      return {
+        timedOut: false,
+        spawned: true,
+        exitCode: 0,
+        signal: null,
+        stdout: "all checks passed",
+        stderr: "",
+      };
+    };
+
+    await checkGatewayHealth(true, "alpha", statusRunner);
+    expect(seen[0]).toEqual(["--profile", "alpha", "gateway", "status"]);
   });
 
   it("returns unreachable when gateway status output indicates connectivity failure", async () => {
@@ -38,7 +70,7 @@ describe("checkGatewayHealth", () => {
       stderr: "connection refused while contacting gateway",
     });
 
-    await expect(checkGatewayHealth(true, statusRunner)).resolves.toBe("unreachable");
+    await expect(checkGatewayHealth(true, null, statusRunner)).resolves.toBe("unreachable");
   });
 
   it("returns unhealthy for gateway status reported failures", async () => {
@@ -51,7 +83,7 @@ describe("checkGatewayHealth", () => {
       stderr: "",
     });
 
-    await expect(checkGatewayHealth(true, statusRunner)).resolves.toBe("unhealthy");
+    await expect(checkGatewayHealth(true, null, statusRunner)).resolves.toBe("unhealthy");
   });
 
   it("returns unreachable when gateway status times out", async () => {
@@ -64,7 +96,7 @@ describe("checkGatewayHealth", () => {
       stderr: "",
     });
 
-    await expect(checkGatewayHealth(true, statusRunner)).resolves.toBe("unreachable");
+    await expect(checkGatewayHealth(true, null, statusRunner)).resolves.toBe("unreachable");
   });
 
   it("returns unknown when gateway status cannot be spawned", async () => {
@@ -77,6 +109,6 @@ describe("checkGatewayHealth", () => {
       stderr: "spawn hermes ENOENT",
     });
 
-    await expect(checkGatewayHealth(true, statusRunner)).resolves.toBe("unknown");
+    await expect(checkGatewayHealth(true, null, statusRunner)).resolves.toBe("unknown");
   });
 });

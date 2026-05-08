@@ -3,6 +3,7 @@ import { Accordion } from "@base-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiFetcher, type ModelProvidersSavePayload } from "../../api-fetcher";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { YamlEditor } from "../../components/YamlEditor";
@@ -319,12 +320,16 @@ function buildMessagingHint(env: EnvReadResult | undefined): string {
 }
 
 export function MessagingPanel() {
+  const { profile } = useWorkspaceProfileSubscribed();
   const api = useMemo(() => new ApiFetcher(), []);
   const queryClient = useQueryClient();
   const defaultsQuery = useQuery({
-    queryKey: ["messaging-default-values"],
+    queryKey: ["messaging-default-values", profile ?? "default"],
     queryFn: async () => {
-      const [env, hints] = await Promise.all([api.getEnvRead(), api.getWorkspaceConfigHints()]);
+      const [env, hints] = await Promise.all([
+        api.getEnvRead(profile),
+        api.getWorkspaceConfigHints(profile),
+      ]);
       return {
         env,
         fieldValues: resolveAllWorkspaceIntegrationFieldValues(env, hints),
@@ -333,12 +338,12 @@ export function MessagingPanel() {
   });
 
   const onMutate: OnMutate = async (payload) => {
-    const response = await api.postModelProvidersSettings(payload);
+    const response = await api.postModelProvidersSettings(profile, payload);
     dispatchGatewayStatus(response.gateway);
-    dispatchEnvSnapshot({ env: response.env, gateway: response.gateway });
+    dispatchEnvSnapshot({ env: response.env, gateway: response.gateway, profile });
     dispatchEnvReloadRequest();
     void queryClient.invalidateQueries({
-      queryKey: ["messaging-default-values"],
+      queryKey: ["messaging-default-values", profile ?? "default"],
     });
     return response;
   };

@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import type {
-  ProfileActivateResult,
+  GatewayProfileSummary,
+  GatewayStatus,
+  GatewaysSummary,
   ProfileCreateMode,
   ProfileListResult,
   ProfileSummary,
@@ -9,28 +11,42 @@ import { ApiFetcher } from "../api-fetcher";
 import { getErrorMessage } from "../lib/errors";
 import {
   dispatchGatewayStatus,
-  dispatchProfileChanged,
-  PROFILE_CHANGED_EVENT,
+  GATEWAY_STATUS_EVENT,
+  GATEWAYS_SUMMARY_EVENT,
   PROFILES_TAB_SHOWN_EVENT,
 } from "../lib/event";
 
 type ProfilesState = {
   list: ProfileListResult;
+  /** Map of profile slug ("default" for null) -> latest gateway status. */
+  gatewaySummaries: Record<string, GatewayProfileSummary>;
   status: string;
+  busyProfile: string | null;
 };
 
-const initialState: ProfilesState = {
-  list: { active: null, profiles: [], warning: null },
-  status: "Ready.",
-};
+const profileKey = (profile: string | null): string => (profile === null ? "default" : profile);
+
+function buildInitialState(initialSummary?: GatewaysSummary): ProfilesState {
+  return {
+    list: { active: null, profiles: [], warning: null },
+    gatewaySummaries: initialSummary ? summaryRecord(initialSummary) : {},
+    status: "Ready.",
+    busyProfile: null,
+  };
+}
 
 export type ProfileWorkspaceApi = {
   list: ProfileListResult;
-  /** Active profile slug; `null` = default profile at data root. */
-  activeProfile: string | null;
+  /** All gateways' latest status, indexed by slug ("default" for null). */
+  gatewaySummaries: Record<string, GatewayProfileSummary>;
   status: string;
+  /** Profile slug currently mid-lifecycle action (UI disable hint). */
+  busyProfile: string | null;
   refresh: () => Promise<void>;
-  activate: (name: string | null) => Promise<void>;
+  refreshGateways: () => Promise<void>;
+  start: (profile: string | null) => Promise<GatewayStatus | null>;
+  stop: (profile: string | null) => Promise<GatewayStatus | null>;
+  restart: (profile: string | null) => Promise<GatewayStatus | null>;
   createProfile: (input: {
     name: string;
     mode: ProfileCreateMode;
@@ -38,19 +54,27 @@ export type ProfileWorkspaceApi = {
   }) => Promise<void>;
   renameTo: (from: string, to: string) => Promise<void>;
   removeConfirmed: (name: string) => Promise<void>;
-  pickerValue: string;
   pickerOptions: ProfileSummary[];
 };
 
-export function useProfilesTab(): ProfileWorkspaceApi {
+function summaryRecord(summary: GatewaysSummary): Record<string, GatewayProfileSummary> {
+  return Object.fromEntries(summary.gateways.map((entry) => [profileKey(entry.profile), entry]));
+}
+
+export type UseProfilesTabOptions = {
+  /** Server-rendered gateway summary used to seed first paint. */
+  initialSummary?: GatewaysSummary;
+};
+
+export function useProfilesTab(options: UseProfilesTabOptions = {}): ProfileWorkspaceApi {
   const api = useMemo(() => new ApiFetcher(), []);
-  const [state, setState] = useState<ProfilesState>(initialState);
+  const [state, setState] = useState<ProfilesState>(() => buildInitialState(options.initialSummary));
 
   const setStatus = useCallback((message: string) => {
     setState((prev) => ({ ...prev, status: message }));
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refreshList = useCallback(async () => {
     try {
       const list = await api.getProfiles();
       setState((prev) => ({ ...prev, list }));
@@ -59,50 +83,88 @@ export function useProfilesTab(): ProfileWorkspaceApi {
     }
   }, [api, setStatus]);
 
+  const refreshGateways = useCallback(async () => {
+    try {
+      const summary = await api.getGateways();
+      setState((prev) => ({ ...prev, gatewaySummaries: summaryRecord(summary) }));
+      window.dispatchEvent(
+        new CustomEvent<GatewaysSummary>(GATEWAYS_SUMMARY_EVENT, { detail: summary }),
+      );
+    } catch (cause: unknown) {
+      setStatus(`Failed to load gateway status: ${getErrorMessage(cause)}`);
+    }
+  }, [api, setStatus]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([refreshList(), refreshGateways()]);
+  }, [refreshList, refreshGateways]);
+
   useSyncExternalStore(
     useCallback(
       (onStoreChange) => {
         void refresh().finally(onStoreChange);
         const onTabShown = () => void refresh().finally(onStoreChange);
-        const onProfileChanged = () => void refresh().finally(onStoreChange);
+        const onGatewayStatus = (event: Event) => {
+          const customEvent = event as CustomEvent<GatewayStatus>;
+          const status = customEvent.detail;
+          if (!status) return;
+          // We don't know the profile from a bare GatewayStatus dispatch — so
+          // schedule a summary refresh. This event is also fired by tab-local
+          // mutations where the profile is implicit in the active view.
+          void refreshGateways().finally(onStoreChange);
+        };
+        const interval = window.setInterval(() => {
+          void refreshGateways();
+        }, 3000);
         window.addEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
-        window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+        window.addEventListener(GATEWAY_STATUS_EVENT, onGatewayStatus);
         return () => {
+          window.clearInterval(interval);
           window.removeEventListener(PROFILES_TAB_SHOWN_EVENT, onTabShown);
-          window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+          window.removeEventListener(GATEWAY_STATUS_EVENT, onGatewayStatus);
         };
       },
-      [refresh],
+      [refresh, refreshGateways],
     ),
     () => 0,
     () => 0,
   );
 
-  const formatActivateMessage = (result: ProfileActivateResult): string => {
-    const label = result.active === null ? "default" : `"${result.active}"`;
-    if (result.restart.attempted && result.restart.ok) {
-      return `Activated ${label}. Gateway restarted.`;
-    }
-    if (result.restart.attempted) {
-      return `Activated ${label}. Gateway restart failed: ${result.restart.error ?? "unknown error"}`;
-    }
-    return `Activated ${label}.`;
-  };
-
-  const activate = useCallback(
-    async (name: string | null) => {
-      if (name === state.list.active) return;
+  const runLifecycleAction = useCallback(
+    async (
+      profile: string | null,
+      action: "start" | "stop" | "restart",
+    ): Promise<GatewayStatus | null> => {
+      const slug = profileKey(profile);
+      setState((prev) => ({ ...prev, busyProfile: slug }));
       try {
-        const result = await api.postProfileActivate(name);
-        dispatchGatewayStatus(result.gateway);
-        setState((prev) => ({ ...prev, list: result.list }));
-        dispatchProfileChanged(result.active);
-        setStatus(formatActivateMessage(result));
+        const next = await api.postGatewayAction(profile, action);
+        dispatchGatewayStatus(next);
+        await refreshGateways();
+        const label = profile === null ? "default" : `"${profile}"`;
+        setStatus(`Gateway ${action} for ${label} ok.`);
+        return next;
       } catch (cause: unknown) {
-        setStatus(`Failed to activate: ${getErrorMessage(cause)}`);
+        setStatus(`Gateway ${action} failed: ${getErrorMessage(cause)}`);
+        return null;
+      } finally {
+        setState((prev) => (prev.busyProfile === slug ? { ...prev, busyProfile: null } : prev));
       }
     },
-    [api, setStatus, state.list.active],
+    [api, refreshGateways, setStatus],
+  );
+
+  const start = useCallback(
+    (profile: string | null) => runLifecycleAction(profile, "start"),
+    [runLifecycleAction],
+  );
+  const stop = useCallback(
+    (profile: string | null) => runLifecycleAction(profile, "stop"),
+    [runLifecycleAction],
+  );
+  const restart = useCallback(
+    (profile: string | null) => runLifecycleAction(profile, "restart"),
+    [runLifecycleAction],
   );
 
   const createProfile = useCallback(
@@ -124,11 +186,12 @@ export function useProfilesTab(): ProfileWorkspaceApi {
           list: result.list,
           status: `Created profile "${trimmed}".`,
         }));
+        await refreshGateways();
       } catch (cause: unknown) {
         setStatus(`Failed to create: ${getErrorMessage(cause)}`);
       }
     },
-    [api, setStatus],
+    [api, refreshGateways, setStatus],
   );
 
   const renameTo = useCallback(
@@ -145,11 +208,12 @@ export function useProfilesTab(): ProfileWorkspaceApi {
           list: result.list,
           status: `Renamed "${from}" -> "${next}".`,
         }));
+        await refreshGateways();
       } catch (cause: unknown) {
         setStatus(`Failed to rename: ${getErrorMessage(cause)}`);
       }
     },
-    [api, setStatus],
+    [api, refreshGateways, setStatus],
   );
 
   const removeConfirmed = useCallback(
@@ -157,26 +221,43 @@ export function useProfilesTab(): ProfileWorkspaceApi {
       try {
         const result = await api.deleteProfile(name);
         setState((prev) => ({ ...prev, list: result.list, status: `Deleted profile "${name}".` }));
+        await refreshGateways();
       } catch (cause: unknown) {
         setStatus(`Failed to delete: ${getErrorMessage(cause)}`);
       }
     },
-    [api, setStatus],
+    [api, refreshGateways, setStatus],
   );
 
   return useMemo(
     (): ProfileWorkspaceApi => ({
       list: state.list,
-      activeProfile: state.list.active,
+      gatewaySummaries: state.gatewaySummaries,
       status: state.status,
+      busyProfile: state.busyProfile,
       refresh,
-      activate,
+      refreshGateways,
+      start,
+      stop,
+      restart,
       createProfile,
       renameTo,
       removeConfirmed,
-      pickerValue: state.list.active ?? "default",
       pickerOptions: state.list.profiles,
     }),
-    [state.list, state.status, refresh, activate, createProfile, renameTo, removeConfirmed],
+    [
+      state.list,
+      state.gatewaySummaries,
+      state.status,
+      state.busyProfile,
+      refresh,
+      refreshGateways,
+      start,
+      stop,
+      restart,
+      createProfile,
+      renameTo,
+      removeConfirmed,
+    ],
   );
 }

@@ -5,7 +5,11 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GatewayManager, type SpawnGateway } from "../src/server/services/gateway-manager";
+import {
+  buildGatewayArgs,
+  GatewayManager,
+  type SpawnGateway,
+} from "../src/server/services/gateway-manager";
 import { LogStore } from "../src/server/services/log-store";
 
 type FakeChildProcess = ChildProcessWithoutNullStreams & {
@@ -35,8 +39,12 @@ function createFakeChild(pid: number | undefined): FakeChildProcess {
   }) as unknown as FakeChildProcess;
 }
 
-function createManager(spawnGateway: SpawnGateway): GatewayManager {
+function createManager(
+  spawnGateway: SpawnGateway,
+  profile: string | null = null,
+): GatewayManager {
   return new GatewayManager(
+    profile,
     "/workspace/project",
     new LogStore(tmpDir, () => "2026-04-26T10:30:00.000Z"),
     spawnGateway,
@@ -53,7 +61,7 @@ describe("GatewayManager", () => {
     const status = await manager.start();
 
     expect(spawnGateway).toHaveBeenCalledTimes(1);
-    expect(spawnGateway).toHaveBeenCalledWith("hermes", ["gateway"], {
+    expect(spawnGateway).toHaveBeenCalledWith("hermes", ["gateway", "run"], {
       cwd: "/workspace/project",
       env: { ...process.env, HERMES_HOME: "/workspace/project" },
       detached: true,
@@ -68,6 +76,25 @@ describe("GatewayManager", () => {
       exitCode: null,
       lastError: null,
     });
+  });
+
+  it("includes --profile <name> when bound to a non-default profile", async () => {
+    const child = createFakeChild(4321);
+    const spawnGateway: SpawnGateway = vi.fn(() => child);
+    const manager = createManager(spawnGateway, "alpha");
+
+    await manager.start();
+
+    expect(spawnGateway).toHaveBeenCalledWith(
+      "hermes",
+      ["--profile", "alpha", "gateway", "run"],
+      expect.objectContaining({ cwd: "/workspace/project" }),
+    );
+  });
+
+  it("buildGatewayArgs encodes the profile flag correctly", () => {
+    expect(buildGatewayArgs(null)).toEqual(["gateway", "run"]);
+    expect(buildGatewayArgs("alpha")).toEqual(["--profile", "alpha", "gateway", "run"]);
   });
 
   it("rejects duplicate start while gateway is running", async () => {
@@ -160,7 +187,7 @@ describe("GatewayManager", () => {
       },
     });
     expect(spawnGateway).toHaveBeenCalledTimes(2);
-    expect(spawnGateway).toHaveBeenLastCalledWith("hermes", ["gateway"], {
+    expect(spawnGateway).toHaveBeenLastCalledWith("hermes", ["gateway", "run"], {
       cwd: "/workspace/project",
       env: { ...process.env, HERMES_HOME: "/workspace/project" },
       detached: true,

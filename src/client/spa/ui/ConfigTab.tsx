@@ -3,9 +3,11 @@ import { Button } from "../../components/Button";
 import { YamlEditor } from "../../components/YamlEditor";
 import { Card } from "../../components/Card";
 import { useConfigTab } from "../../hooks/useConfigTab";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 
 export function ConfigTab() {
-  const config = useConfigTab();
+  const { profile } = useWorkspaceProfileSubscribed();
+  const config = useConfigTab(profile);
 
   return (
     <section

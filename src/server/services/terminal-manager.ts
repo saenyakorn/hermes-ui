@@ -1,5 +1,6 @@
 import { spawn, type IPty, type IPtyForkOptions, type IWindowsPtyForkOptions } from "node-pty";
-import { asDirProvider, type DirProvider } from "./paths";
+import type { ProfileResolver } from "./paths";
+import { validateProfileName } from "./paths";
 
 type PtyOptions = IPtyForkOptions | IWindowsPtyForkOptions;
 
@@ -13,21 +14,27 @@ export type TerminalSession = {
   kill: () => void;
 };
 
+/**
+ * Spawns and tracks PTY sessions per socket id. Each `create` takes an
+ * explicit `profile` argument so the spawned shell's cwd / `HERMES_HOME`
+ * point at that profile's data dir; concurrent profiles each get their own
+ * shell sessions.
+ */
 export class TerminalManager {
   private sessions = new Map<string, IPty>();
-  private readonly getCwd: DirProvider;
 
   constructor(
-    cwd: string | DirProvider,
+    private readonly resolver: ProfileResolver,
     private readonly spawnPty: SpawnPty = spawn,
-  ) {
-    this.getCwd = asDirProvider(cwd);
-  }
+  ) {}
 
-  create(socketId: string): TerminalSession {
+  create(socketId: string, profile: string | null): TerminalSession {
+    if (profile !== null) {
+      validateProfileName(profile);
+    }
     this.close(socketId);
 
-    const cwd = this.getCwd();
+    const cwd = this.resolver.resolveDataDir(profile);
     const pty = this.spawnPty("bash", [], {
       cwd,
       cols: 80,

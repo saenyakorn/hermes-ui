@@ -5,9 +5,11 @@ import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { useAppForm } from "../../components/tanstack-form";
 import { useEnvTab } from "../../hooks/useEnvTab";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 
 export function EnvTab() {
-  const env = useEnvTab();
+  const { profile } = useWorkspaceProfileSubscribed();
+  const env = useEnvTab(profile);
   const envFormSchema = z.object({
     key: z.string(),
     value: z.string(),

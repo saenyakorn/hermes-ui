@@ -26,7 +26,7 @@ const initialState: ConfigState = {
   loaded: false,
 };
 
-export function useConfigTab(): {
+export function useConfigTab(profile: string | null): {
   path: string;
   updatedAt: string | null;
   content: string;
@@ -44,7 +44,7 @@ export function useConfigTab(): {
   const loadFromServer = useCallback(async () => {
     setState((prev) => ({ ...prev, status: "Loading config..." }));
     try {
-      const config = await api.getConfigRead();
+      const config = await api.getConfigRead(profile);
       setState((prev) => ({
         ...prev,
         path: config.path,
@@ -58,7 +58,7 @@ export function useConfigTab(): {
     } catch (cause: unknown) {
       setState((prev) => ({ ...prev, status: `Failed to load config: ${getErrorMessage(cause)}` }));
     }
-  }, [api]);
+  }, [api, profile]);
 
   useSyncExternalStore(
     useCallback(
@@ -72,8 +72,8 @@ export function useConfigTab(): {
       },
       [loadFromServer],
     ),
-    () => 0,
-    () => 0,
+    () => profile ?? "default",
+    () => "default",
   );
 
   const syncFromServerIfClean = useCallback(async () => {
@@ -110,7 +110,7 @@ export function useConfigTab(): {
     }
     setState((prev) => ({ ...prev, saving: true, status: "Saving config..." }));
     try {
-      const response = await api.postConfig(state.content);
+      const response = await api.postConfig(profile, state.content);
       dispatchGatewayStatus(response.gateway);
       if (!response.config.saved) {
         setState((prev) => ({
@@ -148,7 +148,7 @@ export function useConfigTab(): {
         saving: false,
       }));
     }
-  }, [api, state.content, state.loaded, state.savedContent, state.saving]);
+  }, [api, profile, state.content, state.loaded, state.savedContent, state.saving]);
 
   return {
     path: state.path,

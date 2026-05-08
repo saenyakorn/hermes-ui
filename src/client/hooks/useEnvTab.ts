@@ -34,7 +34,7 @@ const initialState: EnvState = {
   loaded: false,
 };
 
-export function useEnvTab(): {
+export function useEnvTab(profile: string | null): {
   path: string;
   updatedAt: string | null;
   entries: EnvReadResult["entries"];
@@ -76,7 +76,7 @@ export function useEnvTab(): {
   const reload = useCallback(async () => {
     setState((prev) => ({ ...prev, status: "Loading env vars..." }));
     try {
-      const env = await api.getEnvRead();
+      const env = await api.getEnvRead(profile);
       applySnapshot(env);
       setState((prev) => ({ ...prev, status: "Select key to update. Values are masked." }));
     } catch (cause: unknown) {
@@ -85,7 +85,7 @@ export function useEnvTab(): {
         status: `Failed to load env vars: ${getErrorMessage(cause)}`,
       }));
     }
-  }, [api, applySnapshot]);
+  }, [api, applySnapshot, profile]);
 
   useSyncExternalStore(
     useCallback(
@@ -94,6 +94,9 @@ export function useEnvTab(): {
         const onSnapshot = (event: Event) => {
           const customEvent = event as CustomEvent<EnvSnapshotDetail>;
           if (!customEvent.detail) {
+            return;
+          }
+          if (customEvent.detail.profile !== profile) {
             return;
           }
           applySnapshot(customEvent.detail.env, customEvent.detail.gateway);
@@ -115,10 +118,10 @@ export function useEnvTab(): {
           window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
         };
       },
-      [applySnapshot, reload],
+      [applySnapshot, profile, reload],
     ),
-    () => 0,
-    () => 0,
+    () => profile ?? "default",
+    () => "default",
   );
 
   const upsert = useCallback(async () => {
@@ -141,7 +144,7 @@ export function useEnvTab(): {
       status: "Saving env var and restarting gateway...",
     }));
     try {
-      const response = await api.postEnvUpsert(key, value);
+      const response = await api.postEnvUpsert(profile, key, value);
       applySnapshot(response.env, response.gateway);
       setState((prev) => ({
         ...prev,
@@ -158,7 +161,7 @@ export function useEnvTab(): {
         status: `Failed to save env var: ${getErrorMessage(cause)}`,
       }));
     }
-  }, [api, applySnapshot, state.busy, state.key, state.loaded, state.value]);
+  }, [api, applySnapshot, profile, state.busy, state.key, state.loaded, state.value]);
 
   const remove = useCallback(async () => {
     if (!state.loaded || state.busy) {
@@ -178,7 +181,7 @@ export function useEnvTab(): {
       status: "Removing env var and restarting gateway...",
     }));
     try {
-      const response = await api.deleteEnvKey(key);
+      const response = await api.deleteEnvKey(profile, key);
       applySnapshot(response.env, response.gateway);
       setState((prev) => ({
         ...prev,
@@ -195,7 +198,7 @@ export function useEnvTab(): {
         status: `Failed to remove env var: ${getErrorMessage(cause)}`,
       }));
     }
-  }, [api, applySnapshot, state.busy, state.key, state.loaded]);
+  }, [api, applySnapshot, profile, state.busy, state.key, state.loaded]);
 
   return {
     path: state.path,

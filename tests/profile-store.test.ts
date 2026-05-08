@@ -2,9 +2,13 @@ import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LogStore } from "../src/server/services/log-store";
+import { LogStoreRegistry } from "../src/server/services/log-store-registry";
 import { ProfileResolver } from "../src/server/services/paths";
-import { ProfileStore, type RunHermes } from "../src/server/services/profile-store";
+import {
+  ProfileStore,
+  type IsProfileGatewayRunning,
+  type RunHermes,
+} from "../src/server/services/profile-store";
 
 let rootDir = "";
 
@@ -17,18 +21,19 @@ afterEach(async () => {
   await rm(rootDir, { recursive: true, force: true });
 });
 
-function createStore(runHermes: RunHermes): { store: ProfileStore; resolver: ProfileResolver } {
+function createStore(
+  runHermes: RunHermes,
+  isGatewayRunning: IsProfileGatewayRunning = () => false,
+): { store: ProfileStore; resolver: ProfileResolver } {
   const resolver = new ProfileResolver(rootDir);
-  const logs = new LogStore(
-    () => resolver.getLogsDir(),
-    () => "2026-04-29T00:00:00.000Z",
-  );
+  const logs = new LogStoreRegistry(resolver, () => "2026-04-29T00:00:00.000Z");
   const store = new ProfileStore(
     rootDir,
     resolver,
     logs,
     runHermes,
     () => "2026-04-29T00:00:00.000Z",
+    isGatewayRunning,
   );
   return { store, resolver };
 }
@@ -39,31 +44,34 @@ describe("ProfileStore.list", () => {
   it("includes the default profile and discovered named profiles", async () => {
     await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
     await mkdir(path.join(rootDir, "data", "profiles", "ops"), { recursive: true });
-    const { store, resolver } = createStore(okRun);
-    await resolver.initialize();
+    const { store } = createStore(okRun);
 
     const list = await store.list();
     expect(list.active).toBeNull();
     expect(list.profiles.map((profile) => profile.name)).toEqual([null, "coder", "ops"]);
-    expect(list.profiles[0]).toMatchObject({ name: null, active: true, label: "default" });
+    expect(list.profiles[0]).toMatchObject({ name: null, label: "default", active: false });
     expect(list.profiles[1]).toMatchObject({ name: "coder", active: false });
   });
 
   it("ignores directory entries with invalid profile names", async () => {
     await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
     await mkdir(path.join(rootDir, "data", "profiles", "BAD NAME"), { recursive: true });
-    const { store, resolver } = createStore(okRun);
-    await resolver.initialize();
+    const { store } = createStore(okRun);
     const list = await store.list();
     expect(list.profiles.map((profile) => profile.name)).toEqual([null, "coder"]);
+  });
+
+  it("listProfileNames returns null + valid named slugs", async () => {
+    await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
+    const { store } = createStore(okRun);
+    await expect(store.listProfileNames()).resolves.toEqual([null, "coder"]);
   });
 });
 
 describe("ProfileStore.create", () => {
   it("invokes hermes profile create for blank profiles with HERMES_HOME set", async () => {
     const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
+    const { store } = createStore(runHermes);
 
     await store.create({ name: "coder", mode: "blank" });
 
@@ -76,8 +84,7 @@ describe("ProfileStore.create", () => {
 
   it("uses --clone for clone mode", async () => {
     const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
+    const { store } = createStore(runHermes);
 
     await store.create({ name: "work", mode: "clone" });
     expect(runHermes).toHaveBeenCalledWith(
@@ -88,8 +95,7 @@ describe("ProfileStore.create", () => {
 
   it("uses --clone-all for clone-all mode and supports --clone-from", async () => {
     const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
+    const { store } = createStore(runHermes);
 
     await store.create({ name: "backup", mode: "clone-all", cloneFrom: "coder" });
     expect(runHermes).toHaveBeenCalledWith(
@@ -100,8 +106,7 @@ describe("ProfileStore.create", () => {
 
   it("rejects invalid names without invoking hermes", async () => {
     const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
+    const { store } = createStore(runHermes);
 
     await expect(store.create({ name: "default", mode: "blank" })).rejects.toThrow();
     await expect(store.create({ name: "../etc", mode: "blank" })).rejects.toThrow();
@@ -114,8 +119,7 @@ describe("ProfileStore.create", () => {
       stdout: "",
       stderr: "boom",
     }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
+    const { store } = createStore(runHermes);
 
     await expect(store.create({ name: "coder", mode: "blank" })).rejects.toThrow(/boom/);
   });
@@ -125,8 +129,7 @@ describe("ProfileStore.create", () => {
       const error = Object.assign(new Error("spawn hermes ENOENT"), { code: "ENOENT" });
       throw error;
     });
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
+    const { store } = createStore(runHermes);
 
     await expect(store.create({ name: "coder", mode: "blank" })).rejects.toThrow(
       "Hermes CLI not found",
@@ -135,12 +138,10 @@ describe("ProfileStore.create", () => {
 });
 
 describe("ProfileStore.rename", () => {
-  it("invokes hermes profile rename and updates the active marker if required", async () => {
+  it("invokes hermes profile rename when the gateway is not running", async () => {
     await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
     const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
-    await resolver.setActive("coder");
+    const { store } = createStore(runHermes);
 
     await mkdir(path.join(rootDir, "data", "profiles", "developer"), { recursive: true });
     await store.rename("coder", "developer");
@@ -149,16 +150,25 @@ describe("ProfileStore.rename", () => {
       ["profile", "rename", "coder", "developer"],
       expect.any(Object),
     );
-    expect(resolver.getActive()).toBe("developer");
+  });
+
+  it("refuses to rename a profile whose gateway is running", async () => {
+    await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
+    const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
+    const { store } = createStore(runHermes, (profile) => profile === "coder");
+
+    await expect(store.rename("coder", "developer")).rejects.toThrow(
+      /while its gateway is running/,
+    );
+    expect(runHermes).not.toHaveBeenCalled();
   });
 });
 
 describe("ProfileStore.remove", () => {
-  it("invokes hermes profile delete --yes", async () => {
+  it("invokes hermes profile delete --yes when the gateway is stopped", async () => {
     await mkdir(path.join(rootDir, "data", "profiles", "ops"), { recursive: true });
     const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
+    const { store } = createStore(runHermes);
 
     await store.remove("ops");
     expect(runHermes).toHaveBeenCalledWith(
@@ -167,96 +177,12 @@ describe("ProfileStore.remove", () => {
     );
   });
 
-  it("refuses to delete the currently active profile", async () => {
+  it("refuses to delete a profile whose gateway is currently running", async () => {
     await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
     const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
-    await resolver.setActive("coder");
+    const { store } = createStore(runHermes, (profile) => profile === "coder");
 
-    await expect(store.remove("coder")).rejects.toThrow(/active profile/);
+    await expect(store.remove("coder")).rejects.toThrow(/while its gateway is running/);
     expect(runHermes).not.toHaveBeenCalled();
   });
 });
-
-describe("ProfileStore.activate", () => {
-  it("does not stop or start the gateway when target equals active", async () => {
-    const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
-    const status = baseStatus("stopped");
-    const gateway = makeGateway(status);
-
-    const result = await store.activate(null, gateway);
-    expect(result.active).toBeNull();
-    expect(gateway.stop).not.toHaveBeenCalled();
-    expect(gateway.start).not.toHaveBeenCalled();
-  });
-
-  it("stops the running gateway, switches the marker, and restarts it", async () => {
-    await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
-    const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
-
-    const stoppedSnapshot = baseStatus("stopped");
-    const runningSnapshot = baseStatus("running");
-    const gateway = makeGateway(runningSnapshot);
-    gateway.stop = vi.fn(async () => stoppedSnapshot);
-    gateway.start = vi.fn(async () => runningSnapshot);
-
-    const result = await store.activate("coder", gateway);
-
-    expect(gateway.stop).toHaveBeenCalledTimes(1);
-    expect(gateway.start).toHaveBeenCalledTimes(1);
-    expect(resolver.getActive()).toBe("coder");
-    expect(result.restart).toEqual({ attempted: true, ok: true, error: null });
-    expect(result.active).toBe("coder");
-  });
-
-  it("does not start the gateway when it was not running", async () => {
-    await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
-    const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
-
-    const stoppedSnapshot = baseStatus("stopped");
-    const gateway = makeGateway(stoppedSnapshot);
-
-    const result = await store.activate("coder", gateway);
-    expect(gateway.stop).not.toHaveBeenCalled();
-    expect(gateway.start).not.toHaveBeenCalled();
-    expect(result.restart).toEqual({ attempted: false, ok: true, error: null });
-  });
-
-  it("rejects activating a profile that does not exist", async () => {
-    const runHermes = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
-    const { store, resolver } = createStore(runHermes);
-    await resolver.initialize();
-    await expect(store.setActive("missing")).rejects.toThrow(/does not exist/);
-  });
-});
-
-import type { GatewayStatus } from "../src/server/types";
-
-function baseStatus(state: GatewayStatus["state"]): GatewayStatus {
-  return {
-    state,
-    health: "unknown",
-    pid: state === "running" ? 1234 : null,
-    cwd: "/repo/data",
-    startedAt: state === "running" ? "2026-04-29T00:00:00.000Z" : null,
-    uptimeMs: state === "running" ? 1000 : null,
-    exitCode: null,
-    lastError: null,
-    logWarning: null,
-  };
-}
-
-function makeGateway(snapshot: GatewayStatus) {
-  return {
-    status: vi.fn(() => snapshot),
-    stop: vi.fn(async () => snapshot),
-    start: vi.fn(async () => snapshot),
-  };
-}

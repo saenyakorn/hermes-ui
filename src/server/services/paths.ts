@@ -1,6 +1,5 @@
-import { readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 
 export type AppPaths = {
   rootDir: string;
@@ -25,7 +24,7 @@ export function asDirProvider(value: string | DirProvider): DirProvider {
   return typeof value === "string" ? () => value : value;
 }
 
-const ACTIVE_PROFILE_FILE = ".active_profile";
+const LEGACY_ACTIVE_PROFILE_FILE = ".active_profile";
 const PROFILE_NAME_PATTERN = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 const RESERVED_PROFILE_NAMES = new Set(["default", "profiles", "."]);
 
@@ -58,114 +57,55 @@ export function isValidProfileName(name: string): boolean {
   }
 }
 
-export type ProfileChangeListener = (active: string | null) => void;
-
 /**
- * Tracks the currently active Hermes profile and resolves the matching
- * `HERMES_HOME` directory. Stateful services consume this to follow profile
- * switches without having to be reconstructed.
+ * Resolves filesystem paths for profiles. Profiles run concurrently — there is
+ * no global "active profile". Each operation that targets a profile takes an
+ * explicit `profile: string | null` argument (`null` = the default profile
+ * rooted at `<rootDir>/data`).
  */
 export class ProfileResolver {
-  private active: string | null = null;
-  private readonly listeners = new Set<ProfileChangeListener>();
-  private initialized = false;
-
   constructor(private readonly rootDir: string) {}
 
-  async initialize(): Promise<void> {
-    if (this.initialized) {
-      return;
-    }
-    this.initialized = true;
-
-    try {
-      const raw = await readFile(this.getActiveMarkerPath(), "utf8");
-      const trimmed = raw.trim();
-      if (trimmed.length > 0 && isValidProfileName(trimmed)) {
-        this.active = trimmed;
-      }
-    } catch (cause: unknown) {
-      if (!this.isMissingFileError(cause)) {
-        throw cause;
-      }
-    }
-  }
-
-  getActive(): string | null {
-    return this.active;
-  }
-
-  /**
-   * Updates the active profile and persists the marker atomically. Pass `null`
-   * to revert to the default profile (root `data/`).
-   */
-  async setActive(name: string | null): Promise<void> {
-    if (name !== null) {
-      validateProfileName(name);
-    }
-
-    if (name === this.active) {
-      return;
-    }
-
-    if (name === null) {
-      try {
-        await rm(this.getActiveMarkerPath(), { force: true });
-      } catch (cause: unknown) {
-        if (!this.isMissingFileError(cause)) {
-          throw cause;
-        }
-      }
-    } else {
-      const temporaryPath = path.join(this.getRootDataDir(), `.active_profile.${randomUUID()}.tmp`);
-      try {
-        await writeFile(temporaryPath, name);
-        await rename(temporaryPath, this.getActiveMarkerPath());
-      } catch (cause: unknown) {
-        await rm(temporaryPath, { force: true });
-        throw cause;
-      }
-    }
-
-    this.active = name;
-    for (const listener of this.listeners) {
-      try {
-        listener(name);
-      } catch {
-        // Listener failures must not block profile switches.
-      }
-    }
-  }
-
-  /** Root `<rootDir>/data` directory regardless of active profile. */
+  /** Root `<rootDir>/data` directory. */
   getRootDataDir(): string {
     return path.join(this.rootDir, "data");
   }
 
-  /** Resolves the data directory for the active profile. */
-  getDataDir(): string {
-    return resolveProfileDataDir(this.rootDir, this.active);
-  }
-
-  /** Resolves the logs directory for the active profile. */
-  getLogsDir(): string {
-    return path.join(this.getDataDir(), "logs");
-  }
-
-  /** Resolves the data directory for an explicit profile (without switching). */
+  /** Resolves the data directory for an explicit profile. */
   resolveDataDir(profile: string | null): string {
     return resolveProfileDataDir(this.rootDir, profile);
   }
 
-  subscribe(listener: ProfileChangeListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
+  /** Resolves the logs directory for an explicit profile. */
+  resolveLogsDir(profile: string | null): string {
+    return path.join(this.resolveDataDir(profile), "logs");
   }
 
-  private getActiveMarkerPath(): string {
-    return path.join(this.getRootDataDir(), ACTIVE_PROFILE_FILE);
+  /**
+   * Reads the legacy `data/.active_profile` marker if present. Used once at
+   * boot to seed the workspace UI's initial profile selection so users who
+   * had an active profile selected before the multi-gateway switch keep
+   * their familiar default. Returns `null` if the marker is missing or
+   * invalid.
+   */
+  async readLegacyActiveProfile(): Promise<string | null> {
+    try {
+      const raw = await readFile(this.getLegacyMarkerPath(), "utf8");
+      const trimmed = raw.trim();
+      if (trimmed.length > 0 && isValidProfileName(trimmed)) {
+        return trimmed;
+      }
+      return null;
+    } catch (cause: unknown) {
+      if (this.isMissingFileError(cause)) {
+        return null;
+      }
+      throw cause;
+    }
+  }
+
+  private getLegacyMarkerPath(): string {
+    return path.join(this.getRootDataDir(), LEGACY_ACTIVE_PROFILE_FILE);
   }
 
   private isMissingFileError(cause: unknown): boolean {

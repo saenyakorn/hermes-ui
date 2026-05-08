@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import type { GatewayHealthState } from "../types";
 
 const GATEWAY_STATUS_TIMEOUT_MS = 5_000;
-const GATEWAY_STATUS_ARGS = ["gateway", "status"] as const;
 
 export type GatewayStatusRunner = (
   command: string,
@@ -75,15 +74,28 @@ const defaultGatewayStatusRunner: GatewayStatusRunner = (command, args, timeoutM
     });
   });
 
+/** Builds the `hermes` argv used to query a profile's gateway health. */
+export function buildGatewayStatusArgs(profile: string | null): string[] {
+  if (profile === null) {
+    return ["gateway", "status"];
+  }
+  return ["--profile", profile, "gateway", "status"];
+}
+
 export async function checkGatewayHealth(
   gatewayRunning: boolean,
+  profile: string | null = null,
   statusRunner: GatewayStatusRunner = defaultGatewayStatusRunner,
 ): Promise<GatewayHealthState> {
   if (!gatewayRunning) {
     return "unknown";
   }
 
-  const result = await statusRunner("hermes", GATEWAY_STATUS_ARGS, GATEWAY_STATUS_TIMEOUT_MS);
+  const result = await statusRunner(
+    "hermes",
+    buildGatewayStatusArgs(profile),
+    GATEWAY_STATUS_TIMEOUT_MS,
+  );
   return classifyGatewayStatusResult(result);
 }
 

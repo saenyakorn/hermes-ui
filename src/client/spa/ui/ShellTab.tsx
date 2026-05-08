@@ -6,8 +6,12 @@ import { ApiFetcher } from "../../api-fetcher";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { PROFILE_CHANGED_EVENT } from "../../lib/event";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 
 export function ShellTab() {
+  const { profile } = useWorkspaceProfileSubscribed();
+  const profileRef = useRef<string | null>(profile);
+  profileRef.current = profile;
   const api = useMemo(() => new ApiFetcher(), []);
   const fitAddon = useMemo(() => new FitAddon(), []);
   const addons = useMemo(() => [fitAddon], [fitAddon]);
@@ -41,7 +45,7 @@ export function ShellTab() {
     (host: HTMLDivElement, terminalInstance: NonNullable<typeof instance>): Socket => {
       const socket = io({
         transports: ["websocket"],
-        auth: { token: api.getBasicAuthToken() },
+        auth: { token: api.getBasicAuthToken(), profile: profileRef.current ?? "" },
       });
 
       const resize = (): void => {
@@ -58,7 +62,7 @@ export function ShellTab() {
       };
 
       socket.on("connect", () => {
-        socket.emit("terminal:start");
+        socket.emit("terminal:start", { profile: profileRef.current ?? "" });
         resize();
       });
       socket.on("terminal:output", (data: string) => terminalInstance.write(data));

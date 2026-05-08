@@ -13,7 +13,6 @@ beforeEach(async () => {
   rootDir = await mkdtemp(path.join(os.tmpdir(), "hermes-profile-files-"));
   await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
   resolver = new ProfileResolver(rootDir);
-  await resolver.initialize();
   files = new ProfileFiles(resolver);
 });
 

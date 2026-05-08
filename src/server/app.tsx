@@ -9,11 +9,12 @@ import type {
   ConfigSaveResult,
   DiscordSettingsPatch,
   EnvReadResult,
+  GatewayProfileSummary,
   GatewayStatus,
+  GatewaysSummary,
   LogTail,
   ModelProvidersMutationResponse,
   ModelYamlPatch,
-  ProfileActivateResult,
   ProfileCreateInput,
   ProfileCreateMode,
   ProfileFileKind,
@@ -37,33 +38,39 @@ export type AppGateway = {
   refreshHealth: () => Promise<GatewayStatus>;
 };
 
+export type AppGateways = {
+  /** Returns (constructing on first access) the gateway facade for a profile. */
+  get: (profile: string | null) => AppGateway;
+  /**
+   * Summary used by the top-bar status chip; when `additionalProfiles` is
+   * provided the registry expands the list to include profiles discovered on
+   * disk that haven't been touched yet.
+   */
+  list: (additionalProfiles?: ReadonlyArray<string | null>) => Promise<GatewaysSummary>;
+};
+
 export type AppLogs = {
-  tail: (limit: number) => Promise<LogTail>;
-  subscribe: (listener: (line: string) => void) => () => void;
+  tail: (profile: string | null, limit: number) => Promise<LogTail>;
+  subscribe: (profile: string | null, listener: (line: string) => void) => () => void;
 };
 
 export type AppConfig = {
-  read: () => Promise<ConfigReadResult>;
-  save: (content: string) => Promise<ConfigSaveResult>;
-  patchModel: (updates: ModelYamlPatch) => Promise<ConfigSaveResult>;
-  getWorkspaceConfigHints: () => Promise<WorkspaceConfigHints>;
-  patchDiscordSettings: (updates: DiscordSettingsPatch) => Promise<ConfigSaveResult>;
+  read: (profile: string | null) => Promise<ConfigReadResult>;
+  save: (profile: string | null, content: string) => Promise<ConfigSaveResult>;
+  patchModel: (profile: string | null, updates: ModelYamlPatch) => Promise<ConfigSaveResult>;
+  getWorkspaceConfigHints: (profile: string | null) => Promise<WorkspaceConfigHints>;
+  patchDiscordSettings: (
+    profile: string | null,
+    updates: DiscordSettingsPatch,
+  ) => Promise<ConfigSaveResult>;
 };
 
 export type AppProfiles = {
   list: () => Promise<ProfileListResult>;
-  active: () => string | null;
+  listProfileNames: () => Promise<Array<string | null>>;
   create: (input: ProfileCreateInput) => Promise<ProfileMutationResult>;
   rename: (from: string, to: string) => Promise<ProfileMutationResult>;
   remove: (name: string) => Promise<ProfileMutationResult>;
-  activate: (
-    name: string | null,
-    gateway: {
-      status: () => GatewayStatus;
-      stop: () => Promise<GatewayStatus>;
-      start: () => Promise<GatewayStatus>;
-    },
-  ) => Promise<ProfileActivateResult>;
 };
 
 export type AppProfileFiles = {
@@ -92,30 +99,54 @@ export type AppProfileSessions = {
   remove: (profile: string | null, id: string) => Promise<ProfileSessionDeleteResult>;
 };
 
+export type AppProfileResolver = {
+  readLegacyActiveProfile: () => Promise<string | null>;
+};
+
+export type AppEnvStore = {
+  read: (profile: string | null) => Promise<EnvReadResult>;
+  upsert: (profile: string | null, key: string, value: string) => Promise<EnvReadResult>;
+  remove: (profile: string | null, key: string) => Promise<EnvReadResult>;
+  applyBatch: (
+    profile: string | null,
+    input: { set?: Record<string, string>; remove?: string[] },
+  ) => Promise<EnvReadResult>;
+};
+
 export type AppServices = {
   env: AppEnv;
-  gateway: AppGateway;
-  logs: AppLogs;
-  config: AppConfig;
-  envVars: {
-    read: () => Promise<EnvReadResult>;
-    upsert: (key: string, value: string) => Promise<EnvReadResult>;
-    remove: (key: string) => Promise<EnvReadResult>;
-    applyBatch: (input: {
-      set?: Record<string, string>;
-      remove?: string[];
-    }) => Promise<EnvReadResult>;
+  gateways: AppGateways;
+  logsRegistry: {
+    get: (profile: string | null) => {
+      tail: (limit: number) => Promise<LogTail>;
+      subscribe: (listener: (line: string) => void) => () => void;
+    };
   };
+  config: AppConfig;
+  envVars: AppEnvStore;
   profiles: AppProfiles;
   profileFiles: AppProfileFiles;
   profileSessions: AppProfileSessions;
+  profileResolver: AppProfileResolver;
 };
+
+/** Reads a `:name` profile path param. Returns `null` for "default", a slug
+ * for valid profile names, or `undefined` to signal a 400 to the caller. */
+function parseProfileParam(value: string): string | null | undefined {
+  if (value === "default") {
+    return null;
+  }
+  if (!isValidProfileName(value)) {
+    return undefined;
+  }
+  return value;
+}
 
 export function createApp(services: AppServices) {
   const app = new Hono();
   const basicAuth = basicAuthMiddleware(services.env.adminUsername, services.env.adminPassword);
   app.use("*", async (context, next) => {
-    if (context.req.path === "/gateway/health") {
+    if (context.req.path === "/gateways/health") {
       await next();
       return;
     }
@@ -126,44 +157,92 @@ export function createApp(services: AppServices) {
   return app
     .get("/assets/*", serveStatic({ root: "./dist" }))
     .get("/favicon.ico", (context) => context.body(null, 204))
-    .get("/", (context) => {
+    .get("/", async (context) => {
       const authHeader = context.req.header("authorization");
       const authToken = authHeader?.startsWith("Basic ") ? authHeader : undefined;
+      const additionalProfiles = await safeListProfileNames(services);
+      const summary = await services.gateways.list(additionalProfiles);
+      const legacyActive = await services.profileResolver.readLegacyActiveProfile();
       return context.html(
         renderHtmlDocument(
           "Hermes Agent",
-          encodeURIComponent(JSON.stringify(services.gateway.status())),
+          encodeURIComponent(JSON.stringify({ ...summary, legacyActive })),
           authToken ? encodeURIComponent(authToken) : undefined,
         ),
       );
     })
-    .get("/gateway/status", async (context) => context.json(await services.gateway.refreshHealth()))
-    .get("/gateway/health", async (context) => context.json(await services.gateway.refreshHealth()))
-    .post("/gateway/start", async (context) =>
-      context.json(await runGatewayAction(services.gateway, () => services.gateway.start())),
-    )
-    .post("/gateway/stop", async (context) =>
-      context.json(await runGatewayAction(services.gateway, () => services.gateway.stop())),
-    )
-    .post("/gateway/restart", async (context) =>
-      context.json(await runGatewayAction(services.gateway, () => services.gateway.restart())),
-    )
-    .get("/config", async (context) => {
+    .get("/gateways", async (context) => {
+      const additionalProfiles = await safeListProfileNames(services);
+      return context.json(await services.gateways.list(additionalProfiles));
+    })
+    .get("/gateways/health", async (context) => {
+      // Public liveness for the control plane itself.
+      const additionalProfiles = await safeListProfileNames(services);
+      return context.json(await services.gateways.list(additionalProfiles));
+    })
+    .get("/profiles/:name/gateway/status", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      return context.json(await services.gateways.get(profile).refreshHealth());
+    })
+    .get("/profiles/:name/gateway/health", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      return context.json(await services.gateways.get(profile).refreshHealth());
+    })
+    .post("/profiles/:name/gateway/start", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const gateway = services.gateways.get(profile);
+      return context.json(await runGatewayAction(gateway, () => gateway.start()));
+    })
+    .post("/profiles/:name/gateway/stop", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const gateway = services.gateways.get(profile);
+      return context.json(await runGatewayAction(gateway, () => gateway.stop()));
+    })
+    .post("/profiles/:name/gateway/restart", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const gateway = services.gateways.get(profile);
+      return context.json(await runGatewayAction(gateway, () => gateway.restart()));
+    })
+    .get("/profiles/:name/config", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       try {
-        return context.json(await services.config.read());
+        return context.json(await services.config.read(profile));
       } catch (cause: unknown) {
         return context.json({ error: `Failed to read config: ${getErrorMessage(cause)}` }, 500);
       }
     })
-    .post("/config", async (context) => {
+    .post("/profiles/:name/config", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       const content = await parseConfigContent(context.req.json());
 
       if (content === null) {
         return context.json({ error: "Config content must be a string." }, 400);
       }
 
-      const wasRunning = services.gateway.status().state === "running";
-      const config = await saveConfig(services.config, content);
+      const gateway = services.gateways.get(profile);
+      const wasRunning = gateway.status().state === "running";
+      const config = await saveConfig(services.config, profile, content);
 
       if (!config.ok) {
         return context.json({ error: `Failed to save config: ${config.error}` }, 500);
@@ -174,7 +253,7 @@ export function createApp(services: AppServices) {
           {
             config: config.value,
             restart: { attempted: false, ok: true, error: null },
-            gateway: services.gateway.status(),
+            gateway: gateway.status(),
           },
           422,
         );
@@ -184,17 +263,17 @@ export function createApp(services: AppServices) {
         return context.json({
           config: config.value,
           restart: { attempted: false, ok: true, error: null },
-          gateway: services.gateway.status(),
+          gateway: gateway.status(),
         });
       }
 
       try {
-        const gateway = await services.gateway.restart();
+        const status = await gateway.restart();
 
         return context.json({
           config: config.value,
           restart: { attempted: true, ok: true, error: null },
-          gateway,
+          gateway: status,
         });
       } catch (cause: unknown) {
         return context.json({
@@ -204,31 +283,46 @@ export function createApp(services: AppServices) {
             ok: false,
             error: getErrorMessage(cause),
           },
-          gateway: services.gateway.status(),
+          gateway: gateway.status(),
         });
       }
     })
-    .get("/env", async (context) => {
+    .get("/profiles/:name/env", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       try {
-        return context.json(await services.envVars.read());
+        return context.json(await services.envVars.read(profile));
       } catch (cause: unknown) {
         return context.json({ error: `Failed to read env: ${getErrorMessage(cause)}` }, 500);
       }
     })
-    .post("/env", async (context) => {
+    .post("/profiles/:name/env", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       const input = await parseEnvUpsertInput(context.req.json());
       if (input === null) {
         return context.json({ error: "Body must include string key and value." }, 400);
       }
 
-      const envResult = await mutateEnv(() => services.envVars.upsert(input.key, input.value));
+      const gateway = services.gateways.get(profile);
+      const envResult = await mutateEnv(() =>
+        services.envVars.upsert(profile, input.key, input.value),
+      );
       if (!envResult.ok) {
         return context.json({ error: `Failed to update env: ${envResult.error}` }, 500);
       }
 
-      return context.json(await withGatewayRestart(services.gateway, envResult.value));
+      return context.json(await withGatewayRestart(gateway, envResult.value));
     })
-    .post("/env/batch", async (context) => {
+    .post("/profiles/:name/env/batch", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       const input = await parseEnvBatchInput(context.req.json());
       if (input === null) {
         return context.json(
@@ -240,16 +334,35 @@ export function createApp(services: AppServices) {
         );
       }
 
-      const envResult = await mutateEnv(() => services.envVars.applyBatch(input));
+      const gateway = services.gateways.get(profile);
+      const envResult = await mutateEnv(() => services.envVars.applyBatch(profile, input));
       if (!envResult.ok) {
         return context.json({ error: `Failed to update env: ${envResult.error}` }, 500);
       }
 
-      return context.json(await withGatewayRestart(services.gateway, envResult.value));
+      return context.json(await withGatewayRestart(gateway, envResult.value));
     })
-    .get("/settings/workspace-hints", async (context) => {
+    .delete("/profiles/:name/env/:key", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
+      const key = context.req.param("key");
+      const gateway = services.gateways.get(profile);
+      const envResult = await mutateEnv(() => services.envVars.remove(profile, key));
+      if (!envResult.ok) {
+        return context.json({ error: `Failed to delete env: ${envResult.error}` }, 500);
+      }
+
+      return context.json(await withGatewayRestart(gateway, envResult.value));
+    })
+    .get("/profiles/:name/settings/workspace-hints", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       try {
-        return context.json(await services.config.getWorkspaceConfigHints());
+        return context.json(await services.config.getWorkspaceConfigHints(profile));
       } catch (cause: unknown) {
         return context.json(
           { error: `Failed to read config hints: ${getErrorMessage(cause)}` },
@@ -257,7 +370,11 @@ export function createApp(services: AppServices) {
         );
       }
     })
-    .post("/settings/model-providers", async (context) => {
+    .post("/profiles/:name/settings/model-providers", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       const input = await parseModelProvidersInput(context.req.json());
       if (input === null) {
         return context.json(
@@ -269,13 +386,15 @@ export function createApp(services: AppServices) {
         );
       }
 
+      const gateway = services.gateways.get(profile);
+
       let configResult: ConfigSaveResult;
       try {
-        const baseline = await services.config.read();
+        const baseline = await services.config.read(profile);
         configResult = { ...baseline, saved: false };
 
         if (input.model !== undefined && Object.keys(input.model).length > 0) {
-          const patched = await saveConfigPatch(services.config, input.model);
+          const patched = await saveConfigPatch(services.config, profile, input.model);
           if (!patched.ok) {
             return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
           }
@@ -292,7 +411,7 @@ export function createApp(services: AppServices) {
         }
 
         if (input.discord !== undefined) {
-          const patched = await saveDiscordPatch(services.config, input.discord);
+          const patched = await saveDiscordPatch(services.config, profile, input.discord);
           if (!patched.ok) {
             return context.json({ error: `Failed to patch config: ${patched.error}` }, 500);
           }
@@ -332,28 +451,28 @@ export function createApp(services: AppServices) {
               : undefined;
       const envMutation = mergeEnvBatchMutations(input.env, discordEnvSync);
       if (envMutation !== undefined) {
-        const envResult = await mutateEnv(() => services.envVars.applyBatch(envMutation));
+        const envResult = await mutateEnv(() => services.envVars.applyBatch(profile, envMutation));
         if (!envResult.ok) {
           return context.json({ error: `Failed to update env: ${envResult.error}` }, 500);
         }
         envSnapshot = envResult.value;
       } else {
         try {
-          envSnapshot = await services.envVars.read();
+          envSnapshot = await services.envVars.read(profile);
         } catch (cause: unknown) {
           return context.json({ error: `Failed to read env: ${getErrorMessage(cause)}` }, 500);
         }
       }
 
-      const wasRunning = services.gateway.status().state === "running";
+      const wasRunning = gateway.status().state === "running";
       let restart: ModelProvidersMutationResponse["restart"];
-      let gateway: GatewayStatus;
+      let gatewayStatus: GatewayStatus;
       if (!wasRunning) {
         restart = { attempted: false, ok: true, error: null };
-        gateway = services.gateway.status();
+        gatewayStatus = gateway.status();
       } else {
         try {
-          gateway = await services.gateway.restart();
+          gatewayStatus = await gateway.restart();
           restart = { attempted: true, ok: true, error: null };
         } catch (cause: unknown) {
           restart = {
@@ -361,7 +480,7 @@ export function createApp(services: AppServices) {
             ok: false,
             error: getErrorMessage(cause),
           };
-          gateway = services.gateway.status();
+          gatewayStatus = gateway.status();
         }
       }
 
@@ -369,21 +488,22 @@ export function createApp(services: AppServices) {
         env: envSnapshot,
         config: configResult,
         restart,
-        gateway,
+        gateway: gatewayStatus,
       };
       return context.json(payload);
     })
-    .delete("/env/:key", async (context) => {
-      const key = context.req.param("key");
-      const envResult = await mutateEnv(() => services.envVars.remove(key));
-      if (!envResult.ok) {
-        return context.json({ error: `Failed to delete env: ${envResult.error}` }, 500);
+    .get("/profiles/:name/logs/tail", async (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
       }
-
-      return context.json(await withGatewayRestart(services.gateway, envResult.value));
+      return context.json(await services.logsRegistry.get(profile).tail(200));
     })
-    .get("/logs/tail", async (context) => context.json(await services.logs.tail(200)))
-    .get("/logs/stream", (context) => {
+    .get("/profiles/:name/logs/stream", (context) => {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
+        return context.json({ error: "Invalid profile name." }, 400);
+      }
       const { readable, writable } = new TransformStream<Uint8Array>();
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
@@ -415,7 +535,7 @@ export function createApp(services: AppServices) {
         }
       };
 
-      const unsubscribe = services.logs.subscribe((line) => {
+      const unsubscribe = services.logsRegistry.get(profile).subscribe((line) => {
         void writeLine(line);
       });
 
@@ -433,7 +553,9 @@ export function createApp(services: AppServices) {
     })
     .get("/profiles", async (context) => {
       try {
-        return context.json(await services.profiles.list());
+        const list = await services.profiles.list();
+        const legacyActive = await services.profileResolver.readLegacyActiveProfile();
+        return context.json({ ...list, legacyActive });
       } catch (cause: unknown) {
         return context.json({ error: `Failed to list profiles: ${getErrorMessage(cause)}` }, 500);
       }
@@ -481,29 +603,12 @@ export function createApp(services: AppServices) {
         return context.json({ error: `Failed to delete profile: ${getErrorMessage(cause)}` }, 400);
       }
     })
-    .post("/profiles/:name/activate", async (context) => {
-      const name = context.req.param("name");
-      const target = name === "default" ? null : name;
-      if (target !== null && !isValidProfileName(target)) {
-        return context.json({ error: "Invalid profile name." }, 400);
-      }
-      try {
-        return context.json(await services.profiles.activate(target, services.gateway));
-      } catch (cause: unknown) {
-        return context.json(
-          { error: `Failed to activate profile: ${getErrorMessage(cause)}` },
-          400,
-        );
-      }
-    })
     .get("/profiles/:name/files/:kind", async (context) => {
-      const name = context.req.param("name");
-      const kindParam = context.req.param("kind");
-      const profile = name === "default" ? null : name;
-      if (profile !== null && !isValidProfileName(profile)) {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
         return context.json({ error: "Invalid profile name." }, 400);
       }
-      const kind = parseProfileFileKind(kindParam);
+      const kind = parseProfileFileKind(context.req.param("kind"));
       if (kind === null) {
         return context.json({ error: 'File kind must be one of: "soul", "memory", "user".' }, 400);
       }
@@ -517,13 +622,11 @@ export function createApp(services: AppServices) {
       }
     })
     .put("/profiles/:name/files/:kind", async (context) => {
-      const name = context.req.param("name");
-      const kindParam = context.req.param("kind");
-      const profile = name === "default" ? null : name;
-      if (profile !== null && !isValidProfileName(profile)) {
+      const profile = parseProfileParam(context.req.param("name"));
+      if (profile === undefined) {
         return context.json({ error: "Invalid profile name." }, 400);
       }
-      const kind = parseProfileFileKind(kindParam);
+      const kind = parseProfileFileKind(context.req.param("kind"));
       if (kind === null) {
         return context.json({ error: 'File kind must be one of: "soul", "memory", "user".' }, 400);
       }
@@ -672,6 +775,14 @@ export function createApp(services: AppServices) {
 
 export type AppType = ReturnType<typeof createApp>;
 
+async function safeListProfileNames(services: AppServices): Promise<Array<string | null>> {
+  try {
+    return await services.profiles.listProfileNames();
+  } catch {
+    return [null];
+  }
+}
+
 async function runGatewayAction(
   gateway: AppGateway,
   action: () => Promise<GatewayStatus>,
@@ -703,10 +814,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 async function saveConfig(
   config: AppConfig,
+  profile: string | null,
   content: string,
 ): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
   try {
-    return { ok: true, value: await config.save(content) };
+    return { ok: true, value: await config.save(profile, content) };
   } catch (cause: unknown) {
     return { ok: false, error: getErrorMessage(cause) };
   }
@@ -714,10 +826,11 @@ async function saveConfig(
 
 async function saveConfigPatch(
   config: AppConfig,
+  profile: string | null,
   updates: ModelYamlPatch,
 ): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
   try {
-    return { ok: true, value: await config.patchModel(updates) };
+    return { ok: true, value: await config.patchModel(profile, updates) };
   } catch (cause: unknown) {
     return { ok: false, error: getErrorMessage(cause) };
   }
@@ -725,12 +838,13 @@ async function saveConfigPatch(
 
 async function saveDiscordPatch(
   config: AppConfig,
+  profile: string | null,
   updates: DiscordSettingsPatch,
 ): Promise<{ ok: true; value: ConfigSaveResult } | { ok: false; error: string }> {
   try {
     return {
       ok: true,
-      value: await config.patchDiscordSettings(updates),
+      value: await config.patchDiscordSettings(profile, updates),
     };
   } catch (cause: unknown) {
     return { ok: false, error: getErrorMessage(cause) };
@@ -1072,16 +1186,6 @@ function parseProfileFileKind(value: unknown): ProfileFileKind | null {
   return null;
 }
 
-function parseProfileParam(value: string): string | null | undefined {
-  if (value === "default") {
-    return null;
-  }
-  if (!isValidProfileName(value)) {
-    return undefined;
-  }
-  return value;
-}
-
 async function parseProfileSessionCreateInput(
   bodyPromise: Promise<unknown>,
 ): Promise<ProfileSessionCreateInput | null> {
@@ -1105,3 +1209,5 @@ async function parseProfileSessionRenameInput(
 ): Promise<ProfileSessionRenameInput | null> {
   return parseProfileSessionCreateInput(bodyPromise);
 }
+
+export type _AppRouteSummary = GatewayProfileSummary;

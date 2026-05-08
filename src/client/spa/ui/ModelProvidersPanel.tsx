@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "../../lib/sonner";
 import { z } from "zod";
 import { ApiFetcher, type ModelProvidersSavePayload } from "../../api-fetcher";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { useAppForm } from "../../components/tanstack-form";
@@ -38,23 +39,27 @@ type ProviderFieldSpec = {
 };
 
 export function ModelProvidersPanel() {
+  const { profile } = useWorkspaceProfileSubscribed();
   const api = useMemo(() => new ApiFetcher(), []);
   const queryClient = useQueryClient();
   const defaultsQuery = useQuery({
-    queryKey: ["model-providers-default-values"],
+    queryKey: ["model-providers-default-values", profile ?? "default"],
     queryFn: async () => {
-      const [env, hints] = await Promise.all([api.getEnvRead(), api.getWorkspaceConfigHints()]);
+      const [env, hints] = await Promise.all([
+        api.getEnvRead(profile),
+        api.getWorkspaceConfigHints(profile),
+      ]);
       return resolveAllWorkspaceIntegrationFieldValues(env, hints);
     },
   });
 
   const onMutate = async (payload: ModelProvidersSavePayload) => {
-    const response = await api.postModelProvidersSettings(payload);
+    const response = await api.postModelProvidersSettings(profile, payload);
     dispatchGatewayStatus(response.gateway);
-    dispatchEnvSnapshot({ env: response.env, gateway: response.gateway });
+    dispatchEnvSnapshot({ env: response.env, gateway: response.gateway, profile });
     dispatchEnvReloadRequest();
     void queryClient.invalidateQueries({
-      queryKey: ["model-providers-default-values"],
+      queryKey: ["model-providers-default-values", profile ?? "default"],
     });
     return response;
   };

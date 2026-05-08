@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useSessionsTab } from "../../hooks/useSessionsTab";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 
 const EMPTY_TRANSCRIPT_HINT = "Click session row to view entire chat.";
 const MESSAGE_LINE_PATTERN = /^\[([^\]]+)\]\s*(.*)$/;
@@ -152,7 +153,8 @@ function formatStructuredPayload(raw: string): string | null {
 }
 
 export function SessionsTab() {
-  const sessions = useSessionsTab();
+  const { profile } = useWorkspaceProfileSubscribed();
+  const sessions = useSessionsTab(profile);
   const selectedSession = useMemo(
     () => sessions.sessions.find((s) => s.id === sessions.selectedSessionId) ?? null,
     [sessions.sessions, sessions.selectedSessionId],

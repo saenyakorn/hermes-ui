@@ -1,9 +1,9 @@
 export function renderHtmlDocument(
   title: string,
-  initialStatus: string,
+  initialPayload: string,
   authToken?: string,
 ): string {
-  const decodedStatus = decodeURIComponent(initialStatus);
+  const decodedPayload = decodeURIComponent(initialPayload);
   const decodedAuthToken = authToken ? decodeURIComponent(authToken) : undefined;
   const authBootstrapScript =
     decodedAuthToken !== undefined
@@ -20,7 +20,7 @@ export function renderHtmlDocument(
   </head>
   <body>
     <div id="root"></div>
-    <script>window.__HERMES_INITIAL_STATUS__ = ${decodedStatus};</script>
+    <script>window.__HERMES_INITIAL_GATEWAYS__ = ${decodedPayload};</script>
     <script>${authBootstrapScript}</script>
     <script type="module" src="/assets/main.js"></script>
   </body>

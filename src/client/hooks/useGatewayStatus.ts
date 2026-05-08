@@ -5,11 +5,27 @@ import { ApiFetcher } from "../api-fetcher";
 import { getErrorMessage } from "../lib/errors";
 import { dispatchGatewayStatus, GATEWAY_STATUS_EVENT } from "../lib/event";
 
-let lastGatewayStatus: GatewayStatus | null = null;
+const lastGatewayStatusByProfile = new Map<string, GatewayStatus>();
+const profileKey = (profile: string | null): string => profile ?? "default";
+
+/** Synthetic "stopped" status used when the caller hasn't seeded one for a profile. */
+function emptyStatus(): GatewayStatus {
+  return {
+    state: "stopped",
+    health: "unknown",
+    pid: null,
+    cwd: "",
+    startedAt: null,
+    uptimeMs: null,
+    exitCode: null,
+    lastError: null,
+    logWarning: null,
+  };
+}
 
 export function useGatewayStatus(
-  initialStatus: GatewayStatus,
-  activeProfile: string | null = null,
+  profile: string | null,
+  initialStatus?: GatewayStatus,
 ): {
   status: GatewayStatus;
   error: string | null;
@@ -21,25 +37,29 @@ export function useGatewayStatus(
 } {
   const api = useMemo(() => new ApiFetcher(), []);
   const queryClient = useQueryClient();
+  const key = profileKey(profile);
+  const fallbackStatus = useMemo(() => initialStatus ?? emptyStatus(), [initialStatus]);
 
   const externalStatus = useSyncExternalStore(
     (onStoreChange) => {
       const onStatus = (event: Event) => {
         const customEvent = event as CustomEvent<GatewayStatus>;
-        lastGatewayStatus = customEvent.detail ?? null;
-        onStoreChange();
+        if (customEvent.detail) {
+          lastGatewayStatusByProfile.set(key, customEvent.detail);
+          onStoreChange();
+        }
       };
       window.addEventListener(GATEWAY_STATUS_EVENT, onStatus);
       return () => window.removeEventListener(GATEWAY_STATUS_EVENT, onStatus);
     },
-    () => lastGatewayStatus,
+    () => lastGatewayStatusByProfile.get(key) ?? null,
     () => null,
   );
 
   const statusQuery = useQuery({
-    queryKey: ["gateway-status", activeProfile ?? "default"],
-    queryFn: () => api.getGatewayStatus(),
-    initialData: initialStatus,
+    queryKey: ["gateway-status", key],
+    queryFn: () => api.getGatewayStatus(profile),
+    initialData: fallbackStatus,
     refetchInterval: 3000,
   });
 
@@ -48,9 +68,10 @@ export function useGatewayStatus(
   }, [statusQuery]);
 
   const actionMutation = useMutation({
-    mutationFn: (action: "start" | "stop" | "restart") => api.postGatewayAction(action),
+    mutationFn: (action: "start" | "stop" | "restart") => api.postGatewayAction(profile, action),
     onSuccess: (next) => {
-      queryClient.setQueryData(["gateway-status", activeProfile ?? "default"], next);
+      queryClient.setQueryData(["gateway-status", key], next);
+      lastGatewayStatusByProfile.set(key, next);
       dispatchGatewayStatus(next);
     },
   });
@@ -63,7 +84,7 @@ export function useGatewayStatus(
   );
 
   return {
-    status: externalStatus ?? statusQuery.data ?? initialStatus,
+    status: externalStatus ?? statusQuery.data ?? fallbackStatus,
     error: statusQuery.error ? getErrorMessage(statusQuery.error) : null,
     busy: actionMutation.isPending,
     refresh,

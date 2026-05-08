@@ -9,6 +9,7 @@
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "rolldown -c --watch",
     "dev:css": "tailwindcss -i src/styles/app.css -o dist/assets/app.css --watch=always",
+    "dev:docker": "docker compose -f docker-compose.dev.yml up",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "typecheck": "tsc --noEmit",

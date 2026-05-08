@@ -3,23 +3,17 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseEnv } from "dotenv";
 import type { EnvReadResult } from "../types";
-import { asDirProvider, type DirProvider } from "./paths";
+import type { ProfileResolver } from "./paths";
+import { validateProfileName } from "./paths";
 
 const ENV_FILE_NAME = ".env";
 const ENV_KEY_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
-const PROFILE_PATH_MARKER = "/data/profiles/";
 
-function getDisplayEnvPath(dataDir: string): string {
-  const normalized = dataDir.split(path.sep).join("/");
-  const markerIndex = normalized.indexOf(PROFILE_PATH_MARKER);
-  if (markerIndex >= 0) {
-    const remainder = normalized.slice(markerIndex + PROFILE_PATH_MARKER.length);
-    const profileName = remainder.split("/")[0];
-    if (profileName) {
-      return `data/profiles/${profileName}/.env`;
-    }
+function getDisplayEnvPath(profile: string | null): string {
+  if (profile === null) {
+    return "data/.env";
   }
-  return "data/.env";
+  return `data/profiles/${profile}/.env`;
 }
 
 /** Non-secret Discord .env keys whose raw value may be sent to the workspace UI (selects). */
@@ -37,18 +31,20 @@ const ENV_KEYS_WITH_PUBLIC_VALUE_IN_API = new Set([
   "DISCORD_IGNORE_NO_MENTION",
 ]);
 
+/**
+ * Manages `<profileDataDir>/.env` for an explicit profile. Methods accept
+ * `profile: string | null` ("null" = default profile); there is no global
+ * active profile.
+ */
 export class EnvStore {
-  private readonly getDataDir: DirProvider;
+  constructor(private readonly resolver: ProfileResolver) {}
 
-  constructor(dataDir: string | DirProvider) {
-    this.getDataDir = asDirProvider(dataDir);
-  }
-
-  async read(): Promise<EnvReadResult> {
-    await this.ensureDataDir();
-    const content = await this.readRawContent();
+  async read(profile: string | null): Promise<EnvReadResult> {
+    this.assertValidProfile(profile);
+    await this.ensureDataDir(profile);
+    const content = await this.readRawContent(profile);
     const parsed = parseEnv(content);
-    const metadata = await this.getUpdatedAt();
+    const metadata = await this.getUpdatedAt(profile);
     const entries = Object.entries(parsed)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, value]) => {
@@ -64,37 +60,43 @@ export class EnvStore {
       });
 
     return {
-      path: getDisplayEnvPath(this.getDataDir()),
+      path: getDisplayEnvPath(profile),
       updatedAt: metadata,
       entries,
     };
   }
 
-  async upsert(key: string, value: string): Promise<EnvReadResult> {
+  async upsert(profile: string | null, key: string, value: string): Promise<EnvReadResult> {
+    this.assertValidProfile(profile);
     this.validateKey(key);
-    await this.ensureDataDir();
-    const parsed = parseEnv(await this.readRawContent());
+    await this.ensureDataDir(profile);
+    const parsed = parseEnv(await this.readRawContent(profile));
     parsed[key] = value;
-    await this.writeParsed(parsed);
-    return this.read();
+    await this.writeParsed(profile, parsed);
+    return this.read(profile);
   }
 
-  async remove(key: string): Promise<EnvReadResult> {
+  async remove(profile: string | null, key: string): Promise<EnvReadResult> {
+    this.assertValidProfile(profile);
     this.validateKey(key);
-    await this.ensureDataDir();
-    const parsed = parseEnv(await this.readRawContent());
+    await this.ensureDataDir(profile);
+    const parsed = parseEnv(await this.readRawContent(profile));
     delete parsed[key];
-    await this.writeParsed(parsed);
-    return this.read();
+    await this.writeParsed(profile, parsed);
+    return this.read(profile);
   }
 
   /**
    * Apply multiple env changes in one atomic write (single gateway restart when used from HTTP).
    */
-  async applyBatch(options: {
-    set?: Record<string, string>;
-    remove?: string[];
-  }): Promise<EnvReadResult> {
+  async applyBatch(
+    profile: string | null,
+    options: {
+      set?: Record<string, string>;
+      remove?: string[];
+    },
+  ): Promise<EnvReadResult> {
+    this.assertValidProfile(profile);
     const setEntries = options.set ? Object.entries(options.set) : [];
     const removeKeys = options.remove ?? [];
     if (setEntries.length === 0 && removeKeys.length === 0) {
@@ -108,8 +110,8 @@ export class EnvStore {
       this.validateKey(key);
     }
 
-    await this.ensureDataDir();
-    const parsed = parseEnv(await this.readRawContent());
+    await this.ensureDataDir(profile);
+    const parsed = parseEnv(await this.readRawContent(profile));
 
     for (const key of removeKeys) {
       delete parsed[key];
@@ -120,17 +122,17 @@ export class EnvStore {
       }
     }
 
-    await this.writeParsed(parsed);
-    return this.read();
+    await this.writeParsed(profile, parsed);
+    return this.read(profile);
   }
 
-  private async ensureDataDir(): Promise<void> {
-    await mkdir(this.getDataDir(), { recursive: true });
+  private async ensureDataDir(profile: string | null): Promise<void> {
+    await mkdir(this.resolver.resolveDataDir(profile), { recursive: true });
   }
 
-  private async readRawContent(): Promise<string> {
+  private async readRawContent(profile: string | null): Promise<string> {
     try {
-      return await readFile(this.getEnvPath(), "utf8");
+      return await readFile(this.getEnvPath(profile), "utf8");
     } catch (cause: unknown) {
       if (this.isFileErrorCode(cause, "ENOENT")) {
         return "";
@@ -139,12 +141,13 @@ export class EnvStore {
     }
   }
 
-  private async writeParsed(values: Record<string, string>): Promise<void> {
-    const temporaryPath = path.join(this.getDataDir(), `.env.${randomUUID()}.tmp`);
+  private async writeParsed(profile: string | null, values: Record<string, string>): Promise<void> {
+    const dataDir = this.resolver.resolveDataDir(profile);
+    const temporaryPath = path.join(dataDir, `.env.${randomUUID()}.tmp`);
     const content = this.serialize(values);
     try {
       await writeFile(temporaryPath, content);
-      await rename(temporaryPath, this.getEnvPath());
+      await rename(temporaryPath, this.getEnvPath(profile));
     } catch (cause: unknown) {
       await rm(temporaryPath, { force: true });
       throw cause;
@@ -177,9 +180,9 @@ export class EnvStore {
     }
   }
 
-  private async getUpdatedAt(): Promise<string | null> {
+  private async getUpdatedAt(profile: string | null): Promise<string | null> {
     try {
-      const metadata = await stat(this.getEnvPath());
+      const metadata = await stat(this.getEnvPath(profile));
       return metadata.mtime.toISOString();
     } catch (cause: unknown) {
       if (this.isFileErrorCode(cause, "ENOENT")) {
@@ -189,8 +192,14 @@ export class EnvStore {
     }
   }
 
-  private getEnvPath(): string {
-    return path.join(this.getDataDir(), ENV_FILE_NAME);
+  private getEnvPath(profile: string | null): string {
+    return path.join(this.resolver.resolveDataDir(profile), ENV_FILE_NAME);
+  }
+
+  private assertValidProfile(profile: string | null): void {
+    if (profile !== null) {
+      validateProfileName(profile);
+    }
   }
 
   private isFileErrorCode(cause: unknown, code: string): boolean {

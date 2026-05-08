@@ -1,19 +1,36 @@
-import type { GatewayStatus } from "../../../server/types";
+import { useMemo } from "react";
+import type { GatewayStatus, GatewaysSummary } from "../../../server/types";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { useGatewayStatus } from "../../hooks/useGatewayStatus";
 import { useLogs } from "../../hooks/useLogs";
-import { useProfileWorkspace } from "../profile-context";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 import { SectionLabel, StatusChip } from "../../components/UiPrimitives";
 
 type ControlTabProps = {
-  initialStatus: GatewayStatus;
+  initialGateways: GatewaysSummary;
 };
 
-export function ControlTab({ initialStatus }: ControlTabProps) {
-  const profile = useProfileWorkspace();
-  const gateway = useGatewayStatus(initialStatus, profile.activeProfile);
-  const logs = useLogs();
+function profileKey(profile: string | null): string {
+  return profile ?? "default";
+}
+
+function findInitialStatus(
+  initialGateways: GatewaysSummary,
+  profile: string | null,
+): GatewayStatus | undefined {
+  const key = profileKey(profile);
+  return initialGateways.gateways.find((entry) => profileKey(entry.profile) === key)?.status;
+}
+
+export function ControlTab({ initialGateways }: ControlTabProps) {
+  const { profile } = useWorkspaceProfileSubscribed();
+  const initialStatus = useMemo(
+    () => findInitialStatus(initialGateways, profile),
+    [initialGateways, profile],
+  );
+  const gateway = useGatewayStatus(profile, initialStatus);
+  const logs = useLogs(profile);
   const isOnline = gateway.status.state.toLowerCase() === "running";
   const logLines = logs.lines
     .split("\n")
@@ -21,6 +38,7 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
     .filter((line) => line.length > 0);
   const recentActivity = logLines.slice(-4).reverse();
   const errorLineCount = logLines.filter((line) => line.toLowerCase().includes("error")).length;
+  const profileLabel = profile ?? "default";
 
   return (
     <section
@@ -31,7 +49,7 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
       <div className="grid min-h-0 shrink-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
         <Card className="p-4">
           <div className="flex items-center justify-between">
-            <SectionLabel>Process information</SectionLabel>
+            <SectionLabel>{`Process information — profile: ${profileLabel}`}</SectionLabel>
             <StatusChip className={isOnline ? "text-emerald-300" : "text-muted"}>
               {isOnline ? "Live" : "Idle"}
             </StatusChip>
@@ -103,7 +121,7 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
             </Button>
           </div>
           <p className="mt-3 text-[11px] text-muted">
-            Note: active sessions terminate during restart.
+            Note: only this profile&apos;s gateway is affected; others keep running.
           </p>
         </Card>
       </div>
@@ -124,7 +142,7 @@ export function ControlTab({ initialStatus }: ControlTabProps) {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-base font-semibold text-text">Live Log Streaming</p>
-              <p className="text-xs text-muted">Real-time system orchestration and agent trace.</p>
+              <p className="text-xs text-muted">{`Real-time logs for profile: ${profileLabel}.`}</p>
             </div>
             <StatusChip>Streaming</StatusChip>
           </div>

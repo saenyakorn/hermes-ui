@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { ApiFetcher } from "../api-fetcher";
 import { getErrorMessage } from "../lib/errors";
 
@@ -9,13 +9,21 @@ type LogsSnapshot = {
   queryError: string | null;
 };
 
-function createLogsStore(api: ApiFetcher) {
+type LogsStore = {
+  getSnapshot: () => LogsSnapshot;
+  subscribe: (onStoreChange: () => void) => () => void;
+  refresh: () => Promise<void>;
+  rebind: (profile: string | null) => void;
+};
+
+function createLogsStore(api: ApiFetcher): LogsStore {
   let snapshot: LogsSnapshot = {
     lines: [],
     streamError: null,
     warning: null,
     queryError: null,
   };
+  let activeProfile: string | null = null;
   const listeners = new Set<() => void>();
   let unsubscribeStream: (() => void) | null = null;
   let bootstrapPromise: Promise<void> | null = null;
@@ -27,10 +35,9 @@ function createLogsStore(api: ApiFetcher) {
   };
 
   const startStream = () => {
-    if (unsubscribeStream) {
-      return;
-    }
+    unsubscribeStream?.();
     unsubscribeStream = api.subscribeLogStream(
+      activeProfile,
       (line) => {
         snapshot = {
           ...snapshot,
@@ -48,10 +55,10 @@ function createLogsStore(api: ApiFetcher) {
 
   const loadTail = async () => {
     try {
-      const data = await api.getLogTail();
+      const data = await api.getLogTail(activeProfile);
       snapshot = {
-        ...snapshot,
         lines: data.lines,
+        streamError: snapshot.streamError,
         warning: data.warning ?? null,
         queryError: null,
       };
@@ -64,7 +71,7 @@ function createLogsStore(api: ApiFetcher) {
 
   return {
     getSnapshot: () => snapshot,
-    subscribe: (onStoreChange: () => void) => {
+    subscribe: (onStoreChange) => {
       listeners.add(onStoreChange);
       if (listeners.size === 1) {
         startStream();
@@ -83,16 +90,42 @@ function createLogsStore(api: ApiFetcher) {
     refresh: async () => {
       await loadTail();
     },
+    rebind: (profile: string | null) => {
+      if (profile === activeProfile) {
+        return;
+      }
+      activeProfile = profile;
+      snapshot = { lines: [], streamError: null, warning: null, queryError: null };
+      bootstrapPromise = loadTail();
+      if (listeners.size > 0) {
+        startStream();
+      }
+      notify();
+    },
   };
 }
 
-export function useLogs(): {
+export function useLogs(profile: string | null): {
   lines: string;
   error: string | null;
   refresh: () => Promise<void>;
 } {
   const api = useMemo(() => new ApiFetcher(), []);
-  const store = useMemo(() => createLogsStore(api), [api]);
+  const storeRef = useRef<LogsStore | null>(null);
+  if (storeRef.current === null) {
+    storeRef.current = createLogsStore(api);
+    storeRef.current.rebind(profile);
+  }
+  const store = storeRef.current;
+
+  // The active profile binding for the singleton-per-hook store updates on
+  // every render via an effect — we don't want a useEffect-shaped behavior
+  // mid-render. This rebinds when the profile changes. (Profile switches are
+  // a relatively rare user action.)
+  useEffect(() => {
+    store.rebind(profile);
+  }, [profile, store]);
+
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
   return {

@@ -5,11 +5,9 @@ import {
 } from "node:child_process";
 import { checkGatewayHealth } from "./health";
 import type { LogStore } from "./log-store";
-import { asDirProvider, type DirProvider } from "./paths";
 import type { GatewayHealthState, GatewayProcessState, GatewayStatus } from "../types";
 
 const STOP_FORCE_TIMEOUT_MS = 5_000;
-const GATEWAY_ARGS = ["gateway"] as const;
 
 export type SpawnGateway = (
   command: string,
@@ -19,6 +17,19 @@ export type SpawnGateway = (
 
 const defaultSpawnGateway: SpawnGateway = (command, args, options) => spawn(command, args, options);
 
+/** Builds the `hermes` argv for `gateway run`, scoped to a profile when provided. */
+export function buildGatewayArgs(profile: string | null): string[] {
+  if (profile === null) {
+    return ["gateway", "run"];
+  }
+  return ["--profile", profile, "gateway", "run"];
+}
+
+/**
+ * Owns a single `hermes gateway run` child for one profile. The lifecycle (start
+ * / stop / restart / shutdown) is local to this manager so multiple instances
+ * can run concurrently — see {@link GatewayRegistry}.
+ */
 export class GatewayManager {
   private state: GatewayProcessState = "stopped";
   private child: ChildProcessWithoutNullStreams | null = null;
@@ -27,21 +38,26 @@ export class GatewayManager {
   private lastError: string | null = null;
   private stopTimer: NodeJS.Timeout | null = null;
   private controlledShutdownChild: ChildProcessWithoutNullStreams | null = null;
-  private readonly getCwd: DirProvider;
 
   constructor(
-    cwd: string | DirProvider,
+    /** Profile slug; `null` means the default profile rooted at `<rootDir>/data`. */
+    private readonly profile: string | null,
+    /** Filesystem cwd / `HERMES_HOME` for the spawned child. */
+    private readonly profileCwd: string,
     private readonly logs: LogStore,
     private readonly spawnGateway: SpawnGateway = defaultSpawnGateway,
     private readonly clock: () => string = () => new Date().toISOString(),
     private readonly forceKillTimeoutMs: number = STOP_FORCE_TIMEOUT_MS,
-  ) {
-    this.getCwd = asDirProvider(cwd);
+  ) {}
+
+  /** Profile slug this manager is bound to (`null` for default). */
+  getProfile(): string | null {
+    return this.profile;
   }
 
-  /** Resolved spawn cwd for the active profile. */
+  /** Resolved spawn cwd for the bound profile. */
   get cwd(): string {
-    return this.getCwd();
+    return this.profileCwd;
   }
 
   async start(): Promise<GatewayStatus> {
@@ -55,13 +71,12 @@ export class GatewayManager {
     this.lastError = null;
 
     try {
-      const cwd = this.getCwd();
       // Detach from the control plane session and do not wire stdin to a pipe.
       // Otherwise some gateway CLIs exit on stdin EOF / session signals when the
       // web client or dev server lifecycle changes, even though Node keeps running.
-      const child = this.spawnGateway("hermes", [...GATEWAY_ARGS], {
-        cwd,
-        env: { ...process.env, HERMES_HOME: cwd },
+      const child = this.spawnGateway("hermes", buildGatewayArgs(this.profile), {
+        cwd: this.profileCwd,
+        env: { ...process.env, HERMES_HOME: this.profileCwd },
         detached: true,
         stdio: ["pipe"],
       });
@@ -72,7 +87,11 @@ export class GatewayManager {
         await this.waitForSpawn(child);
       }
       this.state = "running";
-      await this.logs.append("gateway", `Started hermes gateway pid=${child.pid ?? "unknown"}`);
+      const profileLabel = this.profile === null ? "default" : `"${this.profile}"`;
+      await this.logs.append(
+        "gateway",
+        `Started hermes gateway pid=${child.pid ?? "unknown"} profile=${profileLabel}`,
+      );
 
       return this.status();
     } catch (cause: unknown) {
@@ -139,7 +158,7 @@ export class GatewayManager {
   }
 
   async refreshHealth(): Promise<GatewayStatus> {
-    const health = await checkGatewayHealth(this.state === "running");
+    const health = await checkGatewayHealth(this.state === "running", this.profile);
 
     if (
       health === "unhealthy" ||

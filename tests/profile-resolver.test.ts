@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigStore } from "../src/server/services/config-store";
 import { GatewayManager, type SpawnGateway } from "../src/server/services/gateway-manager";
 import { LogStore } from "../src/server/services/log-store";
+import { LogStoreRegistry } from "../src/server/services/log-store-registry";
 import {
   ProfileResolver,
   isValidProfileName,
@@ -63,71 +64,47 @@ describe("resolveProfileDataDir", () => {
 });
 
 describe("ProfileResolver", () => {
-  it("starts on the default profile when no marker exists", async () => {
+  it("resolves the default data and logs directories", () => {
     const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    expect(resolver.getActive()).toBeNull();
-    expect(resolver.getDataDir()).toBe(path.join(rootDir, "data"));
-    expect(resolver.getLogsDir()).toBe(path.join(rootDir, "data", "logs"));
+    expect(resolver.resolveDataDir(null)).toBe(path.join(rootDir, "data"));
+    expect(resolver.resolveLogsDir(null)).toBe(path.join(rootDir, "data", "logs"));
+    expect(resolver.getRootDataDir()).toBe(path.join(rootDir, "data"));
   });
 
-  it("loads the active profile from data/.active_profile when present", async () => {
-    await writeFile(path.join(rootDir, "data", ".active_profile"), "coder", {
-      flag: "w",
-    }).catch(async () => {
-      // ENOENT for missing data/ — create it then retry.
-      await import("node:fs/promises").then((fs) =>
-        fs.mkdir(path.join(rootDir, "data"), { recursive: true }),
-      );
-      await writeFile(path.join(rootDir, "data", ".active_profile"), "coder");
-    });
+  it("resolves named profile directories under data/profiles", () => {
     const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    expect(resolver.getActive()).toBe("coder");
-    expect(resolver.getDataDir()).toBe(path.join(rootDir, "data", "profiles", "coder"));
+    expect(resolver.resolveDataDir("coder")).toBe(path.join(rootDir, "data", "profiles", "coder"));
+    expect(resolver.resolveLogsDir("coder")).toBe(
+      path.join(rootDir, "data", "profiles", "coder", "logs"),
+    );
   });
 
-  it("ignores invalid marker contents", async () => {
+  it("readLegacyActiveProfile returns null when the marker is absent", async () => {
+    const fs = await import("node:fs/promises");
+    await fs.mkdir(path.join(rootDir, "data"), { recursive: true });
+    const resolver = new ProfileResolver(rootDir);
+    await expect(resolver.readLegacyActiveProfile()).resolves.toBeNull();
+  });
+
+  it("readLegacyActiveProfile reads a valid marker once for migration", async () => {
+    const fs = await import("node:fs/promises");
+    await fs.mkdir(path.join(rootDir, "data"), { recursive: true });
+    await writeFile(path.join(rootDir, "data", ".active_profile"), "coder");
+    const resolver = new ProfileResolver(rootDir);
+    await expect(resolver.readLegacyActiveProfile()).resolves.toBe("coder");
+  });
+
+  it("readLegacyActiveProfile ignores invalid marker contents", async () => {
     const fs = await import("node:fs/promises");
     await fs.mkdir(path.join(rootDir, "data"), { recursive: true });
     await writeFile(path.join(rootDir, "data", ".active_profile"), "../escape");
     const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    expect(resolver.getActive()).toBeNull();
-  });
-
-  it("setActive persists the marker atomically and notifies listeners", async () => {
-    const fs = await import("node:fs/promises");
-    await fs.mkdir(path.join(rootDir, "data"), { recursive: true });
-    const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    const listener = vi.fn();
-    resolver.subscribe(listener);
-
-    await resolver.setActive("coder");
-    expect(resolver.getActive()).toBe("coder");
-    await expect(readFile(path.join(rootDir, "data", ".active_profile"), "utf8")).resolves.toBe(
-      "coder",
-    );
-    expect(listener).toHaveBeenCalledWith("coder");
-
-    await resolver.setActive(null);
-    expect(resolver.getActive()).toBeNull();
-    await expect(readFile(path.join(rootDir, "data", ".active_profile"), "utf8")).rejects.toThrow();
-    expect(listener).toHaveBeenLastCalledWith(null);
-  });
-
-  it("rejects invalid names on setActive", async () => {
-    const fs = await import("node:fs/promises");
-    await fs.mkdir(path.join(rootDir, "data"), { recursive: true });
-    const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    await expect(resolver.setActive("../escape")).rejects.toThrow();
+    await expect(resolver.readLegacyActiveProfile()).resolves.toBeNull();
   });
 });
 
-describe("services follow profile switches", () => {
-  it("ConfigStore.read targets the active profile's data dir", async () => {
+describe("services accept explicit profiles", () => {
+  it("ConfigStore.read targets the specified profile's data dir", async () => {
     const fs = await import("node:fs/promises");
     const dataDir = path.join(rootDir, "data");
     const profileDir = path.join(dataDir, "profiles", "coder");
@@ -137,26 +114,14 @@ describe("services follow profile switches", () => {
     await writeFile(path.join(profileDir, "config.yaml"), "coder: true\n");
 
     const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    const logs = new LogStore(
-      () => resolver.getLogsDir(),
-      () => "2026-04-26T10:30:00.000Z",
-    );
-    const config = new ConfigStore(
-      () => resolver.getDataDir(),
-      logs,
-      () => "2026-04-26T10:30:00.000Z",
-    );
+    const logsRegistry = new LogStoreRegistry(resolver, () => "2026-04-26T10:30:00.000Z");
+    const config = new ConfigStore(resolver, logsRegistry, () => "2026-04-26T10:30:00.000Z");
 
-    const beforeSwitch = await config.read();
-    expect(beforeSwitch.content).toBe("default: true\n");
-
-    await resolver.setActive("coder");
-    const afterSwitch = await config.read();
-    expect(afterSwitch.content).toBe("coder: true\n");
+    expect((await config.read(null)).content).toBe("default: true\n");
+    expect((await config.read("coder")).content).toBe("coder: true\n");
   });
 
-  it("LogStore.tail re-reads from the active profile's logs dir", async () => {
+  it("LogStoreRegistry.get returns a per-profile LogStore reading the matching dir", async () => {
     const fs = await import("node:fs/promises");
     const defaultLogs = path.join(rootDir, "data", "logs");
     const coderLogs = path.join(rootDir, "data", "profiles", "coder", "logs");
@@ -172,63 +137,42 @@ describe("services follow profile switches", () => {
     );
 
     const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    const logs = new LogStore(
-      () => resolver.getLogsDir(),
-      () => "2026-04-26T10:30:00.000Z",
-    );
+    const registry = new LogStoreRegistry(resolver, () => "2026-04-26T10:30:00.000Z");
 
-    const beforeSwitch = await logs.tail(10);
-    expect(beforeSwitch.lines.at(-1)).toContain("default");
+    const defaultTail = await registry.get(null).tail(10);
+    expect(defaultTail.lines.at(-1)).toContain("default");
 
-    await resolver.setActive("coder");
-    const afterSwitch = await logs.tail(10);
-    expect(afterSwitch.lines.at(-1)).toContain("coder");
+    const coderTail = await registry.get("coder").tail(10);
+    expect(coderTail.lines.at(-1)).toContain("coder");
   });
 
-  it("GatewayManager.start spawns hermes with HERMES_HOME for the active profile", async () => {
+  it("GatewayManager.start spawns hermes with the cwd and HERMES_HOME of the bound profile", async () => {
     const fs = await import("node:fs/promises");
-    await fs.mkdir(path.join(rootDir, "data"), { recursive: true });
+    const coderDir = path.join(rootDir, "data", "profiles", "coder");
+    await fs.mkdir(coderDir, { recursive: true });
 
-    const resolver = new ProfileResolver(rootDir);
-    await resolver.initialize();
-    const logs = new LogStore(
-      () => resolver.getLogsDir(),
-      () => "2026-04-26T10:30:00.000Z",
-    );
-
+    const logs = new LogStore(coderDir, () => "2026-04-26T10:30:00.000Z");
     const child = createFakeChild(1234);
     const spawnGateway: SpawnGateway = vi.fn(() => child);
     const manager = new GatewayManager(
-      () => resolver.getDataDir(),
+      "coder",
+      coderDir,
       logs,
       spawnGateway,
       () => "2026-04-26T10:30:00.000Z",
     );
 
     await manager.start();
-    expect(spawnGateway).toHaveBeenLastCalledWith("hermes", ["gateway"], {
-      cwd: path.join(rootDir, "data"),
-      env: expect.objectContaining({ HERMES_HOME: path.join(rootDir, "data") }),
-      detached: true,
-      stdio: ["pipe"],
-    });
-
-    await manager.stop();
-    child.emit("exit", 0, null);
-
-    await resolver.setActive("coder");
-    const child2 = createFakeChild(5678);
-    (spawnGateway as ReturnType<typeof vi.fn>).mockReturnValueOnce(child2);
-    await manager.start();
-    expect(spawnGateway).toHaveBeenLastCalledWith("hermes", ["gateway"], {
-      cwd: path.join(rootDir, "data", "profiles", "coder"),
-      env: expect.objectContaining({
-        HERMES_HOME: path.join(rootDir, "data", "profiles", "coder"),
-      }),
-      detached: true,
-      stdio: ["pipe"],
-    });
+    expect(spawnGateway).toHaveBeenLastCalledWith(
+      "hermes",
+      ["--profile", "coder", "gateway", "run"],
+      {
+        cwd: coderDir,
+        env: expect.objectContaining({ HERMES_HOME: coderDir }),
+        detached: true,
+        stdio: ["pipe"],
+      },
+    );
   });
 });
 

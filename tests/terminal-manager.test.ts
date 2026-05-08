@@ -1,6 +1,10 @@
 import { EventEmitter } from "node:events";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import type { IPty } from "node-pty";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ProfileResolver } from "../src/server/services/paths";
 import { TerminalManager, type SpawnPty } from "../src/server/services/terminal-manager";
 
 class FakePty extends EventEmitter implements IPty {
@@ -42,56 +46,74 @@ class FakePty extends EventEmitter implements IPty {
   }
 }
 
+let rootDir = "";
+let resolver: ProfileResolver;
+
+beforeEach(async () => {
+  rootDir = await mkdtemp(path.join(os.tmpdir(), "hermes-terminal-manager-"));
+  await mkdir(path.join(rootDir, "data", "profiles"), { recursive: true });
+  resolver = new ProfileResolver(rootDir);
+});
+
+afterEach(async () => {
+  await rm(rootDir, { recursive: true, force: true });
+});
+
 describe("TerminalManager", () => {
-  it("spawns bash in data cwd with HERMES_HOME set to cwd", () => {
+  it("spawns bash in the default profile data dir with HERMES_HOME set to cwd", () => {
     const fake = new FakePty();
     const spawnPty: SpawnPty = vi.fn(() => fake);
-    const manager = new TerminalManager("/repo/data", spawnPty);
+    const manager = new TerminalManager(resolver, spawnPty);
 
-    const session = manager.create("socket-1");
+    const session = manager.create("socket-1", null);
+    const expectedCwd = path.join(rootDir, "data");
 
     expect(spawnPty).toHaveBeenCalledWith("bash", [], {
-      cwd: "/repo/data",
+      cwd: expectedCwd,
       cols: 80,
       rows: 24,
-      env: { ...process.env, HERMES_HOME: "/repo/data" },
+      env: { ...process.env, HERMES_HOME: expectedCwd },
     });
     session.write("pwd\n");
     expect(fake.writes).toEqual(["pwd\n"]);
   });
 
-  it("re-resolves cwd on each create call (follows profile switches)", () => {
+  it("scopes cwd / HERMES_HOME to the named profile passed in create", () => {
     const fake = new FakePty();
     const spawnPty: SpawnPty = vi.fn(() => fake);
-    let cwd = "/repo/data";
-    const manager = new TerminalManager(() => cwd, spawnPty);
+    const manager = new TerminalManager(resolver, spawnPty);
 
-    manager.create("socket-1");
-    cwd = "/repo/data/profiles/coder";
-    manager.create("socket-2");
+    manager.create("socket-1", null);
+    manager.create("socket-2", "coder");
+
+    const defaultCwd = path.join(rootDir, "data");
+    const coderCwd = path.join(rootDir, "data", "profiles", "coder");
 
     expect(spawnPty).toHaveBeenNthCalledWith(
       1,
       "bash",
       [],
-      expect.objectContaining({ cwd: "/repo/data" }),
+      expect.objectContaining({ cwd: defaultCwd }),
     );
     expect(spawnPty).toHaveBeenNthCalledWith(
       2,
       "bash",
       [],
-      expect.objectContaining({ cwd: "/repo/data/profiles/coder" }),
+      expect.objectContaining({ cwd: coderCwd }),
     );
+  });
+
+  it("rejects invalid profile names", () => {
+    const fake = new FakePty();
+    const manager = new TerminalManager(resolver, () => fake);
+    expect(() => manager.create("socket-1", "BAD NAME")).toThrow();
   });
 
   it("kills session on close", () => {
     const fake = new FakePty();
-    const manager = new TerminalManager(
-      () => "/repo/data",
-      () => fake,
-    );
+    const manager = new TerminalManager(resolver, () => fake);
 
-    manager.create("socket-1");
+    manager.create("socket-1", null);
     manager.close("socket-1");
 
     expect(fake.killed).toBe(true);

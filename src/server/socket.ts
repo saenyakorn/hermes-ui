@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from "node:http";
 import { Server } from "socket.io";
 import { isAuthorizedBasicHeader } from "./services/auth";
+import { isValidProfileName } from "./services/paths";
 import type { TerminalManager } from "./services/terminal-manager";
 import type { AppEnv } from "./types";
 
@@ -28,6 +29,17 @@ export function isSocketAuthorized(
   return false;
 }
 
+/** Coerces an arbitrary handshake/payload value into a profile slug or null. */
+function readProfileFromUnknown(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  if (value.length === 0 || value === "default") {
+    return null;
+  }
+  return isValidProfileName(value) ? value : null;
+}
+
 export function attachSocketServer(
   server: HttpServer,
   env: AppEnv,
@@ -47,7 +59,9 @@ export function attachSocketServer(
   });
 
   io.on("connection", (socket) => {
-    let session = createSession(socket.id);
+    let activeProfile: string | null = readProfileFromUnknown(socket.handshake.auth?.profile);
+
+    let session = createSession(socket.id, activeProfile);
 
     const bindSession = (): void => {
       if (!session) {
@@ -60,9 +74,11 @@ export function attachSocketServer(
 
     bindSession();
 
-    socket.on("terminal:start", () => {
+    socket.on("terminal:start", (payload?: { profile?: unknown }) => {
       session?.kill();
-      session = createSession(socket.id);
+      const requested = readProfileFromUnknown(payload?.profile);
+      activeProfile = requested;
+      session = createSession(socket.id, activeProfile);
       bindSession();
     });
 
@@ -78,9 +94,9 @@ export function attachSocketServer(
       setTimeout(() => terminals.close(socket.id), 500).unref();
     });
 
-    function createSession(socketId: string) {
+    function createSession(socketId: string, profile: string | null) {
       try {
-        return terminals.create(socketId);
+        return terminals.create(socketId, profile);
       } catch (cause: unknown) {
         const message = cause instanceof Error ? cause.message : String(cause);
         socket.emit("terminal:output", `\r\n[failed to start bash: ${message}]\r\n`);

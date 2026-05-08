@@ -8,8 +8,8 @@ import { loadEnv } from "./config/env";
 import { createLogger } from "./config/logger";
 import { ConfigStore } from "./services/config-store";
 import { EnvStore } from "./services/env-store";
-import { GatewayManager } from "./services/gateway-manager";
-import { LogStore } from "./services/log-store";
+import { GatewayRegistry } from "./services/gateway-registry";
+import { LogStoreRegistry } from "./services/log-store-registry";
 import { createPaths, ProfileResolver } from "./services/paths";
 import { ProfileFiles } from "./services/profile-files";
 import { ProfileSessionsStore } from "./services/profile-sessions";
@@ -22,12 +22,19 @@ export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir =
   const logger = createLogger(env.logLevel);
   const paths = createPaths(rootDir);
   const profileResolver = new ProfileResolver(rootDir);
-  const logs = new LogStore(() => profileResolver.getLogsDir());
-  const gateway = new GatewayManager(() => profileResolver.getDataDir(), logs);
-  const config = new ConfigStore(() => profileResolver.getDataDir(), logs);
-  const envVars = new EnvStore(() => profileResolver.getDataDir());
-  const terminals = new TerminalManager(() => profileResolver.getDataDir());
-  const profiles = new ProfileStore(rootDir, profileResolver, logs);
+  const logsRegistry = new LogStoreRegistry(profileResolver);
+  const gateways = new GatewayRegistry(profileResolver, logsRegistry);
+  const config = new ConfigStore(profileResolver, logsRegistry);
+  const envVars = new EnvStore(profileResolver);
+  const terminals = new TerminalManager(profileResolver);
+  const profiles = new ProfileStore(
+    rootDir,
+    profileResolver,
+    logsRegistry,
+    undefined,
+    undefined,
+    (profile) => gateways.has(profile) && gateways.get(profile).status().state === "running",
+  );
   const profileFiles = new ProfileFiles(profileResolver);
   const profileSessions = new ProfileSessionsStore(profileResolver);
 
@@ -36,8 +43,8 @@ export function createRuntime(source: NodeJS.ProcessEnv = process.env, rootDir =
     logger,
     paths,
     profileResolver,
-    logs,
-    gateway,
+    logsRegistry,
+    gateways,
     config,
     envVars,
     terminals,
@@ -52,10 +59,9 @@ type RuntimeServices = ReturnType<typeof createRuntime>;
 export async function initializeRuntimeFilesystem(runtime: RuntimeServices): Promise<void> {
   await mkdir(runtime.paths.dataDir, { recursive: true });
   await mkdir(path.join(runtime.paths.dataDir, "profiles"), { recursive: true });
-  await runtime.profileResolver.initialize();
-  await mkdir(runtime.profileResolver.getDataDir(), { recursive: true });
-  await mkdir(runtime.profileResolver.getLogsDir(), { recursive: true });
-  await runtime.config.initialize();
+  await mkdir(runtime.profileResolver.resolveDataDir(null), { recursive: true });
+  await mkdir(runtime.profileResolver.resolveLogsDir(null), { recursive: true });
+  await runtime.config.initializeDefault();
 }
 
 export async function main(): Promise<void> {
@@ -65,13 +71,14 @@ export async function main(): Promise<void> {
 
   const app = createApp({
     env: runtime.env,
-    gateway: runtime.gateway,
-    logs: runtime.logs,
+    gateways: runtime.gateways,
+    logsRegistry: runtime.logsRegistry,
     config: runtime.config,
     envVars: runtime.envVars,
     profiles: runtime.profiles,
     profileFiles: runtime.profileFiles,
     profileSessions: runtime.profileSessions,
+    profileResolver: runtime.profileResolver,
   });
   const server = createServer(getRequestListener(app.fetch));
 
@@ -87,9 +94,9 @@ export async function main(): Promise<void> {
     void (async () => {
       runtime.logger.info({ signal }, "Shutting down");
       try {
-        await runtime.gateway.shutdown();
+        await runtime.gateways.shutdownAll();
       } catch (cause: unknown) {
-        runtime.logger.error({ cause }, "Failed to stop gateway during shutdown");
+        runtime.logger.error({ cause }, "Failed to stop gateways during shutdown");
       }
       process.exit(0);
     })();

@@ -1,5 +1,3 @@
-import { hc } from "hono/client";
-import type { AppType } from "../server/app";
 import type {
   ConfigReadResult,
   ConfigSaveResponse,
@@ -7,10 +5,10 @@ import type {
   EnvMutationResponse,
   EnvReadResult,
   GatewayStatus,
+  GatewaysSummary,
   LogTail,
   ModelProvidersMutationResponse,
   ModelYamlPatch,
-  ProfileActivateResult,
   ProfileCreateInput,
   ProfileFileKind,
   ProfileFileReadResult,
@@ -25,6 +23,10 @@ import type {
   WorkspaceConfigHints,
 } from "../server/types";
 import { getResponseErrorMessage, isErrorResponse } from "./lib/errors";
+
+function profileSegment(profile: string | null): string {
+  return encodeURIComponent(profile ?? "default");
+}
 
 function messageFromJsonErrorBody(raw: string, fallback: string): string {
   try {
@@ -104,17 +106,16 @@ function getBasicAuthTokenFromBootstrap(): string | undefined {
 }
 
 /**
- * HTTP + typed Hono client with URL-embedded Basic Auth support (common on PaaS).
+ * HTTP client with URL-embedded Basic Auth support (common on PaaS) and
+ * profile-scoped accessors. All gateway/config/env/logs/sessions calls take an
+ * explicit profile (`null` = default), reflecting that the server no longer
+ * has a global "active profile".
  */
 export class ApiFetcher {
   readonly origin: string;
-  readonly rpc: ReturnType<typeof hc<AppType>>;
 
   constructor(origin: string = window.location.origin) {
     this.origin = origin;
-    this.rpc = hc<AppType>(origin, {
-      fetch: (input: RequestInfo | URL, init?: RequestInit) => this.authenticatedFetch(input, init),
-    });
   }
 
   authenticatedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -134,33 +135,94 @@ export class ApiFetcher {
     return getBasicAuthTokenFromLocation() ?? getBasicAuthTokenFromBootstrap();
   }
 
-  async getGatewayStatus(): Promise<GatewayStatus> {
-    const response = await this.rpc.gateway.status.$get();
+  async getJson<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await this.authenticatedFetch(`${this.origin}${path}`, init);
     if (!response.ok) {
       throw new Error(await getResponseErrorMessage(response));
     }
-    return response.json() as Promise<GatewayStatus>;
+    const raw = await response.text();
+    if (raw.length === 0) {
+      throw new Error("Empty response from server.");
+    }
+    return JSON.parse(raw) as T;
   }
 
-  async postGatewayAction(action: "start" | "stop" | "restart"): Promise<GatewayStatus> {
-    const response = await this.authenticatedFetch(`${this.origin}/gateway/${action}`, {
+  async postJson<T>(
+    path: string,
+    body: unknown,
+    init?: RequestInit & { allow422?: boolean },
+  ): Promise<T> {
+    const headers = new Headers(init?.headers);
+    headers.set("content-type", "application/json");
+    const response = await this.authenticatedFetch(`${this.origin}${path}`, {
+      ...init,
       method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!response.ok && !(init?.allow422 && response.status === 422)) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    const raw = await response.text();
+    return JSON.parse(raw) as T;
+  }
+
+  async putJson<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+    const headers = new Headers(init?.headers);
+    headers.set("content-type", "application/json");
+    const response = await this.authenticatedFetch(`${this.origin}${path}`, {
+      ...init,
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       throw new Error(await getResponseErrorMessage(response));
     }
-    return response.json() as Promise<GatewayStatus>;
+    const raw = await response.text();
+    return JSON.parse(raw) as T;
   }
 
-  async getLogTail(): Promise<LogTail> {
-    const response = await this.rpc.logs.tail.$get();
+  async deleteJson<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await this.authenticatedFetch(`${this.origin}${path}`, {
+      ...init,
+      method: "DELETE",
+    });
     if (!response.ok) {
       throw new Error(await getResponseErrorMessage(response));
     }
-    return response.json() as Promise<LogTail>;
+    const raw = await response.text();
+    return JSON.parse(raw) as T;
+  }
+
+  async getGateways(): Promise<GatewaysSummary> {
+    return this.getJson<GatewaysSummary>("/gateways");
+  }
+
+  async getGatewayStatus(profile: string | null): Promise<GatewayStatus> {
+    return this.getJson<GatewayStatus>(`/profiles/${profileSegment(profile)}/gateway/status`);
+  }
+
+  async postGatewayAction(
+    profile: string | null,
+    action: "start" | "stop" | "restart",
+  ): Promise<GatewayStatus> {
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${profileSegment(profile)}/gateway/${action}`,
+      { method: "POST" },
+    );
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response));
+    }
+    return response.json() as Promise<GatewayStatus>;
+  }
+
+  async getLogTail(profile: string | null): Promise<LogTail> {
+    return this.getJson<LogTail>(`/profiles/${profileSegment(profile)}/logs/tail`);
   }
 
   subscribeLogStream(
+    profile: string | null,
     onLine: (line: string) => void,
     onError: (message: string) => void,
   ): () => void {
@@ -168,10 +230,13 @@ export class ApiFetcher {
 
     const consume = async () => {
       try {
-        const response = await this.authenticatedFetch(`${this.origin}/logs/stream`, {
-          headers: { accept: "text/event-stream" },
-          signal: abortController.signal,
-        });
+        const response = await this.authenticatedFetch(
+          `${this.origin}/profiles/${profileSegment(profile)}/logs/stream`,
+          {
+            headers: { accept: "text/event-stream" },
+            signal: abortController.signal,
+          },
+        );
         if (!response.ok) {
           onError(await getResponseErrorMessage(response));
           return;
@@ -213,80 +278,67 @@ export class ApiFetcher {
     };
   }
 
-  async getConfigRead(): Promise<ConfigReadResult> {
-    const response = await this.rpc.config.$get();
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ConfigReadResult>;
+  async getConfigRead(profile: string | null): Promise<ConfigReadResult> {
+    return this.getJson<ConfigReadResult>(`/profiles/${profileSegment(profile)}/config`);
   }
 
-  async getEnvRead(): Promise<EnvReadResult> {
-    const response = await this.rpc.env.$get();
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<EnvReadResult>;
+  async getEnvRead(profile: string | null): Promise<EnvReadResult> {
+    return this.getJson<EnvReadResult>(`/profiles/${profileSegment(profile)}/env`);
   }
 
-  async getWorkspaceConfigHints(): Promise<WorkspaceConfigHints> {
-    const response = await this.authenticatedFetch(`${this.origin}/settings/workspace-hints`, {
-      credentials: "include",
+  async getWorkspaceConfigHints(profile: string | null): Promise<WorkspaceConfigHints> {
+    return this.getJson<WorkspaceConfigHints>(
+      `/profiles/${profileSegment(profile)}/settings/workspace-hints`,
+    );
+  }
+
+  async postEnvUpsert(
+    profile: string | null,
+    key: string,
+    value: string,
+  ): Promise<EnvMutationResponse> {
+    return this.postJson<EnvMutationResponse>(`/profiles/${profileSegment(profile)}/env`, {
+      key,
+      value,
     });
-    const raw = await response.text();
-    if (!response.ok) {
-      const fallback = `${String(response.status)} ${response.statusText}`;
-      throw new Error(raw ? messageFromJsonErrorBody(raw, fallback) : fallback);
-    }
-    if (!raw) {
-      throw new Error("Empty response from server.");
-    }
-    return JSON.parse(raw) as WorkspaceConfigHints;
   }
 
-  async postEnvUpsert(key: string, value: string): Promise<EnvMutationResponse> {
-    const response = await this.rpc.env.$post({ json: { key, value } });
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<EnvMutationResponse>;
+  async postEnvBatch(
+    profile: string | null,
+    body: { set?: Record<string, string>; remove?: string[] },
+  ): Promise<EnvMutationResponse> {
+    return this.postJson<EnvMutationResponse>(
+      `/profiles/${profileSegment(profile)}/env/batch`,
+      body,
+    );
   }
 
-  async postEnvBatch(body: {
-    set?: Record<string, string>;
-    remove?: string[];
-  }): Promise<EnvMutationResponse> {
-    const response = await this.rpc.env.batch.$post({ json: body });
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<EnvMutationResponse>;
+  async deleteEnvKey(profile: string | null, key: string): Promise<EnvMutationResponse> {
+    return this.deleteJson<EnvMutationResponse>(
+      `/profiles/${profileSegment(profile)}/env/${encodeURIComponent(key)}`,
+    );
   }
 
-  async deleteEnvKey(key: string): Promise<EnvMutationResponse> {
-    const response = await this.rpc.env[":key"].$delete({ param: { key } });
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<EnvMutationResponse>;
-  }
-
-  async postConfig(content: string): Promise<ConfigSaveResponse> {
-    const response = await this.rpc.config.$post({ json: { content } });
-    if (!response.ok && response.status !== 422) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ConfigSaveResponse>;
+  async postConfig(profile: string | null, content: string): Promise<ConfigSaveResponse> {
+    return this.postJson<ConfigSaveResponse>(
+      `/profiles/${profileSegment(profile)}/config`,
+      { content },
+      { allow422: true },
+    );
   }
 
   async postModelProvidersSettings(
+    profile: string | null,
     body: ModelProvidersSavePayload,
   ): Promise<ModelProvidersMutationResponse> {
-    const response = await this.authenticatedFetch(`${this.origin}/settings/model-providers`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const response = await this.authenticatedFetch(
+      `${this.origin}/profiles/${profileSegment(profile)}/settings/model-providers`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
     const raw = await response.text();
     if (!response.ok) {
       const fallback = `${String(response.status)} ${response.statusText}`;
@@ -299,65 +351,28 @@ export class ApiFetcher {
   }
 
   async getProfiles(): Promise<ProfileListResult> {
-    const response = await this.rpc.profiles.$get();
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileListResult>;
+    return this.getJson<ProfileListResult>("/profiles");
   }
 
   async postProfile(input: ProfileCreateInput): Promise<ProfileMutationResult> {
-    const response = await this.rpc.profiles.$post({ json: input });
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileMutationResult>;
+    return this.postJson<ProfileMutationResult>("/profiles", input);
   }
 
   async putProfileRename(name: string, to: string): Promise<ProfileMutationResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(name)}`,
-      {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ to }),
-      },
-    );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileMutationResult>;
+    return this.putJson<ProfileMutationResult>(`/profiles/${encodeURIComponent(name)}`, { to });
   }
 
   async deleteProfile(name: string): Promise<ProfileMutationResult> {
-    const response = await this.rpc.profiles[":name"].$delete({ param: { name } });
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileMutationResult>;
-  }
-
-  async postProfileActivate(name: string | null): Promise<ProfileActivateResult> {
-    const response = await this.rpc.profiles[":name"].activate.$post({
-      param: { name: name ?? "default" },
-    });
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileActivateResult>;
+    return this.deleteJson<ProfileMutationResult>(`/profiles/${encodeURIComponent(name)}`);
   }
 
   async getProfileFile(
     profile: string | null,
     kind: ProfileFileKind,
   ): Promise<ProfileFileReadResult> {
-    const response = await this.rpc.profiles[":name"].files[":kind"].$get({
-      param: { name: profile ?? "default", kind },
-    });
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileFileReadResult>;
+    return this.getJson<ProfileFileReadResult>(
+      `/profiles/${profileSegment(profile)}/files/${encodeURIComponent(kind)}`,
+    );
   }
 
   async putProfileFile(
@@ -365,63 +380,30 @@ export class ApiFetcher {
     kind: ProfileFileKind,
     content: string,
   ): Promise<ProfileFileWriteResult> {
-    const profileSegment = encodeURIComponent(profile ?? "default");
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${profileSegment}/files/${encodeURIComponent(kind)}`,
-      {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content }),
-      },
+    return this.putJson<ProfileFileWriteResult>(
+      `/profiles/${profileSegment(profile)}/files/${encodeURIComponent(kind)}`,
+      { content },
     );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileFileWriteResult>;
   }
 
   async getProfileSessions(profile: string | null): Promise<ProfileSessionListResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions`,
-      {
-        credentials: "include",
-      },
-    );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileSessionListResult>;
+    return this.getJson<ProfileSessionListResult>(`/profiles/${profileSegment(profile)}/sessions`);
   }
 
   async getProfileSession(profile: string | null, id: string): Promise<ProfileSessionGetResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}`,
-      {
-        credentials: "include",
-      },
+    return this.getJson<ProfileSessionGetResult>(
+      `/profiles/${profileSegment(profile)}/sessions/${encodeURIComponent(id)}`,
     );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileSessionGetResult>;
   }
 
   async postProfileSession(
     profile: string | null,
     input: ProfileSessionCreateInput,
   ): Promise<ProfileSessionGetResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
-      },
+    return this.postJson<ProfileSessionGetResult>(
+      `/profiles/${profileSegment(profile)}/sessions`,
+      input,
     );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileSessionGetResult>;
   }
 
   async putProfileSessionRename(
@@ -429,65 +411,38 @@ export class ApiFetcher {
     id: string,
     input: ProfileSessionRenameInput,
   ): Promise<ProfileSessionGetResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}`,
-      {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
-      },
+    return this.putJson<ProfileSessionGetResult>(
+      `/profiles/${profileSegment(profile)}/sessions/${encodeURIComponent(id)}`,
+      input,
     );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileSessionGetResult>;
   }
 
   async postProfileSessionArchive(
     profile: string | null,
     id: string,
   ): Promise<ProfileSessionGetResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}/archive`,
-      {
-        method: "POST",
-      },
+    return this.postJson<ProfileSessionGetResult>(
+      `/profiles/${profileSegment(profile)}/sessions/${encodeURIComponent(id)}/archive`,
+      {},
     );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileSessionGetResult>;
   }
 
   async postProfileSessionRestore(
     profile: string | null,
     id: string,
   ): Promise<ProfileSessionGetResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}/restore`,
-      {
-        method: "POST",
-      },
+    return this.postJson<ProfileSessionGetResult>(
+      `/profiles/${profileSegment(profile)}/sessions/${encodeURIComponent(id)}/restore`,
+      {},
     );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileSessionGetResult>;
   }
 
   async deleteProfileSession(
     profile: string | null,
     id: string,
   ): Promise<ProfileSessionDeleteResult> {
-    const response = await this.authenticatedFetch(
-      `${this.origin}/profiles/${encodeURIComponent(profile ?? "default")}/sessions/${encodeURIComponent(id)}`,
-      {
-        method: "DELETE",
-      },
+    return this.deleteJson<ProfileSessionDeleteResult>(
+      `/profiles/${profileSegment(profile)}/sessions/${encodeURIComponent(id)}`,
     );
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response));
-    }
-    return response.json() as Promise<ProfileSessionDeleteResult>;
   }
 }

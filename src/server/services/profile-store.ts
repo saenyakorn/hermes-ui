@@ -2,14 +2,12 @@ import { spawn, type SpawnOptionsWithoutStdio } from "node:child_process";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import type {
-  ProfileActivateResult,
   ProfileCreateInput,
   ProfileListResult,
   ProfileMutationResult,
   ProfileSummary,
-  GatewayStatus,
 } from "../types";
-import type { LogStore } from "./log-store";
+import type { LogStoreRegistry } from "./log-store-registry";
 import type { ProfileResolver } from "./paths";
 import { validateProfileName } from "./paths";
 
@@ -61,17 +59,26 @@ export class HermesCliMissingError extends Error {
 }
 
 /**
+ * Predicate the store calls before deleting a profile to confirm no gateway
+ * is currently running for that profile (the new "concurrent gateways" model
+ * replaces the old "active profile" guard).
+ */
+export type IsProfileGatewayRunning = (profile: string) => boolean;
+
+/**
  * Manages Hermes profiles by combining a filesystem scan of `data/profiles/`
- * with the `hermes profile <verb>` CLI. Active-profile tracking is delegated
- * to {@link ProfileResolver}; this store does not own that state directly.
+ * with the `hermes profile <verb>` CLI. The active-profile concept has been
+ * removed: every operation that targets a single profile takes its name (or
+ * `null` for the default) explicitly.
  */
 export class ProfileStore {
   constructor(
     private readonly rootDir: string,
     private readonly resolver: ProfileResolver,
-    private readonly logs: LogStore,
+    private readonly logsRegistry: LogStoreRegistry,
     private readonly runHermes: RunHermes = defaultRunHermes,
     private readonly clock: () => string = () => new Date().toISOString(),
+    private readonly isGatewayRunning: IsProfileGatewayRunning = () => false,
   ) {}
 
   /** Lists profiles by scanning `data/profiles/`. */
@@ -80,7 +87,6 @@ export class ProfileStore {
     const profilesDir = path.join(rootDataDir, "profiles");
     await mkdir(profilesDir, { recursive: true });
 
-    const active = this.resolver.getActive();
     const profiles: ProfileSummary[] = [];
 
     profiles.push({
@@ -88,7 +94,7 @@ export class ProfileStore {
       label: "default",
       dataDir: rootDataDir,
       updatedAt: await this.statUpdatedAt(rootDataDir),
-      active: active === null,
+      active: false,
     });
 
     let entries: import("node:fs").Dirent[];
@@ -114,16 +120,39 @@ export class ProfileStore {
         label: entry.name,
         dataDir,
         updatedAt: await this.statUpdatedAt(dataDir),
-        active: active === entry.name,
+        active: false,
       });
     }
     namedProfiles.sort((left, right) => left.name!.localeCompare(right.name!));
 
     return {
-      active,
+      active: null,
       profiles: [...profiles, ...namedProfiles],
       warning: null,
     };
+  }
+
+  /** List the discovered profile names (slug only). Used for the gateway summary. */
+  async listProfileNames(): Promise<Array<string | null>> {
+    const rootDataDir = this.resolver.getRootDataDir();
+    const profilesDir = path.join(rootDataDir, "profiles");
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = await readdir(profilesDir, { withFileTypes: true });
+    } catch {
+      entries = [];
+    }
+    const names: Array<string | null> = [null];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        validateProfileName(entry.name);
+      } catch {
+        continue;
+      }
+      names.push(entry.name);
+    }
+    return names;
   }
 
   /** Creates a profile by shelling out to `hermes profile create`. */
@@ -135,7 +164,9 @@ export class ProfileStore {
 
     const args = this.buildCreateArgs(input);
     await this.runHermesOrThrow(args);
-    await this.logs.append("gateway", `Created profile "${input.name}" via hermes CLI`);
+    await this.logsRegistry
+      .get(null)
+      .append("gateway", `Created profile "${input.name}" via hermes CLI`);
     return { list: await this.list() };
   }
 
@@ -146,130 +177,33 @@ export class ProfileStore {
     if (from === to) {
       throw new Error("New profile name must differ from the existing name");
     }
+    if (this.isGatewayRunning(from)) {
+      throw new Error(
+        `Cannot rename profile "${from}" while its gateway is running. Stop it first.`,
+      );
+    }
 
     await this.runHermesOrThrow(["profile", "rename", from, to]);
 
-    const active = this.resolver.getActive();
-    if (active === from) {
-      await this.resolver.setActive(to);
-    }
-    await this.logs.append("gateway", `Renamed profile "${from}" -> "${to}"`);
+    await this.logsRegistry.get(null).append("gateway", `Renamed profile "${from}" -> "${to}"`);
     return { list: await this.list() };
   }
 
   /**
    * Deletes a profile via `hermes profile delete <name> --yes`. Refuses to
-   * delete the active profile so callers must switch first.
+   * delete a profile whose gateway is currently running so callers must stop
+   * it first.
    */
   async remove(name: string): Promise<ProfileMutationResult> {
     validateProfileName(name);
-    if (this.resolver.getActive() === name) {
+    if (this.isGatewayRunning(name)) {
       throw new Error(
-        `Cannot delete the active profile "${name}". Switch to another profile first.`,
+        `Cannot delete profile "${name}" while its gateway is running. Stop it first.`,
       );
     }
     await this.runHermesOrThrow(["profile", "delete", name, "--yes"]);
-    await this.logs.append("gateway", `Deleted profile "${name}" via hermes CLI`);
+    await this.logsRegistry.get(null).append("gateway", `Deleted profile "${name}" via hermes CLI`);
     return { list: await this.list() };
-  }
-
-  /**
-   * Updates the active profile and returns a fresh listing. Gateway lifecycle
-   * (stop/start) is the caller's responsibility — see the activate route.
-   */
-  async setActive(name: string | null): Promise<ProfileListResult> {
-    if (name !== null) {
-      validateProfileName(name);
-      const profilesDir = path.join(this.resolver.getRootDataDir(), "profiles");
-      try {
-        const info = await stat(path.join(profilesDir, name));
-        if (!info.isDirectory()) {
-          throw new Error(`Profile "${name}" is not a directory`);
-        }
-      } catch (cause: unknown) {
-        if (cause instanceof Error && "code" in cause && cause.code === "ENOENT") {
-          throw new Error(`Profile "${name}" does not exist`);
-        }
-        throw cause;
-      }
-    }
-    await this.resolver.setActive(name);
-    return this.list();
-  }
-
-  active(): string | null {
-    return this.resolver.getActive();
-  }
-
-  /**
-   * Wraps `setActive` with gateway stop/restart bookkeeping suitable for the
-   * activate route handler.
-   */
-  async activate(
-    name: string | null,
-    gateway: {
-      status: () => GatewayStatus;
-      stop: () => Promise<GatewayStatus>;
-      start: () => Promise<GatewayStatus>;
-    },
-  ): Promise<ProfileActivateResult> {
-    const previousActive = this.resolver.getActive();
-    if (name === previousActive) {
-      const list = await this.list();
-      return {
-        active: previousActive,
-        list,
-        restart: { attempted: false, ok: true, error: null },
-        gateway: gateway.status(),
-      };
-    }
-
-    const wasRunning = gateway.status().state === "running";
-    if (wasRunning) {
-      try {
-        await gateway.stop();
-      } catch (cause: unknown) {
-        return {
-          active: previousActive,
-          list: await this.list(),
-          restart: { attempted: true, ok: false, error: getErrorMessage(cause) },
-          gateway: gateway.status(),
-        };
-      }
-    }
-
-    const list = await this.setActive(name);
-    this.logs.clearWarning();
-    await this.logs.append(
-      "gateway",
-      `Switched active profile to ${name === null ? "default" : `"${name}"`}`,
-    );
-
-    if (!wasRunning) {
-      return {
-        active: name,
-        list,
-        restart: { attempted: false, ok: true, error: null },
-        gateway: gateway.status(),
-      };
-    }
-
-    try {
-      const status = await gateway.start();
-      return {
-        active: name,
-        list,
-        restart: { attempted: true, ok: true, error: null },
-        gateway: status,
-      };
-    } catch (cause: unknown) {
-      return {
-        active: name,
-        list,
-        restart: { attempted: true, ok: false, error: getErrorMessage(cause) },
-        gateway: gateway.status(),
-      };
-    }
   }
 
   private buildCreateArgs(input: ProfileCreateInput): readonly string[] {
@@ -336,11 +270,4 @@ function isMissingHermesCli(cause: unknown): boolean {
   }
   const errno = cause as NodeJS.ErrnoException;
   return errno.code === "ENOENT" || cause.message.includes("spawn hermes ENOENT");
-}
-
-function getErrorMessage(cause: unknown): string {
-  if (cause instanceof Error) {
-    return cause.message;
-  }
-  return String(cause);
 }

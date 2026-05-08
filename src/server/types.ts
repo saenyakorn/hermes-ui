@@ -23,6 +23,18 @@ export type GatewayStatus = {
   logWarning: string | null;
 };
 
+/** One-row summary of a profile's gateway, used by the top-bar status chip. */
+export type GatewayProfileSummary = {
+  /** Profile slug (`null` for the default profile rooted at `<rootDir>/data`). */
+  profile: string | null;
+  status: GatewayStatus;
+  health: GatewayHealthState;
+};
+
+export type GatewaysSummary = {
+  gateways: GatewayProfileSummary[];
+};
+
 export type LogTail = {
   lines: string[];
   warning: string | null;
@@ -169,30 +181,32 @@ export type ProfileSummary = {
   dataDir: string;
   /** ISO timestamp of the profile directory's mtime, or `null` for the default. */
   updatedAt: string | null;
-  /** True iff this profile is currently active. */
+  /**
+   * Deprecated: profiles no longer have a server-side "active" concept. Always
+   * `false`; kept for one release so older clients deserialize without errors.
+   */
   active: boolean;
 };
 
 export type ProfileListResult = {
+  /**
+   * Deprecated: there is no server-side active profile. Always `null`; kept
+   * for one release so older clients deserialize without errors.
+   */
   active: string | null;
   profiles: ProfileSummary[];
   /** Warning surfaced when the hermes CLI is unavailable for richer metadata. */
   warning: string | null;
+  /**
+   * One-time UX bridge: the legacy `data/.active_profile` value at boot (if
+   * any), so the workspace UI can seed its initial profile selection for
+   * users upgrading from the single-active-profile model.
+   */
+  legacyActive?: string | null;
 };
 
 export type ProfileMutationResult = {
   list: ProfileListResult;
-};
-
-export type ProfileActivateResult = {
-  active: string | null;
-  list: ProfileListResult;
-  restart: {
-    attempted: boolean;
-    ok: boolean;
-    error: string | null;
-  };
-  gateway: GatewayStatus;
 };
 
 export type ProfileFileKind = "soul" | "memory" | "user";

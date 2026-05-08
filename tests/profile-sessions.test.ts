@@ -27,8 +27,7 @@ function createStore(): { resolver: ProfileResolver; sessions: ProfileSessionsSt
 describe("ProfileSessionsStore", () => {
   it("creates, lists, and reads profile-scoped sessions", async () => {
     await mkdir(path.join(rootDir, "data", "profiles", "coder"), { recursive: true });
-    const { resolver, sessions } = createStore();
-    await resolver.initialize();
+    const { sessions } = createStore();
 
     const created = await sessions.create("coder", { name: "Sprint planning" });
     expect(created.session.profile).toBe("coder");
@@ -46,8 +45,7 @@ describe("ProfileSessionsStore", () => {
   });
 
   it("supports rename + archive + restore + delete", async () => {
-    const { resolver, sessions } = createStore();
-    await resolver.initialize();
+    const { sessions } = createStore();
 
     const created = await sessions.create(null, { name: "Default workspace" });
     const id = created.session.id;
@@ -70,8 +68,7 @@ describe("ProfileSessionsStore", () => {
 
   it("isolates default and named profile session spaces", async () => {
     await mkdir(path.join(rootDir, "data", "profiles", "ops"), { recursive: true });
-    const { resolver, sessions } = createStore();
-    await resolver.initialize();
+    const { sessions } = createStore();
 
     await sessions.create(null, { name: "Default Session" });
     await sessions.create("ops", { name: "Ops Session" });
@@ -86,8 +83,7 @@ describe("ProfileSessionsStore", () => {
   });
 
   it("lists legacy Hermes session JSON files", async () => {
-    const { resolver, sessions } = createStore();
-    await resolver.initialize();
+    const { sessions } = createStore();
     const sessionsDir = path.join(rootDir, "data", "sessions");
     await mkdir(sessionsDir, { recursive: true });
     await writeFile(
@@ -116,8 +112,7 @@ describe("ProfileSessionsStore", () => {
   });
 
   it("preserves unknown fields when mutating legacy session metadata", async () => {
-    const { resolver, sessions } = createStore();
-    await resolver.initialize();
+    const { sessions } = createStore();
     const sessionsDir = path.join(rootDir, "data", "sessions");
     await mkdir(sessionsDir, { recursive: true });
     const id = "session_20260427_051016_fc0d3ec1";

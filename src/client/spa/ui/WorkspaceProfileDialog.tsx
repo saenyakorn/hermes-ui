@@ -1,10 +1,11 @@
 import { Dialog } from "@base-ui/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import type { ProfileCreateMode, ProfileSummary } from "../../../server/types";
 import { Button } from "../../components/Button";
 import { Input } from "../../components/Input";
 import { cn } from "../../lib/cn";
 import { useProfileWorkspace } from "../profile-context";
+import { useWorkspaceProfileSubscribed } from "../workspace-profile";
 
 const CREATE_MODES: readonly ProfileCreateMode[] = ["blank", "clone", "clone-all"];
 
@@ -12,14 +13,17 @@ function profileRowKey(p: ProfileSummary): string {
   return p.name ?? "__default__";
 }
 
+function profileSlug(profile: string | null): string {
+  return profile === null ? "__default__" : profile;
+}
+
 export function WorkspaceProfileDialog() {
   const profiles = useProfileWorkspace();
+  const workspaceProfile = useWorkspaceProfileSubscribed();
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const activeLabel =
-    profiles.list.profiles.find((p) => p.active)?.label ??
-    (profiles.list.active === null ? "default" : profiles.list.active);
+  const viewedLabel = workspaceProfile.profile ?? "default";
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [createName, setCreateName] = useState("");
@@ -36,10 +40,9 @@ export function WorkspaceProfileDialog() {
   const selectedNamedProfile =
     selectedProfile && selectedProfile.name !== null ? selectedProfile : null;
 
-  const selectedGatewayStatus = useMemo(() => {
-    if (!selectedProfile) return "-";
-    return selectedProfile.active ? "active" : "inactive";
-  }, [selectedProfile]);
+  const selectedSummary =
+    selectedProfile === null ? null : profiles.gatewaySummaries[profileSlug(selectedProfile.name)];
+  const selectedGatewayState = selectedSummary?.status.state ?? "stopped";
 
   const resetTransientState = useCallback(() => {
     setCreateName("");
@@ -52,10 +55,12 @@ export function WorkspaceProfileDialog() {
   const onOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
     if (nextOpen) {
-      const active =
-        profiles.list.profiles.find((p) => p.active) ?? profiles.list.profiles[0] ?? null;
-      setSelectedKey(active ? profileRowKey(active) : null);
-      setRenameDraft(active?.label ?? "");
+      const matching = profiles.list.profiles.find(
+        (p) => profileSlug(p.name) === profileSlug(workspaceProfile.profile),
+      );
+      const initial = matching ?? profiles.list.profiles[0] ?? null;
+      setSelectedKey(initial ? profileRowKey(initial) : null);
+      setRenameDraft(initial?.label ?? "");
       setDeleteConfirm("");
       return;
     }
@@ -78,6 +83,15 @@ export function WorkspaceProfileDialog() {
     setSelectedKey(null);
   };
 
+  const onView = () => {
+    if (!selectedProfile) return;
+    workspaceProfile.setProfile(selectedProfile.name);
+  };
+
+  const isViewingSelected =
+    selectedProfile !== null &&
+    profileSlug(selectedProfile.name) === profileSlug(workspaceProfile.profile);
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Trigger
@@ -86,7 +100,7 @@ export function WorkspaceProfileDialog() {
           "inline-flex min-w-[140px] max-w-full flex-1 items-center justify-between gap-2 rounded-md border border-accent-border/70 bg-surface px-2 py-1.5 text-xs text-text outline-none focus:border-accent",
         )}
       >
-        <span className="min-w-0 truncate">{activeLabel}</span>
+        <span className="min-w-0 truncate">{viewedLabel}</span>
         <span aria-hidden className="shrink-0 text-muted">
           ▾
         </span>
@@ -102,7 +116,8 @@ export function WorkspaceProfileDialog() {
           >
             <Dialog.Title className="text-base font-semibold text-text">Profiles</Dialog.Title>
             <Dialog.Description className="mt-1 text-xs text-muted">
-              Select profile on left. Manage selected profile on right.
+              Pick a profile to view in the workspace. Each profile&apos;s gateway runs
+              independently — switching the view does not affect any running gateway.
             </Dialog.Description>
 
             {profiles.list.warning ? (
@@ -119,6 +134,10 @@ export function WorkspaceProfileDialog() {
                     profiles.list.profiles.map((p: ProfileSummary) => {
                       const key = profileRowKey(p);
                       const selected = selectedKey === key;
+                      const summary = profiles.gatewaySummaries[profileSlug(p.name)];
+                      const isViewing =
+                        profileSlug(p.name) === profileSlug(workspaceProfile.profile);
+                      const running = summary?.status.state === "running";
                       return (
                         <li key={key}>
                           <button
@@ -136,9 +155,14 @@ export function WorkspaceProfileDialog() {
                             }}
                           >
                             <span className="font-medium">{p.label}</span>
-                            {p.active ? (
+                            {isViewing ? (
                               <span className="ml-2 rounded-full bg-text px-2 py-0.5 text-[10px] text-background">
-                                active
+                                viewing
+                              </span>
+                            ) : null}
+                            {running ? (
+                              <span className="ml-2 rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] text-emerald-200">
+                                running
                               </span>
                             ) : null}
                           </button>
@@ -164,10 +188,10 @@ export function WorkspaceProfileDialog() {
                 </div>
 
                 <p className="mt-3 text-[11px] uppercase tracking-[0.12em] text-muted">
-                  Gateway status
+                  Gateway state
                 </p>
                 <div className="mt-2 rounded-md border border-accent-border/60 bg-surface px-3 py-2 text-sm text-text">
-                  {selectedGatewayStatus}
+                  {selectedGatewayState}
                 </div>
 
                 <label className="mt-3 block text-[11px] uppercase tracking-[0.12em] text-muted">
@@ -198,10 +222,10 @@ export function WorkspaceProfileDialog() {
                     type="button"
                     variant="secondary"
                     size="md"
-                    disabled={!selectedProfile || selectedProfile.active}
-                    onClick={() => void profiles.activate(selectedProfile?.name ?? null)}
+                    disabled={!selectedProfile || isViewingSelected}
+                    onClick={onView}
                   >
-                    Activate
+                    {isViewingSelected ? "Viewing" : "View"}
                   </Button>
                   <Button
                     type="button"
